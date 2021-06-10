@@ -27,6 +27,10 @@ import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.net.InetSocketAddress;
+import java.net.Proxy;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 import javax.swing.BorderFactory;
@@ -61,6 +65,14 @@ import com.atlauncher.utils.ComboItem;
 import com.atlauncher.utils.OS;
 import com.atlauncher.utils.SkinUtils;
 
+import com.mojang.authlib.Agent;
+import com.mojang.authlib.GameProfile;
+import com.mojang.authlib.UserAuthentication;
+import com.mojang.authlib.UserType;
+import com.mojang.authlib.exceptions.AuthenticationException;
+import com.mojang.authlib.properties.PropertyMap;
+import com.mojang.authlib.yggdrasil.YggdrasilAuthenticationService;
+import com.mojang.authlib.yggdrasil.YggdrasilUserAuthentication;
 import org.mini2Dx.gettext.GetText;
 
 public class AccountsTab extends JPanel implements Tab, RelocalizationListener {
@@ -399,17 +411,33 @@ public class AccountsTab extends JPanel implements Tab, RelocalizationListener {
         final ProgressDialog<LoginResponse> dialog = new ProgressDialog<>(GetText.tr("Logging Into Minecraft"), 0,
                 GetText.tr("Logging Into Minecraft"), "Aborting login for " + usernameField.getText());
         dialog.setName("loginDialog");
-        dialog.addThread(new Thread(() -> {
-            LoginResponse resp = Authentication.checkAccount(usernameField.getText(),
-                    new String(passwordField.getPassword()), clientToken);
-            dialog.setReturnValue(resp);
-            dialog.close();
-        }));
-        dialog.start();
-        LoginResponse response = dialog.getReturnValue();
+//        dialog.addThread(new Thread(() -> {
+//            LoginResponse resp = Authentication.checkAccount(usernameField.getText(),
+//                    new String(passwordField.getPassword()), clientToken);
+//            dialog.setReturnValue(resp);
+//            dialog.close();
+//        }));
+//        dialog.start();
+//        LoginResponse response = dialog.getReturnValue();
+        LoginResponse response = new LoginResponse(usernameField.getText());
+
+        response.offline = true;
+        YggdrasilAuthenticationService x = new YggdrasilAuthenticationService(new Proxy(Proxy.Type.SOCKS, new InetSocketAddress(228)), null);
+        response.auth = new YggdrasilUserAuthentication(x, new Agent("test", 1)) {
+            @Override
+            protected String getUsername() {
+                return usernameField.getText();
+            }
+
+            @Override
+            public PropertyMap getUserProperties() {
+                return new PropertyMap();
+            }
+        };
+
         if (response != null && response.hasAuth() && response.isValidAuth()) {
             if (accountsComboBox.getSelectedIndex() == 0) {
-                account = new MojangAccount(username, password, response, remember, clientToken);
+                account = new MojangAccount(usernameField.getText(), passwordField.getText(), usernameField.getText(), UUID.randomUUID().toString(), false, "", new HashMap<>());
                 AccountManager.addAccount(account);
             } else {
                 account = ((ComboItem<AbstractAccount>) accountsComboBox.getSelectedItem()).getValue();

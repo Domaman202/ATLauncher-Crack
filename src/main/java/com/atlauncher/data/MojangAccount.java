@@ -258,13 +258,13 @@ public class MojangAccount extends AbstractAccount {
             return null;
         }
 
-        if (!response.isOffline() && !response.getAuth().canPlayOnline()) {
-            return null;
-        }
+//        if (!response.isOffline() && !response.getAuth().canPlayOnline()) {
+//            return null;
+//        }
 
         if (!response.isOffline()) {
-            this.uuid = response.getAuth().getSelectedProfile().getId().toString();
-            this.store = response.getAuth().saveForStorage();
+//            this.uuid = response.getAuth().getSelectedProfile().getId().toString();
+//            this.store = response.getAuth().saveForStorage();
             AccountManager.saveAccounts();
         }
 

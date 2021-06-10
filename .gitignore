@@ -28,3 +28,11 @@ cache/
 java_pid*.hprof
 *.log
 mockserver_keystore_*
+
+#хрень
+assets
+downloads
+instances
+libraries
+temp
+.test
