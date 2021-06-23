@@ -107,11 +107,6 @@ public class Launcher {
 
     public void loadEverything() {
         PerformanceManager.start();
-        if (hasUpdatedFiles()) {
-            downloadUpdatedFiles(); // Downloads updated files on the server
-        }
-
-        checkForLauncherUpdate();
 
         addExecutableBitToTools();
 
