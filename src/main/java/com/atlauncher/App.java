@@ -717,16 +717,6 @@ public class App {
             textField.put(KeyStroke.getKeyStroke(KeyEvent.VK_A, KeyEvent.META_DOWN_MASK),
                     DefaultEditorKit.selectAllAction);
 
-            InputMap passwordField = (InputMap) UIManager.get("PasswordField.focusInputMap");
-            passwordField.put(KeyStroke.getKeyStroke(KeyEvent.VK_C, KeyEvent.META_DOWN_MASK),
-                    DefaultEditorKit.copyAction);
-            passwordField.put(KeyStroke.getKeyStroke(KeyEvent.VK_V, KeyEvent.META_DOWN_MASK),
-                    DefaultEditorKit.pasteAction);
-            passwordField.put(KeyStroke.getKeyStroke(KeyEvent.VK_X, KeyEvent.META_DOWN_MASK),
-                    DefaultEditorKit.cutAction);
-            passwordField.put(KeyStroke.getKeyStroke(KeyEvent.VK_A, KeyEvent.META_DOWN_MASK),
-                    DefaultEditorKit.selectAllAction);
-
             InputMap textArea = (InputMap) UIManager.get("TextArea.focusInputMap");
             textArea.put(KeyStroke.getKeyStroke(KeyEvent.VK_C, KeyEvent.META_DOWN_MASK), DefaultEditorKit.copyAction);
             textArea.put(KeyStroke.getKeyStroke(KeyEvent.VK_V, KeyEvent.META_DOWN_MASK), DefaultEditorKit.pasteAction);

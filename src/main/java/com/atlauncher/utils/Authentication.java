@@ -29,14 +29,13 @@ import com.mojang.authlib.yggdrasil.YggdrasilAuthenticationService;
 import com.mojang.authlib.yggdrasil.YggdrasilUserAuthentication;
 
 public class Authentication {
-    public static LoginResponse checkAccount(String username, String password, String clientToken) {
+    public static LoginResponse checkAccount(String username, String clientToken) {
         YggdrasilUserAuthentication auth = (YggdrasilUserAuthentication) new YggdrasilAuthenticationService(
                 App.settings.proxy, clientToken).createUserAuthentication(Agent.MINECRAFT);
 
         LoginResponse response = new LoginResponse(username);
 
         auth.setUsername(username);
-        auth.setPassword(password);
 
         if (auth.canLogIn()) {
             try {
@@ -51,20 +50,16 @@ public class Authentication {
         return response;
     }
 
-    public static LoginResponse login(MojangAccount account, boolean usePassword) {
+    public static LoginResponse login(MojangAccount account, boolean x) {
         UserAuthentication auth = new YggdrasilAuthenticationService(App.settings.proxy, account.clientToken)
                 .createUserAuthentication(Agent.MINECRAFT);
         LoginResponse response = new LoginResponse(account.username);
 
-        if (!usePassword && account.store != null) {
+        if (!x && account.store != null) {
             auth.loadFromStorage(account.store);
         }
 
         auth.setUsername(account.username);
-
-        if (usePassword) {
-            auth.setPassword(account.password);
-        }
 
         if (auth.canLogIn()) {
             try {

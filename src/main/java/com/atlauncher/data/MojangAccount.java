@@ -17,18 +17,6 @@
  */
 package com.atlauncher.data;
 
-import java.awt.BorderLayout;
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.util.Map;
-
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JPasswordField;
-
 import com.atlauncher.App;
 import com.atlauncher.Gsons;
 import com.atlauncher.builders.HTMLBuilder;
@@ -39,9 +27,14 @@ import com.atlauncher.managers.DialogManager;
 import com.atlauncher.managers.LogManager;
 import com.atlauncher.utils.Authentication;
 import com.atlauncher.utils.MojangAPIUtils;
-import com.atlauncher.utils.Utils;
-
 import org.mini2Dx.gettext.GetText;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.Map;
 
 public class MojangAccount extends AbstractAccount {
     /**
@@ -50,47 +43,27 @@ public class MojangAccount extends AbstractAccount {
     private static final long serialVersionUID = 2979677130644015196L;
 
     /**
-     * The account's password to login to Mojang servers.
-     */
-    public transient String password;
-
-    /**
-     * The encrypted password.
-     */
-    public String encryptedPassword;
-
-    /**
      * The client token.
      */
     public String clientToken;
-
-    /**
-     * If this account should remember the password or not.
-     */
-    public boolean remember;
 
     /**
      * This is the store for this username as returned by Mojang.
      */
     public Map<String, Object> store;
 
-    public MojangAccount(String username, String password, LoginResponse response, Boolean remember,
+    public MojangAccount(String username, LoginResponse response,
             String clientToken) {
-        this(username, password, response.getAuth().getSelectedProfile().getName(),
-                response.getAuth().getSelectedProfile().getId().toString(), remember, clientToken,
+        this(username, response.getAuth().getSelectedProfile().getName(),
+                response.getAuth().getSelectedProfile().getId().toString(), clientToken,
                 response.getAuth().saveForStorage());
     }
 
-    public MojangAccount(String username, String password, String minecraftUsername, String uuid, Boolean remember,
+    public MojangAccount(String username, String minecraftUsername, String uuid,
             String clientToken, Map<String, Object> store) {
         this.username = username;
-        if (remember) {
-            this.password = password;
-            this.encryptedPassword = Utils.encrypt(password);
-        }
         this.minecraftUsername = minecraftUsername;
         this.uuid = uuid;
-        this.remember = remember;
         this.clientToken = clientToken;
         this.store = store;
         this.type = "mojang";
@@ -103,30 +76,6 @@ public class MojangAccount extends AbstractAccount {
         }
 
         return (String) this.store.get("accessToken");
-    }
-
-    /**
-     * Sets the password for this Account.
-     *
-     * @param password The password for the Account
-     */
-    public void setPassword(String password) {
-        this.password = password;
-        this.encryptedPassword = Utils.encrypt(this.password);
-    }
-
-    /**
-     * Sets this Account to remember or not remember the password.
-     *
-     * @param remember True if the password should be remembered, False if it
-     *                 shouldn't be remembered
-     */
-    public void setRemember(boolean remember) {
-        this.remember = remember;
-        if (!this.remember) {
-            this.password = "";
-            this.encryptedPassword = "";
-        }
     }
 
     @Override
@@ -215,32 +164,6 @@ public class MojangAccount extends AbstractAccount {
         if (response == null || response.hasError()) {
             LogManager.error("Access token is NOT valid! Will attempt to get another one!");
 
-            if (!this.remember) {
-                JPanel panel = new JPanel();
-                panel.setLayout(new BorderLayout());
-                JLabel passwordLabel = new JLabel(GetText.tr("Enter password for {0}", this.minecraftUsername));
-
-                JPasswordField passwordField = new JPasswordField();
-                panel.add(passwordLabel, BorderLayout.NORTH);
-                panel.add(passwordField, BorderLayout.CENTER);
-
-                int ret = DialogManager.confirmDialog().setTitle(GetText.tr("Enter Password")).setContent(panel).show();
-
-                if (ret == DialogManager.OK_OPTION) {
-                    if (passwordField.getPassword().length == 0) {
-                        LogManager.error("Aborting login for " + this.minecraftUsername + ", no password entered");
-                        App.launcher.setMinecraftLaunched(false);
-                        return null;
-                    }
-
-                    this.setPassword(new String(passwordField.getPassword()));
-                } else {
-                    LogManager.error("Aborting login for " + this.minecraftUsername);
-                    App.launcher.setMinecraftLaunched(false);
-                    return null;
-                }
-            }
-
             response = Authentication.login(MojangAccount.this, true);
         }
 
@@ -258,13 +181,7 @@ public class MojangAccount extends AbstractAccount {
             return null;
         }
 
-//        if (!response.isOffline() && !response.getAuth().canPlayOnline()) {
-//            return null;
-//        }
-
         if (!response.isOffline()) {
-//            this.uuid = response.getAuth().getSelectedProfile().getId().toString();
-//            this.store = response.getAuth().saveForStorage();
             AccountManager.saveAccounts();
         }
 

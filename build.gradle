@@ -17,7 +17,6 @@ plugins {
     id 'com.github.johnrengelman.shadow' version '6.1.0'
     id 'edu.sc.seis.macAppBundle' version '2.3.0'
     id 'edu.sc.seis.launch4j' version '2.4.9'
-    id 'net.minecrell.licenser' version '0.4.1'
     id 'com.github.ben-manes.versions' version '0.36.0'
     id 'com.adarshr.test-logger' version '2.1.1'
     id 'de.undercouch.download' version '4.1.1'
@@ -118,17 +117,6 @@ gettext {
         commentFormat = ' #. '
         outputFilename = 'translations.pot'
     }
-}
-
-license {
-    header = project.file('LICENSEHEADER')
-    sourceSets = [project.sourceSets.main]
-    include '**/*.java'
-    exclude 'de/zh32/**/*.java'
-    exclude 'io/github/**/*.java'
-    exclude 'net/minecraft/**/*.java'
-    exclude 'com/atlauncher/gui/layouts/WrapLayout.java'
-    newLine = false
 }
 
 shadowJar {
