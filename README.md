@@ -1,4 +1,4 @@
-<H1>ВНИМЕНИЕ!!!</H1></br>
-ЭТО ЛИШЬ ТЕСТОВЫЙ ПРОЕКТ ДЛЯ ЛИЧНОГО ПОЛЬЗОВАНИЯ.</br>
-ВСЕ ПРАВА ПРИНАДЛЕЖАТ https://github.com/ATLauncher/ATLauncher.</br>
-АВТОР НЕ НЕСЁТ ОТВЕТСВТЕННОСТИ ЗА ЭТОТ ПРОЕКТ И ВООБЩЕ НИХРЕНА НИКОМУ НЕ ДОЛЖЕН.</br>
+<H1> ATTENTION !!! </H1> </br>
+THIS IS ONLY A TEST PROJECT FOR PERSONAL USE. </br>
+ALL RIGHTS BECOME https://github.com/ATLauncher/ATLauncher. </br>
+THE AUTHOR IS NOT RESPONSIBLE FOR THIS PROJECT AND IN GENERAL SHOULD NOT BE ANYONE. </br>
