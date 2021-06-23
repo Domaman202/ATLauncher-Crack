@@ -199,169 +199,6 @@ public class Launcher {
         PerformanceManager.end();
     }
 
-    public boolean launcherHasUpdate() {
-        try {
-            this.latestLauncherVersion = Gsons.DEFAULT
-                    .fromJson(new FileReader(FileSystem.JSON.resolve("version.json").toFile()), LauncherVersion.class);
-        } catch (JsonSyntaxException | FileNotFoundException | JsonIOException e) {
-            LogManager.logStackTrace("Exception when loading latest launcher version!", e);
-        }
-
-        return this.latestLauncherVersion != null && Constants.VERSION.needsUpdate(this.latestLauncherVersion);
-    }
-
-    public void downloadUpdate() {
-        try {
-            File thisFile = new File(Update.class.getProtectionDomain().getCodeSource().getLocation().getPath());
-            String path = thisFile.getCanonicalPath();
-            path = URLDecoder.decode(path, "UTF-8");
-            String toget;
-            String saveAs = thisFile.getName();
-            if (path.contains(".exe")) {
-                toget = "exe";
-            } else {
-                toget = "jar";
-            }
-            File newFile = FileSystem.TEMP.resolve(saveAs).toFile();
-            LogManager.info("Downloading Launcher Update");
-            Analytics.sendEvent("Update", "Launcher");
-
-            ProgressDialog<Boolean> progressDialog = new ProgressDialog<>(GetText.tr("Downloading Launcher Update"), 1,
-                    GetText.tr("Downloading Launcher Update"));
-            progressDialog.addThread(new Thread(() -> {
-                com.atlauncher.network.Download download = com.atlauncher.network.Download.build()
-                        .setUrl(String.format("%s/%s.%s", Constants.DOWNLOAD_SERVER, Constants.LAUNCHER_NAME, toget))
-                        .withHttpClient(Network.createProgressClient(progressDialog)).downloadTo(newFile.toPath());
-
-                progressDialog.setTotalBytes(download.getFilesize());
-
-                try {
-                    download.downloadFile();
-                } catch (IOException e) {
-                    LogManager.logStackTrace("Failed to download update", e);
-                    progressDialog.setReturnValue(false);
-                    progressDialog.close();
-                    return;
-                }
-
-                progressDialog.setReturnValue(true);
-                progressDialog.doneTask();
-                progressDialog.close();
-            }));
-            progressDialog.start();
-
-            if (progressDialog.getReturnValue()) {
-                runUpdate(path, newFile.getAbsolutePath());
-            }
-        } catch (IOException e) {
-            LogManager.logStackTrace(e);
-        }
-    }
-
-    public void runUpdate(String currentPath, String temporaryUpdatePath) {
-        List<String> arguments = new ArrayList<>();
-
-        String path = System.getProperty("java.home") + File.separator + "bin" + File.separator + "java";
-        if (OS.isWindows()) {
-            path += "w";
-        }
-        arguments.add(path);
-        arguments.add("-cp");
-        arguments.add(temporaryUpdatePath);
-        arguments.add("com.atlauncher.Update");
-        arguments.add(currentPath);
-        arguments.add(temporaryUpdatePath);
-
-        // pass in all the original arguments
-        arguments.addAll(Arrays.asList(App.PASSED_ARGS));
-
-        ProcessBuilder processBuilder = new ProcessBuilder();
-        processBuilder.command(arguments);
-
-        LogManager.info("Running launcher update with command " + arguments);
-
-        try {
-            processBuilder.start();
-        } catch (IOException e) {
-            LogManager.logStackTrace(e);
-        }
-
-        System.exit(0);
-    }
-
-    /**
-     * This checks the servers files.json file and gets the files that the Launcher
-     * needs to have
-     */
-    private List<com.atlauncher.network.Download> getLauncherFiles() {
-        if (this.launcherFiles == null) {
-            java.lang.reflect.Type type = new TypeToken<List<DownloadableFile>>() {
-            }.getType();
-
-            try {
-                this.launcherFiles = com.atlauncher.network.Download.build().cached()
-                        .setUrl(String.format("%s/launcher/json/files.json", Constants.DOWNLOAD_SERVER)).asType(type);
-            } catch (Exception e) {
-                LogManager.logStackTrace("Error loading in file hashes!", e);
-                return null;
-            }
-        }
-
-        if (this.launcherFiles == null) {
-            return null;
-        }
-
-        return this.launcherFiles.stream()
-                .filter(file -> !file.isLauncher() && !file.isFiles() && file.isForArchAndOs())
-                .map(DownloadableFile::getDownload).collect(Collectors.toList());
-    }
-
-    public void downloadUpdatedFiles() {
-        ProgressDialog progressDialog = new ProgressDialog(GetText.tr("Downloading Updates"), 1,
-                GetText.tr("Downloading Updates"));
-        progressDialog.addThread(new Thread(() -> {
-            DownloadPool pool = new DownloadPool();
-            OkHttpClient httpClient = Network.createProgressClient(progressDialog);
-            pool.addAll(
-                    getLauncherFiles().stream().map(dl -> dl.withHttpClient(httpClient)).collect(Collectors.toList()));
-            DownloadPool smallPool = pool.downsize();
-
-            progressDialog.setTotalBytes(smallPool.totalSize());
-
-            pool.downloadAll();
-            progressDialog.doneTask();
-            progressDialog.close();
-        }));
-        progressDialog.start();
-
-        LogManager.info("Finished downloading updated files!");
-    }
-
-    public boolean checkForUpdatedFiles() {
-        this.launcherFiles = null;
-
-        App.TASKPOOL.execute(() -> {
-            checkForExternalPackUpdates();
-        });
-
-        return hasUpdatedFiles();
-    }
-
-    /**
-     * This checks the servers hashes.json file and looks for new/updated files that
-     * differ from what the user has
-     */
-    public boolean hasUpdatedFiles() {
-        LogManager.info("Checking for updated files!");
-        List<com.atlauncher.network.Download> downloads = getLauncherFiles();
-
-        if (downloads == null) {
-            return false;
-        }
-
-        return downloads.stream().anyMatch(com.atlauncher.network.Download::needToDownload);
-    }
-
     public void checkForExternalPackUpdates() {
         if (updateThread != null && updateThread.isAlive()) {
             updateThread.interrupt();
@@ -379,10 +216,6 @@ public class Launcher {
     }
 
     public void updateData() {
-        if (checkForUpdatedFiles()) {
-            reloadLauncherData();
-        }
-
         MinecraftManager.loadMinecraftVersions(); // Load info about the different Minecraft versions
         MinecraftManager.loadJavaRuntimes(); // Load info about the different java runtimes
     }
@@ -396,10 +229,6 @@ public class Launcher {
         dialog.setResizable(false);
         dialog.add(new JLabel(GetText.tr("Updating Launcher. Please Wait")));
         App.TASKPOOL.execute(() -> {
-            if (hasUpdatedFiles()) {
-                downloadUpdatedFiles(); // Downloads updated files on the server
-            }
-            checkForLauncherUpdate();
             checkForExternalPackUpdates();
             addExecutableBitToTools();
 
@@ -416,43 +245,6 @@ public class Launcher {
             dialog.dispose(); // Dispose the dialog
         });
         dialog.setVisible(true);
-    }
-
-    private void checkForLauncherUpdate() {
-        PerformanceManager.start();
-
-        LogManager.debug("Checking for launcher update");
-        if (launcherHasUpdate()) {
-            if (App.noLauncherUpdate) {
-                int ret = DialogManager.okDialog().setTitle("Launcher Update Available")
-                        .setContent(new HTMLBuilder().center().split(80).text(GetText.tr(
-                                "An update to the launcher is available. Please update via your package manager or manually by visiting https://atlauncher.com/downloads to get the latest features and bug fixes."))
-                                .build())
-                        .addOption(GetText.tr("Visit Downloads Page")).setType(DialogManager.INFO).show();
-
-                if (ret == 1) {
-                    OS.openWebBrowser("https://atlauncher.com/downloads");
-                }
-
-                return;
-            }
-
-            if (!App.wasUpdated) {
-                downloadUpdate(); // Update the Launcher
-            } else {
-                DialogManager.okDialog().setTitle("Update Failed!")
-                        .setContent(new HTMLBuilder().center()
-                                .text(GetText.tr("Update failed. Please click Ok to close "
-                                        + "the launcher and open up the downloads page.<br/><br/>Download "
-                                        + "the update and replace the old " + Constants.LAUNCHER_NAME + " file."))
-                                .build())
-                        .setType(DialogManager.ERROR).show();
-                OS.openWebBrowser("https://atlauncher.com/downloads");
-                System.exit(0);
-            }
-        }
-        LogManager.debug("Finished checking for launcher update");
-        PerformanceManager.end();
     }
 
     private void addExecutableBitToTools() {

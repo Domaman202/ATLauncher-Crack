@@ -114,13 +114,6 @@ public class App {
 
     public static LauncherConsole console;
 
-    /**
-     * If the launcher was just updated and this is it's first time loading after
-     * the update. This is used to check for when there are possible issues in which
-     * the user may have to download the update manually.
-     */
-    public static boolean wasUpdated = false;
-
     public static boolean discordInitialized = false;
 
     /**
@@ -788,10 +781,6 @@ public class App {
 
         OptionSet options = parser.parse(args);
         autoLaunch = options.has("launch") ? (String) options.valueOf("launch") : null;
-
-        if (options.has("updated")) {
-            wasUpdated = true;
-        }
 
         if (options.has("debug")) {
             LogManager.showDebug = true;
