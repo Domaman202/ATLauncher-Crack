@@ -79,7 +79,7 @@ public class GeneralSettingsTab extends AbstractSettingsTab {
         JPanel languagePanel = new JPanel();
         languagePanel.setLayout(new BoxLayout(languagePanel, BoxLayout.X_AXIS));
 
-        language = new JComboBox<>(Language.locales.stream().map(Locale::getDisplayName).toArray(String[]::new));
+        language = new JComboBox<>(Language.locales.stream().map(Locale::getLanguage).toArray(String[]::new));
         language.setSelectedItem(Language.selected);
         languagePanel.add(language);
 

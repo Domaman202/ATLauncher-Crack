@@ -58,7 +58,6 @@ public class AccountsTab extends JPanel implements Tab, RelocalizationListener {
     private JTextField usernameField;
     private JButton leftButton;
     private JButton rightButton;
-    private JButton loginWithMicrosoftButton;
     private JMenuItem refreshAccessTokenMenuItem;
     private final JMenuItem updateSkin;
     private final JPopupMenu contextMenu; // Right click menu
@@ -119,7 +118,6 @@ public class AccountsTab extends JPanel implements Tab, RelocalizationListener {
                     usernameField.setVisible(true);
                     leftButton.setVisible(true);
                     rightButton.setVisible(true);
-                    loginWithMicrosoftButton.setVisible(true);
                     refreshAccessTokenMenuItem.setVisible(false);
                 } else {
                     AbstractAccount account = ((ComboItem<AbstractAccount>) accountsComboBox.getSelectedItem())
@@ -129,7 +127,6 @@ public class AccountsTab extends JPanel implements Tab, RelocalizationListener {
                     usernameField.setVisible(account instanceof MojangAccount);
                     leftButton.setVisible(account instanceof MojangAccount);
                     rightButton.setVisible(true);
-                    loginWithMicrosoftButton.setVisible(account instanceof MicrosoftAccount);
                     refreshAccessTokenMenuItem.setVisible(account instanceof MicrosoftAccount);
 
                     if (account instanceof MojangAccount) {
@@ -221,23 +218,8 @@ public class AccountsTab extends JPanel implements Tab, RelocalizationListener {
                 }
             }
         });
-        loginWithMicrosoftButton = new JButton(GetText.tr("Login with Microsoft"));
-        loginWithMicrosoftButton.addActionListener(e -> {
-            int numberOfAccountsBefore = AccountManager.getAccounts().size();
-            new LoginWithMicrosoftDialog();
-
-            if (numberOfAccountsBefore != AccountManager.getAccounts().size()) {
-                accountsComboBox.removeAllItems();
-                accountsComboBox.addItem(new ComboItem<>(null, GetText.tr("Add An Account")));
-                for (AbstractAccount accountt : AccountManager.getAccounts()) {
-                    accountsComboBox.addItem(new ComboItem<>(accountt, accountt.minecraftUsername));
-                }
-                accountsComboBox.setSelectedItem(AccountManager.getSelectedAccount());
-            }
-        });
         buttons.add(leftButton);
         buttons.add(rightButton);
-        buttons.add(loginWithMicrosoftButton);
         bottomPanel.add(buttons, gbc);
 
         rightPanel.add(topPanel, BorderLayout.NORTH);

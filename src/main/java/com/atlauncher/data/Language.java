@@ -18,6 +18,7 @@
 package com.atlauncher.data;
 
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -39,6 +40,16 @@ public class Language {
     // add in the languages we have support for
     static {
         locales.add(Locale.ENGLISH);
+
+        try {
+            Method m = Locale.class.getDeclaredMethod("createConstant", String.class, String.class);
+            m.setAccessible(true);
+            locales.add((Locale) m.invoke(null, "ru", "RU"));
+            languages.put("ru", locales.get(locales.size() - 1));
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.exit(228);
+        }
     }
 
     public static void init() throws IOException {
