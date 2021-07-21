@@ -22,10 +22,10 @@ import com.mojang.authlib.UserAuthentication;
 
 public class LoginResponse {
     public boolean offline;
-    public boolean hasError;
-    public String errorMessage;
+    private boolean hasError;
+    private String errorMessage;
     public UserAuthentication auth;
-    public final String username;
+    private final String username;
 
     public LoginResponse(String username) {
         this.offline = false;
@@ -48,8 +48,7 @@ public class LoginResponse {
     }
 
     public boolean hasError() {
-//        return this.hasError;
-        return false;
+        return this.hasError;
     }
 
     public String getErrorMessage() {
@@ -61,8 +60,7 @@ public class LoginResponse {
     }
 
     public boolean hasAuth() {
-//        return (this.auth != null);
-        return true;
+        return (this.auth != null);
     }
 
     public UserAuthentication getAuth() {
@@ -74,23 +72,22 @@ public class LoginResponse {
     }
 
     public boolean isValidAuth() {
-//        if (!this.hasAuth()) {
-//            return false;
-//        }
-//
-//        if (!this.auth.isLoggedIn()) {
-//            this.setErrorMessage("Response from Mojang wasn't valid!");
-//        } else if (this.auth.getAuthenticatedToken() == null) {
-//            this.setErrorMessage("No authentication token returned from Mojang!");
-//        } else if (auth.getSelectedProfile() == null
-//                && (this.auth.getAvailableProfiles() == null || this.auth.getAvailableProfiles().length == 0)) {
-//            this.setErrorMessage("There are no paid copies of Minecraft associated with this account!");
-//        } else if (this.auth.getSelectedProfile() == null) {
-//            this.setErrorMessage("No profile selected!");
-//        }
-//
-//        return !this.hasError;
-        return true;
+        if (!this.hasAuth()) {
+            return false;
+        }
+
+        if (!this.auth.isLoggedIn()) {
+            this.setErrorMessage("Response from Mojang wasn't valid!");
+        } else if (this.auth.getAuthenticatedToken() == null) {
+            this.setErrorMessage("No authentication token returned from Mojang!");
+        } else if (auth.getSelectedProfile() == null
+                && (this.auth.getAvailableProfiles() == null || this.auth.getAvailableProfiles().length == 0)) {
+            this.setErrorMessage("There are no paid copies of Minecraft associated with this account!");
+        } else if (this.auth.getSelectedProfile() == null) {
+            this.setErrorMessage("No profile selected!");
+        }
+
+        return !this.hasError;
     }
 
     public void save() {

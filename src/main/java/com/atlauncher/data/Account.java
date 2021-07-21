@@ -46,6 +46,16 @@ public class Account implements Serializable {
     public String username;
 
     /**
+     * The account's password to login to Mojang servers.
+     */
+    public transient String password;
+
+    /**
+     * The encrypted password.
+     */
+    public String encryptedPassword;
+
+    /**
      * The client token.
      */
     public String clientToken;
@@ -59,6 +69,11 @@ public class Account implements Serializable {
      * The UUID of the account.
      */
     public String uuid;
+
+    /**
+     * If this account should remember the password or not.
+     */
+    public boolean remember;
 
     /**
      * If this account is a real user or not.
@@ -97,6 +112,17 @@ public class Account implements Serializable {
      */
     private void readObject(ObjectInputStream ois) throws IOException, ClassNotFoundException {
         ois.defaultReadObject(); // Read the object in
+        if (this.encryptedPassword == null) {
+            this.password = "";
+            this.remember = false;
+        } else {
+            this.password = Utils.decrypt(this.encryptedPassword);
+            if (this.password == null) {
+                LogManager.error("Error reading in saved password from file!");
+                this.password = "";
+                this.remember = false;
+            }
+        }
         this.isReal = true;
     }
 }

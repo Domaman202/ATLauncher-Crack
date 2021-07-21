@@ -59,8 +59,8 @@ public class MCLauncher {
 
         if (!response.isOffline()) {
             Gson gson = new GsonBuilder().registerTypeAdapter(PropertyMap.class, new PropertyMapSerializer()).create();
-//            props = gson.toJson(response.getAuth().getUserProperties());
-            props = "{}";
+            if (response.getAuth() != null)
+                props = gson.toJson(response.getAuth().getUserProperties());
         }
 
         return launch(account, instance, props, nativesTempDir.toFile());
@@ -278,7 +278,8 @@ public class MCLauncher {
         argument = argument.replace("${assets_root}", FileSystem.ASSETS.toAbsolutePath().toString());
         argument = argument.replace("${assets_index_name}", instance.getAssets());
         argument = argument.replace("${auth_uuid}", UUIDTypeAdapter.fromUUID(account.getRealUUID()));
-//        argument = argument.replace("${auth_access_token}", account.getAccessToken());
+        if (account.getAccessToken() != null)
+            argument = argument.replace("${auth_access_token}", account.getAccessToken());
         argument = argument.replace("${version_type}", instance.type.getValue());
         argument = argument.replace("${launcher_name}", Constants.LAUNCHER_NAME);
         argument = argument.replace("${launcher_version}", Constants.VERSION.toStringForLogging());
@@ -304,8 +305,10 @@ public class MCLauncher {
         if (props != null) {
             argsString = argsString.replace(props, "REDACTED");
         }
-//        argsString = argsString.replace(account.getAccessToken(), "REDACTED");
-//        argsString = argsString.replace(account.getSessionToken(), "REDACTED");
+
+        if (account.getAccessToken() != null)
+            argsString = argsString.replace(account.getAccessToken(), "REDACTED");
+        argsString = argsString.replace(account.getSessionToken(), "REDACTED");
 
         return argsString;
     }

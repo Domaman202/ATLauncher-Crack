@@ -80,6 +80,22 @@ public class AccountManager {
             if (account.username.equalsIgnoreCase(App.settings.lastAccount)) {
                 Data.SELECTED_ACCOUNT = account;
             }
+
+            if (account instanceof MojangAccount) {
+                MojangAccount mojangAccount = (MojangAccount) account;
+
+                if (mojangAccount.encryptedPassword == null) {
+                    mojangAccount.password = "";
+                    mojangAccount.remember = false;
+                } else {
+                    mojangAccount.password = Utils.decrypt(mojangAccount.encryptedPassword);
+                    if (mojangAccount.password == null) {
+                        LogManager.error("Error reading in saved password from file!");
+                        mojangAccount.password = "";
+                        mojangAccount.remember = false;
+                    }
+                }
+            }
         }
 
         if (Data.SELECTED_ACCOUNT == null && Data.ACCOUNTS.size() >= 1) {
@@ -104,8 +120,8 @@ public class AccountManager {
             while ((obj = objIn.readObject()) != null) {
                 Account account = (Account) obj;
 
-                convertedAccounts.add(new MojangAccount(account.username, account.minecraftUsername,
-                        account.uuid, account.clientToken, account.store));
+                convertedAccounts.add(new MojangAccount(account.username, account.password, account.minecraftUsername,
+                        account.uuid, account.remember, account.clientToken, account.store));
             }
         } catch (EOFException e) {
             // Don't log this, it always happens when it gets to the end of the file
