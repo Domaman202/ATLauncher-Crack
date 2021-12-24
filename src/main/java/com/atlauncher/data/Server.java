@@ -22,21 +22,28 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
 
+import com.atlauncher.App;
 import com.atlauncher.FileSystem;
 import com.atlauncher.Gsons;
 import com.atlauncher.annot.Json;
 import com.atlauncher.builders.HTMLBuilder;
 import com.atlauncher.exceptions.InvalidPack;
+import com.atlauncher.gui.dialogs.ProgressDialog;
 import com.atlauncher.managers.DialogManager;
 import com.atlauncher.managers.LogManager;
 import com.atlauncher.managers.PackManager;
+import com.atlauncher.network.Analytics;
+import com.atlauncher.utils.ArchiveUtils;
 import com.atlauncher.utils.OS;
 import com.atlauncher.utils.Utils;
 import com.google.gson.JsonIOException;
@@ -50,6 +57,7 @@ public class Server {
     public Integer packId;
     public String version;
     public String hash;
+    public boolean isPatchedForLog4Shell = false;
 
     public boolean isDev;
     public List<DisableableMod> mods = new ArrayList<>();
@@ -80,6 +88,30 @@ public class Server {
     }
 
     public void launch(String args, boolean close) {
+        if (!isPatchedForLog4Shell) {
+            int ret = DialogManager.yesNoDialog().setTitle(GetText.tr("Server Is Vulnerable"))
+                    .setContent(new HTMLBuilder().text(GetText.tr(
+                            "This server is currently vulnerable to the Log4Shell exploit.<br/><br/>For your safety, and of those on your server, please delete and recreate this server.<br/><br/>Do you still want to launch the server (not recommended)?"))
+                            .center().build())
+                    .setType(DialogManager.ERROR)
+                    .show();
+
+            if (ret != DialogManager.YES_OPTION) {
+                return;
+            }
+        }
+
+        boolean usesRunSh = Files.exists(getRoot().resolve("run.sh"));
+        String serverScript = usesRunSh ? "run" : "LaunchServer";
+
+        if (OS.isWindows()) {
+            serverScript += ".bat";
+        } else if (OS.isLinux() || (OS.isMac() && usesRunSh)) {
+            serverScript += ".sh";
+        } else if (OS.isMac()) {
+            serverScript += ".command";
+        }
+
         LogManager.info("Starting server " + name);
         List<String> arguments = new ArrayList<>();
 
@@ -89,21 +121,38 @@ public class Server {
                 arguments.add("/K");
                 arguments.add("start");
                 arguments.add("\"" + name + "\"");
-                arguments.add(getRoot().resolve("LaunchServer.bat").toString());
+                arguments.add(getRoot().resolve(serverScript).toString());
                 arguments.add(args);
             } else if (OS.isLinux()) {
-                // this only covers Gnome like systems, will need to monitor user reports for
-                // alternatives
-                arguments.add("x-terminal-emulator");
-                arguments.add("-e");
-                arguments.add(getRoot().resolve("LaunchServer.sh").toString() + " " + args);
+                // use some best guesses for some terminal programs if in path
+                if (Utils.executableInPath("x-terminal-emulator")) {
+                    arguments.add("x-terminal-emulator");
+                    arguments.add("-e");
+
+                    arguments.add(getRoot().resolve(serverScript).toString() + " " + args);
+                } else if (Utils.executableInPath("exo-open")) {
+                    arguments.add("exo-open");
+                    arguments.add("--launch");
+                    arguments.add("TerminalEmulator");
+                    arguments.add("--working-directory");
+                    arguments.add(getRoot().toAbsolutePath().toString());
+                    arguments.add(String.format("./%s %s", serverScript, args));
+                } else {
+                    DialogManager.okDialog().setTitle(GetText.tr("Failed To Launch Server"))
+                            .setContent(new HTMLBuilder().center().text(GetText.tr(
+                                    "The server couldn't be launched as we don't know how to launcher it.<br/><br/>Please open the server folder and run the {0} file manually.",
+                                    serverScript))
+                                    .build())
+                            .setType(DialogManager.ERROR).show();
+                    return;
+                }
             } else if (OS.isMac()) {
                 // unfortunately OSX doesn't allow us to pass arguments with open and Terminal
                 // :(
                 arguments.add("open");
                 arguments.add("-a");
                 arguments.add("Terminal");
-                arguments.add(getRoot().resolve("LaunchServer.command").toString());
+                arguments.add(getRoot().resolve(serverScript).toString());
             }
 
             LogManager.info("Launching server with the following arguments: " + arguments.toString());
@@ -123,6 +172,31 @@ public class Server {
             }
         } catch (IOException e) {
             LogManager.logStackTrace("Failed to launch server", e);
+        }
+    }
+
+    public void backup() {
+        Analytics.sendEvent(pack + " - " + version, "Backup", "Server");
+
+        Timestamp timestamp = new Timestamp(new Date().getTime());
+        String time = timestamp.toString().replaceAll("[^0-9]", "_");
+        String filename = "Server-" + getSafeName() + "-" + time.substring(0, time.lastIndexOf("_")) + ".zip";
+        Path backupZip = FileSystem.BACKUPS.resolve(filename);
+
+        ProgressDialog<Boolean> progressDialog = new ProgressDialog<>(GetText.tr("Backing Up {0}", name));
+        progressDialog.addThread(new Thread(() -> {
+            boolean success = ArchiveUtils.createZip(getRoot(), backupZip);
+
+            progressDialog.setReturnValue(success);
+            progressDialog.close();
+        }));
+        progressDialog.start();
+
+        if (progressDialog.getReturnValue()) {
+            App.TOASTER.pop(GetText.tr("Backup is complete"));
+            LogManager.info(String.format("Backup complete and stored at %s", backupZip.toString()));
+        } else {
+            App.TOASTER.popError(GetText.tr("Error making backup"));
         }
     }
 

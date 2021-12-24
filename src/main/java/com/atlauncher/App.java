@@ -28,6 +28,7 @@ import java.awt.event.MouseEvent;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.lang.management.ManagementFactory;
 import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
@@ -151,14 +152,6 @@ public class App {
     public static boolean disableErrorReporting = false;
 
     /**
-     * This allows skipping the hash checking when downloading files. It can be
-     * skipped with the below command line argument.
-     * <p/>
-     * --skip-hash-checking
-     */
-    public static boolean skipHashChecking = false;
-
-    /**
      * This forces the working directory for the launcher. It can be changed with
      * the below command line argument.
      * <p/>
@@ -214,6 +207,11 @@ public class App {
     public static String packShareCodeToInstall = null;
 
     /**
+     * Config overrides.
+     */
+    public static String configOverride = null;
+
+    /**
      * This sets a pack to auto launch on startup
      */
     public static String autoLaunch = null;
@@ -258,8 +256,10 @@ public class App {
         // Parse all the command line arguments
         parseCommandLineArguments(args);
 
-        // Initialize the error reporting
-        ErrorReporting.init(disableErrorReporting);
+        // Initialize the error reporting unless disabled by command line
+        if (!disableErrorReporting) {
+            ErrorReporting.enable();
+        }
 
         // check the launcher has been 'installed' correctly
         checkInstalledCorrectly();
@@ -277,6 +277,9 @@ public class App {
         // Load the settings from json, convert old properties config and validate it
         loadSettings();
 
+        // inject any certs into the keystore that we need (Let's Encrypt for example)
+        Java.injectNeededCerts();
+
         // after settings have loaded, then allow all ssl certs if required
         if (allowAllSslCerts) {
             Network.allowAllSslCerts();
@@ -290,6 +293,9 @@ public class App {
 
         // Load the theme and style everything.
         loadTheme(settings.theme);
+
+        // check for _JAVA_OPTIONS being set which breaks things
+        checkForJavaOptions();
 
         final SplashScreen ss = new SplashScreen();
 
@@ -325,10 +331,7 @@ public class App {
         }
 
         // log out the system information to the console
-        logSystemInformation();
-
-        // Check to make sure the user can load the launcher
-        launcher.checkIfWeCanLoad();
+        logSystemInformation(args);
 
         LogManager.info("Showing splash screen and loading everything");
         launcher.loadEverything(); // Loads everything that needs to be loaded
@@ -347,34 +350,18 @@ public class App {
         boolean open = true;
 
         if (autoLaunch != null) {
-            if (InstanceManager.getInstances().stream()
-                    .anyMatch(instance -> instance.getSafeName().equalsIgnoreCase(autoLaunch))) {
-                Optional<Instance> instance = InstanceManager.getInstances().stream()
-                        .filter(i -> i.getSafeName().equalsIgnoreCase(autoLaunch)).findFirst();
-
-                if (instance.isPresent()) {
-                    LogManager.info("Opening Instance " + instance.get().launcher.name);
-                    if (instance.get().launch()) {
-                        open = false;
-                    } else {
-                        LogManager.error("Error Opening Instance " + instance.get().launcher.name);
-                    }
+            Optional<Instance> instance = InstanceManager.getInstances().stream().filter(
+                    i -> i.getName().equalsIgnoreCase(autoLaunch) || i.getSafeName().equalsIgnoreCase(autoLaunch))
+                    .findFirst();
+            if (instance.isPresent()) {
+                LogManager.info("Opening Instance " + instance.get().launcher.name);
+                if (instance.get().launch()) {
+                    open = false;
+                } else {
+                    LogManager.error("Error Opening Instance " + instance.get().launcher.name);
                 }
-            }
-        }
-
-        if (settings.enableDiscordIntegration) {
-            try {
-                DiscordEventHandlers handlers = new DiscordEventHandlers.Builder().build();
-                DiscordRPC.discordInitialize(Constants.DISCORD_CLIENT_ID, handlers, true);
-                DiscordRPC.discordRegister(Constants.DISCORD_CLIENT_ID, "");
-
-                discordInitialized = true;
-
-                Runtime.getRuntime().addShutdownHook(new Thread(DiscordRPC::discordShutdown));
-            } catch (Throwable e) {
-                LogManager.logStackTrace("Failed to initialize Discord integration", e);
-                discordInitialized = false;
+            } else {
+                LogManager.error("Couldn't find instance with name of " + autoLaunch + " to auto launch.");
             }
         }
 
@@ -399,22 +386,49 @@ public class App {
         });
     }
 
-    private static void logSystemInformation() {
+    public static void ensureDiscordIsInitialized() {
+        if (!discordInitialized) {
+            try {
+                DiscordEventHandlers handlers = new DiscordEventHandlers.Builder().build();
+                DiscordRPC.discordInitialize(Constants.DISCORD_CLIENT_ID, handlers, true);
+                DiscordRPC.discordRegister(Constants.DISCORD_CLIENT_ID, "");
+
+                discordInitialized = true;
+
+                Runtime.getRuntime().addShutdownHook(new Thread(DiscordRPC::discordShutdown));
+            } catch (Throwable e) {
+                LogManager.logStackTrace("Failed to initialize Discord integration", e);
+                discordInitialized = false;
+            }
+        }
+    }
+
+    private static void logSystemInformation(String[] args) {
         LogManager.info(Constants.LAUNCHER_NAME + " Version: " + Constants.VERSION);
+
+        LogManager.info(String.format("App Arguments: %s", Gsons.DEFAULT_SLIM.toJson(args)));
+
+        LogManager.info(String.format("JVM Arguments: %s",
+                Gsons.DEFAULT_SLIM.toJson(ManagementFactory.getRuntimeMXBean().getInputArguments())));
 
         SwingUtilities.invokeLater(
                 () -> Java.getInstalledJavas().forEach(version -> LogManager.debug(Gsons.DEFAULT.toJson(version))));
 
-        LogManager.info("Java Version: " + Java.getActualJavaVersion());
+        LogManager.info("Java Version: "
+                + String.format("Java %d (%s)", Java.getLauncherJavaVersionNumber(), Java.getLauncherJavaVersion()));
 
         LogManager.info("Java Path: " + settings.javaPath);
 
-        LogManager.info("64 Bit Java: " + OS.is64Bit());
+        LogManager.info("64 Bit Java: " + Java.is64Bit());
 
         int maxRam = OS.getMaximumRam();
         LogManager.info("RAM Available: " + (maxRam == 0 ? "Unknown" : maxRam + "MB"));
 
         LogManager.info("Launcher Directory: " + FileSystem.BASE_DIR);
+
+        if (OS.isMac()) {
+            LogManager.info("Using Mac App? " + (OS.isUsingMacApp() ? "Yes" : "No"));
+        }
 
         try {
             SystemInfo systemInfo = OS.getSystemInfo();
@@ -429,8 +443,8 @@ public class App {
             }
 
             CentralProcessor cpu = hal.getProcessor();
-            LogManager.info("CPU: " + cpu.getPhysicalProcessorCount() + " cores/" + cpu.getLogicalProcessorCount()
-                    + " threads");
+            LogManager.info(String.format("CPU: %s %d cores/%d threads", cpu.getProcessorIdentifier().getName().trim(),
+                    cpu.getPhysicalProcessorCount(), cpu.getLogicalProcessorCount()));
 
             OperatingSystem os = systemInfo.getOperatingSystem();
 
@@ -457,7 +471,8 @@ public class App {
             return;
         }
 
-        if ((Files.notExists(FileSystem.CONFIGS) && Files.notExists(FileSystem.BASE_DIR.resolve("Configs")))
+        if (Files.exists(FileSystem.BASE_DIR)
+                && (Files.notExists(FileSystem.CONFIGS) && Files.notExists(FileSystem.BASE_DIR.resolve("Configs")))
                 && FileSystem.CONFIGS.getParent().toFile().listFiles().length > 1) {
             matched = true;
 
@@ -496,6 +511,36 @@ public class App {
                     .setType(DialogManager.ERROR).show() != 0) {
                 System.exit(0);
             }
+        }
+    }
+
+    private static void checkForJavaOptions() {
+        try {
+            String javaOptions = System.getenv("_JAVA_OPTIONS");
+
+            if (javaOptions != null && (javaOptions.toLowerCase().contains("-xmx")
+                    || javaOptions.toLowerCase().contains("-xms") || javaOptions.toLowerCase().contains("-xss"))) {
+                LogManager.warn("_JAVA_OPTIONS environment variable detected: " + javaOptions);
+
+                if (!settings.ignoreJavaOptionsWarning) {
+                    int ret = DialogManager.yesNoDialog().addOption(GetText.tr("Don't remind me again"))
+                            .setTitle("Warning")
+                            .setContent(new HTMLBuilder().center().text(
+                                    "We've detected that you have a _JAVA_OPTIONS environment variable which may cause issues installing and playing Minecraft.<br/><br/>Do you want to fix this now so you don't have any issues in the future?")
+                                    .build())
+                            .setType(DialogManager.ERROR).show();
+
+                    if (ret == 0) {
+                        OS.openWebBrowser("https://atl.pw/javaoptionsfromlauncher");
+                        System.exit(0);
+                    } else if (ret == 2) {
+                        settings.ignoreJavaOptionsWarning = true;
+                        settings.save();
+                    }
+                }
+            }
+        } catch (Throwable t) {
+            // ignored
         }
     }
 
@@ -767,30 +812,56 @@ public class App {
     private static void parseCommandLineArguments(String[] args) {
         // Parse all the command line arguments
         OptionParser parser = new OptionParser();
-        parser.accepts("updated").withOptionalArg().ofType(Boolean.class);
-        parser.accepts("skip-setup-dialog").withOptionalArg().ofType(Boolean.class);
-        parser.accepts("skip-tray-integration").withOptionalArg().ofType(Boolean.class);
-        parser.accepts("disable-analytics").withOptionalArg().ofType(Boolean.class);
-        parser.accepts("disable-error-reporting").withOptionalArg().ofType(Boolean.class);
-        parser.accepts("skip-hash-checking").withOptionalArg().ofType(Boolean.class);
-        parser.accepts("force-offline-mode").withOptionalArg().ofType(Boolean.class);
-        parser.accepts("working-dir").withRequiredArg().ofType(String.class);
-        parser.accepts("base-launcher-domain").withRequiredArg().ofType(String.class);
-        parser.accepts("base-cdn-domain").withRequiredArg().ofType(String.class);
-        parser.accepts("base-cdn-path").withRequiredArg().ofType(String.class);
-        parser.accepts("allow-all-ssl-certs").withOptionalArg().ofType(Boolean.class);
-        parser.accepts("no-launcher-update").withOptionalArg().ofType(Boolean.class);
-        parser.accepts("no-console").withOptionalArg().ofType(Boolean.class);
-        parser.accepts("close-launcher").withOptionalArg().ofType(Boolean.class);
-        parser.accepts("debug").withOptionalArg().ofType(Boolean.class);
-        parser.accepts("debug-level").withRequiredArg().ofType(Integer.class);
-        parser.accepts("launch").withRequiredArg().ofType(String.class);
-        parser.accepts("proxy-type").withRequiredArg().ofType(String.class);
-        parser.accepts("proxy-host").withRequiredArg().ofType(String.class);
-        parser.accepts("proxy-port").withRequiredArg().ofType(Integer.class);
+        parser.accepts("updated", "If the launcher was just updated.").withOptionalArg().ofType(Boolean.class);
+        parser.accepts("skip-setup-dialog",
+                "If the first time setup dialog should be skipped, using the defaults. Note that this will enable analytics by default.")
+                .withOptionalArg().ofType(Boolean.class);
+        parser.accepts("skip-tray-integration", "If the tray icon should not be enabled.").withOptionalArg()
+                .ofType(Boolean.class);
+        parser.accepts("disable-analytics", "If analytics should be disabled.").withOptionalArg().ofType(Boolean.class);
+        parser.accepts("disable-error-reporting", "If error reporting should be disabled.").withOptionalArg()
+                .ofType(Boolean.class);
+        parser.accepts("working-dir", "This forces the working directory for the launcher.").withRequiredArg()
+                .ofType(String.class);
+        parser.accepts("base-launcher-domain", "The base launcher domain.").withRequiredArg().ofType(String.class);
+        parser.accepts("base-cdn-domain", "The base CDN domain.").withRequiredArg().ofType(String.class);
+        parser.accepts("base-cdn-path", "The path on the CDN used for downloading files.").withRequiredArg()
+                .ofType(String.class);
+        parser.accepts("allow-all-ssl-certs",
+                "This will tell the launcher to allow all SSL certs regardless of validity. This is insecure and only intended for development purposes.")
+                .withOptionalArg().ofType(Boolean.class);
+        parser.accepts("no-launcher-update",
+                "This forces the launcher to not check for a launcher update. It can be enabled with the below command line argument.")
+                .withOptionalArg().ofType(Boolean.class);
+        parser.accepts("no-console", "If the console shouldn't be shown.").withOptionalArg().ofType(Boolean.class);
+        parser.accepts("close-launcher", "If the launcher should be closed after launching an instance.")
+                .withOptionalArg().ofType(Boolean.class);
+        parser.accepts("debug", "If debug logging should be enabled.").withOptionalArg().ofType(Boolean.class);
+        parser.accepts("debug-level", "The level of debug logging that should be logged.").withRequiredArg()
+                .ofType(Integer.class);
+        parser.accepts("launch",
+                "The name of an instance to automatically launch. Can be the instances directory name in the file system or the full name of the instance.")
+                .withRequiredArg().ofType(String.class);
+        parser.accepts("proxy-type", "The type of proxy to use. Can be \"SOCKS\", \"DIRECT\" or \"HTTP\".")
+                .withRequiredArg().ofType(String.class);
+        parser.accepts("proxy-host", "The host of the proxy to use.").withRequiredArg().ofType(String.class);
+        parser.accepts("proxy-port", "The port of the proxy to use.").withRequiredArg().ofType(Integer.class);
+        parser.accepts("config-override", "A JSON string to override the launchers config.").withRequiredArg()
+                .ofType(String.class);
+        parser.acceptsAll(Arrays.asList("help", "?"), "Shows help for the arguments for the application.").forHelp();
 
         OptionSet options = parser.parse(args);
         autoLaunch = options.has("launch") ? (String) options.valueOf("launch") : null;
+
+        if (options.has("help")) {
+            try {
+                parser.printHelpOn(System.out);
+            } catch (IOException e1) {
+                e1.printStackTrace();
+            }
+
+            System.exit(0);
+        }
 
         if (options.has("debug")) {
             LogManager.showDebug = true;
@@ -825,12 +896,7 @@ public class App {
 
         if (options.has("working-dir")) {
             Path workingDirTemp = Paths.get(String.valueOf(options.valueOf("working-dir")));
-            if (Files.exists(workingDirTemp) && Files.isDirectory(workingDirTemp)) {
-                LogManager.debug("Working directory set to " + workingDirTemp + "!");
-                workingDir = workingDirTemp;
-            } else {
-                LogManager.error("Cannot set working directory to " + workingDirTemp + " as it doesn't exist!");
-            }
+            workingDir = workingDirTemp;
         }
 
         if (options.has("base-launcher-domain")) {
@@ -874,11 +940,6 @@ public class App {
             LogManager.debug("Closing launcher once Minecraft is launched!");
         }
 
-        skipHashChecking = options.has("skip-hash-checking");
-        if (skipHashChecking) {
-            LogManager.debug("Skipping hash checking! Don't ask for support with this enabled!");
-        }
-
         if (options.has("proxy-type") && options.has("proxy-host") && options.has("proxy-port")) {
             String proxyType = String.valueOf(options.valueOf("proxy-type"));
             String proxyHost = String.valueOf(options.valueOf("proxy-host"));
@@ -900,6 +961,12 @@ public class App {
                     LogManager.logStackTrace("Connection could not be established to proxy at socket [" + sa + "]", e);
                 }
             });
+        }
+
+        if (options.has("config-override")) {
+            configOverride = (String) options.valueOf("config-override");
+
+            LogManager.warn("Config overridden: " + configOverride);
         }
     }
 }

@@ -58,6 +58,9 @@ public class ModpacksChPackVersionManifestFile {
         mod.version = version;
         mod.optional = optional;
 
+        // modpacks.ch have wrong hashes quite often
+        mod.ignoreFailures = true;
+
         return mod;
     }
 }

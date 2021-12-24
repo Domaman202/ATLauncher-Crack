@@ -36,16 +36,21 @@ import com.atlauncher.data.minecraft.loaders.fabric.FabricMetaLauncherMeta;
 import com.atlauncher.data.minecraft.loaders.fabric.FabricMetaLauncherMetaTypeAdapter;
 import com.atlauncher.data.minecraft.loaders.forge.ForgeLibrary;
 import com.atlauncher.data.minecraft.loaders.forge.ForgeLibraryTypeAdapter;
+import com.atlauncher.data.minecraft.loaders.quilt.QuiltMetaLauncherMeta;
+import com.atlauncher.data.minecraft.loaders.quilt.QuiltMetaLauncherMetaTypeAdapter;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
 public final class Gsons {
-    public static final Gson DEFAULT = new GsonBuilder()
+    private static final Gson BASE = new GsonBuilder()
             .registerTypeAdapter(AbstractAccount.class, new AccountTypeAdapter())
             .registerTypeAdapter(Date.class, new DateTypeAdapter())
             .registerTypeAdapter(Color.class, new ColorTypeAdapter())
-            .registerTypeAdapter(OauthTokenResponse.class, new OauthTokenResponseTypeAdapter()).setPrettyPrinting()
-            .create();
+            .registerTypeAdapter(OauthTokenResponse.class, new OauthTokenResponseTypeAdapter()).create();
+
+    public static final Gson DEFAULT = BASE.newBuilder().setPrettyPrinting().create();
+
+    public static final Gson DEFAULT_SLIM = BASE.newBuilder().create();
 
     public static final Gson DEFAULT_ALT = new GsonBuilder().registerTypeAdapter(Color.class, new ColorTypeAdapter())
             .registerTypeAdapter(PackVersion.class, new PackVersionTypeAdapter()).setPrettyPrinting().create();
@@ -55,5 +60,6 @@ public final class Gsons {
             .registerTypeAdapter(Library.class, new LibraryTypeAdapter())
             .registerTypeAdapter(Arguments.class, new ArgumentsTypeAdapter())
             .registerTypeAdapter(FabricMetaLauncherMeta.class, new FabricMetaLauncherMetaTypeAdapter())
-            .registerTypeAdapter(ForgeLibrary.class, new ForgeLibraryTypeAdapter()).create();
+            .registerTypeAdapter(ForgeLibrary.class, new ForgeLibraryTypeAdapter())
+            .registerTypeAdapter(QuiltMetaLauncherMeta.class, new QuiltMetaLauncherMetaTypeAdapter()).create();
 }

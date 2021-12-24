@@ -19,35 +19,25 @@ package com.atlauncher.gui.card;
 
 import java.awt.BorderLayout;
 import java.awt.Cursor;
-import java.awt.Dialog.ModalityType;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
 import java.io.File;
 import java.io.IOException;
-import java.sql.Timestamp;
-import java.util.Date;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
-import javax.swing.JDialog;
 import javax.swing.JFileChooser;
-import javax.swing.JLabel;
 import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
-import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTextArea;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
 import com.atlauncher.App;
-import com.atlauncher.FileSystem;
-import com.atlauncher.builders.HTMLBuilder;
 import com.atlauncher.data.Server;
 import com.atlauncher.evnt.listener.RelocalizationListener;
 import com.atlauncher.evnt.manager.RelocalizationManager;
@@ -58,7 +48,6 @@ import com.atlauncher.managers.DialogManager;
 import com.atlauncher.managers.LogManager;
 import com.atlauncher.managers.ServerManager;
 import com.atlauncher.network.Analytics;
-import com.atlauncher.utils.ArchiveUtils;
 import com.atlauncher.utils.OS;
 import com.atlauncher.utils.Utils;
 
@@ -138,57 +127,7 @@ public class ServerCard extends CollapsiblePanel implements RelocalizationListen
         this.launchAndCloseButton.addActionListener(e -> server.launch("nogui", true));
         this.launchWithGui.addActionListener(e -> server.launch(false));
         this.launchWithGuiAndClose.addActionListener(e -> server.launch(true));
-        this.backupButton.addActionListener(e -> {
-            int ret = DialogManager.yesNoDialog().setTitle(GetText.tr("Backing Up {0}", server.name))
-                    .setContent(new HTMLBuilder().center().text(GetText.tr(
-                            "This will backup your entire server folder so you can restore in case of an incident.<br/><br/>Do you want to backup this server?"))
-                            .build())
-                    .setType(DialogManager.INFO).show();
-
-            if (ret == DialogManager.YES_OPTION) {
-                final JDialog dialog = new JDialog(App.launcher.getParent(), GetText.tr("Backing Up {0}", server.name),
-                        ModalityType.DOCUMENT_MODAL);
-                dialog.setSize(300, 100);
-                dialog.setLocationRelativeTo(App.launcher.getParent());
-                dialog.setResizable(false);
-
-                JPanel topPanel = new JPanel();
-                topPanel.setLayout(new BorderLayout());
-                JLabel doing = new JLabel(GetText.tr("Backing Up {0}", server.name));
-                doing.setHorizontalAlignment(JLabel.CENTER);
-                doing.setVerticalAlignment(JLabel.TOP);
-                topPanel.add(doing);
-
-                JPanel bottomPanel = new JPanel();
-                bottomPanel.setLayout(new BorderLayout());
-                JProgressBar progressBar = new JProgressBar();
-                bottomPanel.add(progressBar, BorderLayout.NORTH);
-                progressBar.setIndeterminate(true);
-
-                dialog.add(topPanel, BorderLayout.CENTER);
-                dialog.add(bottomPanel, BorderLayout.SOUTH);
-
-                Analytics.sendEvent(server.pack + " - " + server.version, "Backup", "Server");
-
-                final Thread backupThread = new Thread(() -> {
-                    Timestamp timestamp = new Timestamp(new Date().getTime());
-                    String time = timestamp.toString().replaceAll("[^0-9]", "_");
-                    String filename = "Server-" + server.getSafeName() + "-" + time.substring(0, time.lastIndexOf("_"))
-                            + ".zip";
-                    ArchiveUtils.extract(server.getRoot(), FileSystem.BACKUPS.resolve(filename));
-                    dialog.dispose();
-                    App.TOASTER.pop(GetText.tr("Backup is complete"));
-                });
-                backupThread.start();
-                dialog.addWindowListener(new WindowAdapter() {
-                    public void windowClosing(WindowEvent e) {
-                        backupThread.interrupt();
-                        dialog.dispose();
-                    }
-                });
-                dialog.setVisible(true);
-            }
-        });
+        this.backupButton.addActionListener(e ->  server.backup());
         this.deleteButton.addActionListener(e -> {
             int ret = DialogManager.yesNoDialog().setTitle(GetText.tr("Delete Server"))
                     .setContent(GetText.tr("Are you sure you want to delete this server?")).setType(DialogManager.ERROR)

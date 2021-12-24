@@ -41,7 +41,9 @@ import com.atlauncher.data.curseforge.pack.CurseForgeManifest;
 import com.atlauncher.data.minecraft.VersionManifestVersion;
 import com.atlauncher.data.minecraft.loaders.LoaderVersion;
 import com.atlauncher.data.modpacksch.ModpacksChPackManifest;
+import com.atlauncher.data.modrinth.pack.ModrinthModpackManifest;
 import com.atlauncher.data.multimc.MultiMCManifest;
+import com.atlauncher.data.technic.TechnicModpack;
 import com.atlauncher.managers.DialogManager;
 import com.atlauncher.managers.InstanceManager;
 import com.atlauncher.managers.LogManager;
@@ -57,6 +59,8 @@ public abstract class Installable {
     public boolean isUpdate = false;
     public boolean isReinstall = false;
     public boolean addingLoader = false;
+    public boolean changingLoader = false;
+    public boolean removingLoader = false;
     public boolean saveMods = false;
     public Instance instance;
 
@@ -65,9 +69,12 @@ public abstract class Installable {
     public boolean showModsChooser = true;
     public CurseForgeManifest curseForgeManifest;
     public Path curseExtractedPath;
+    public ModrinthModpackManifest modrinthManifest;
+    public Path modrinthExtractedPath;
     public ModpacksChPackManifest modpacksChPackManifest;
     public MultiMCManifest multiMCManifest;
     public Path multiMCExtractedPath;
+    public TechnicModpack technicModpack;
 
     public abstract Pack getPack();
 
@@ -151,8 +158,9 @@ public abstract class Installable {
         boolean saveMods = !isServer && isReinstall && this.saveMods;
 
         final InstanceInstaller instanceInstaller = new InstanceInstaller(instanceName, pack, version, isReinstall,
-                isServer, saveMods, null, showModsChooser, loaderVersion, curseForgeManifest, curseExtractedPath,
-                modpacksChPackManifest, multiMCManifest, multiMCExtractedPath) {
+                isServer, changingLoader, saveMods, null, showModsChooser, loaderVersion, curseForgeManifest,
+                curseExtractedPath, modpacksChPackManifest, modrinthManifest, modrinthExtractedPath, multiMCManifest,
+                multiMCExtractedPath, technicModpack) {
 
             protected void done() {
                 Boolean success = false;
@@ -256,9 +264,13 @@ public abstract class Installable {
                     FileUtils.deleteDirectory(this.multiMCExtractedPath);
                 }
 
+                if (this.technicModpackExtractedPath != null) {
+                    FileUtils.deleteDirectory(this.technicModpackExtractedPath);
+                }
+
                 dialog.dispose();
 
-                if (!addingLoader) {
+                if (!addingLoader && !changingLoader && !removingLoader) {
                     DialogManager.okDialog().setTitle(title).setContent(new HTMLBuilder().center().text(text).build())
                             .setType(type).show();
                 }
@@ -351,8 +363,17 @@ public abstract class Installable {
     }
 
     private String getDialogTitle(String name) {
+        if (removingLoader) {
+            return GetText.tr("Removing {0} {1}", instance.launcher.loaderVersion.type,
+                    instance.launcher.loaderVersion.version);
+        }
+
         if (addingLoader) {
             return GetText.tr("Adding {0} {1}", getLoaderVersion().type, getLoaderVersion().version);
+        }
+
+        if (changingLoader) {
+            return GetText.tr("Installing {0} {1}", getLoaderVersion().type, getLoaderVersion().version);
         }
 
         if (isReinstall) {

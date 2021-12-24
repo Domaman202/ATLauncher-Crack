@@ -34,6 +34,7 @@ import org.apache.commons.compress.archivers.ArchiveEntry;
 import org.apache.commons.compress.archivers.ArchiveInputStream;
 import org.apache.commons.compress.archivers.ArchiveOutputStream;
 import org.apache.commons.compress.archivers.ArchiveStreamFactory;
+import org.apache.commons.compress.archivers.zip.ZipArchiveInputStream;
 import org.apache.commons.compress.utils.IOUtils;
 import org.zeroturnaround.zip.NameMapper;
 import org.zeroturnaround.zip.ZipUtil;
@@ -50,10 +51,10 @@ public class ArchiveUtils {
         boolean found = false;
 
         try (InputStream is = Files.newInputStream(archivePath);
-                ArchiveInputStream ais = new ArchiveStreamFactory().createArchiveInputStream("ZIP", is)) {
+                ZipArchiveInputStream zais = new ZipArchiveInputStream(is, "UTF8", true, true)) {
             ArchiveEntry entry = null;
-            while ((entry = ais.getNextEntry()) != null) {
-                if (!ais.canReadEntryData(entry)) {
+            while ((entry = zais.getNextEntry()) != null) {
+                if (!zais.canReadEntryData(entry)) {
                     continue;
                 }
 
@@ -74,7 +75,8 @@ public class ArchiveUtils {
             return new String(ZipUtil.unpackEntry(archivePath.toFile(), file));
         } catch (Throwable t) {
             // allow this to fail as we can fallback to Apache Commons library
-            LogManager.error("Failed to get contents of file in " + archivePath.toAbsolutePath());
+            LogManager.warn(
+                    "Failed to get contents of file in " + archivePath.toAbsolutePath() + ". Trying fallback method");
         }
 
         String contents = null;
@@ -99,24 +101,24 @@ public class ArchiveUtils {
         return contents;
     }
 
-    public static void extract(Path archivePath, Path extractToPath) {
-        extract(archivePath, extractToPath, name -> name);
+    public static boolean extract(Path archivePath, Path extractToPath) {
+        return extract(archivePath, extractToPath, name -> name);
     }
 
-    public static void extract(Path archivePath, Path extractToPath, NameMapper nameMapper) {
+    public static boolean extract(Path archivePath, Path extractToPath, NameMapper nameMapper) {
         try {
             ZipUtil.unpack(archivePath.toFile(), extractToPath.toFile(), nameMapper);
-            return;
+            return true;
         } catch (Throwable t) {
             // allow this to fail as we can fallback to Apache Commons library
             LogManager.error("Failed to extract " + archivePath.toAbsolutePath());
         }
 
         try (InputStream is = Files.newInputStream(archivePath);
-                ArchiveInputStream ais = new ArchiveStreamFactory().createArchiveInputStream("ZIP", is)) {
+                ZipArchiveInputStream zais = new ZipArchiveInputStream(is, "UTF8", true, true)) {
             ArchiveEntry entry = null;
-            while ((entry = ais.getNextEntry()) != null) {
-                if (!ais.canReadEntryData(entry)) {
+            while ((entry = zais.getNextEntry()) != null) {
+                if (!zais.canReadEntryData(entry)) {
                     continue;
                 }
 
@@ -148,25 +150,26 @@ public class ArchiveUtils {
                         throw new IOException("Failed to create directory " + parent);
                     }
                     try (OutputStream o = Files.newOutputStream(f.toPath())) {
-                        IOUtils.copy(ais, o);
+                        IOUtils.copy(zais, o);
                     }
                 }
             }
         } catch (Exception e) {
             LogManager.logStackTrace(e);
+            return false;
         }
 
-        return;
+        return true;
     }
 
-    public static void createZip(Path pathToCompress, Path archivePath) {
-        createZip(pathToCompress, archivePath, name -> name);
+    public static boolean createZip(Path pathToCompress, Path archivePath) {
+        return createZip(pathToCompress, archivePath, name -> name);
     }
 
-    public static void createZip(Path pathToCompress, Path archivePath, NameMapper nameMapper) {
+    public static boolean createZip(Path pathToCompress, Path archivePath, NameMapper nameMapper) {
         try {
             ZipUtil.pack(pathToCompress.toFile(), archivePath.toFile(), nameMapper);
-            return;
+            return true;
         } catch (Throwable t) {
             // allow this to fail as we can fallback to Apache Commons library
             LogManager.error("Failed to create zip " + archivePath.toAbsolutePath() + " from "
@@ -213,8 +216,9 @@ public class ArchiveUtils {
             });
         } catch (Exception e) {
             LogManager.logStackTrace(e);
+            return false;
         }
 
-        return;
+        return true;
     }
 }

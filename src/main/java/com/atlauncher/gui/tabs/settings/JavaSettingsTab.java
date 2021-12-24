@@ -39,6 +39,8 @@ import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingUtilities;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
 
 import com.atlauncher.App;
 import com.atlauncher.builders.HTMLBuilder;
@@ -86,6 +88,12 @@ public class JavaSettingsTab extends AbstractSettingsTab implements Relocalizati
     private final JCheckBox ignoreJavaOnInstanceLaunch;
     private final JLabelWithHover useJavaProvidedByMinecraftLabel;
     private final JCheckBox useJavaProvidedByMinecraft;
+    private final JLabelWithHover disableLegacyLaunchingLabel;
+    private final JCheckBox disableLegacyLaunching;
+    private final JLabelWithHover useSystemGlfwLabel;
+    private final JCheckBox useSystemGlfw;
+    private final JLabelWithHover useSystemOpenAlLabel;
+    private final JCheckBox useSystemOpenAl;
 
     public JavaSettingsTab() {
         int systemRam = OS.getSystemRam();
@@ -110,7 +118,7 @@ public class JavaSettingsTab extends AbstractSettingsTab implements Relocalizati
 
         JPanel initialMemoryPanel = new JPanel();
         initialMemoryPanel.setLayout(new FlowLayout(FlowLayout.RIGHT, 0, 0));
-        if (!OS.is64Bit()) {
+        if (!Java.is64Bit()) {
             initialMemoryPanel.add(initialMemoryLabelWarning);
         }
         initialMemoryPanel.add(initialMemoryLabel);
@@ -125,6 +133,16 @@ public class JavaSettingsTab extends AbstractSettingsTab implements Relocalizati
         initialMemoryModel.setMaximum((systemRam == 0 ? null : systemRam));
         initialMemory = new JSpinner(initialMemoryModel);
         ((JSpinner.DefaultEditor) initialMemory.getEditor()).getTextField().setColumns(5);
+        initialMemory.addChangeListener(new ChangeListener() {
+            @Override
+            public void stateChanged(ChangeEvent e) {
+                JSpinner s = (JSpinner) e.getSource();
+                // if initial memory is larger than maximum memory, make maximum memory match
+                if ((Integer) s.getValue() > (Integer) maximumMemory.getValue()) {
+                    maximumMemory.setValue((Integer) s.getValue());
+                }
+            }
+        });
         add(initialMemory, gbc);
 
         // Maximum Memory Settings
@@ -141,7 +159,7 @@ public class JavaSettingsTab extends AbstractSettingsTab implements Relocalizati
 
         JPanel maximumMemoryPanel = new JPanel();
         maximumMemoryPanel.setLayout(new FlowLayout(FlowLayout.RIGHT, 0, 0));
-        if (!OS.is64Bit()) {
+        if (!Java.is64Bit()) {
             maximumMemoryPanel.add(new JLabelWithHover(WARNING_ICON, new HTMLBuilder().center().split(100).text(GetText
                     .tr("You're running a 32 bit Java and therefore cannot use more than 1GB of Ram. Please see http://atl.pw/32bit for help."))
                     .build(), RESTART_BORDER));
@@ -158,6 +176,16 @@ public class JavaSettingsTab extends AbstractSettingsTab implements Relocalizati
         maximumMemoryModel.setMaximum((systemRam == 0 ? null : systemRam));
         maximumMemory = new JSpinner(maximumMemoryModel);
         ((JSpinner.DefaultEditor) maximumMemory.getEditor()).getTextField().setColumns(5);
+        maximumMemory.addChangeListener(new ChangeListener() {
+            @Override
+            public void stateChanged(ChangeEvent e) {
+                JSpinner s = (JSpinner) e.getSource();
+                // if initial memory is larger than maximum memory, make initial memory match
+                if ((Integer) initialMemory.getValue() > (Integer) s.getValue()) {
+                    initialMemory.setValue(s.getValue());
+                }
+            }
+        });
         add(maximumMemory, gbc);
 
         // Perm Gen Settings
@@ -295,7 +323,17 @@ public class JavaSettingsTab extends AbstractSettingsTab implements Relocalizati
             chooser.setAcceptAllFileFilterUsed(false);
 
             if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
-                javaPath.setText(chooser.getSelectedFile().getAbsolutePath());
+                File selectedPath = chooser.getSelectedFile();
+                File jPath = new File(selectedPath, "bin");
+                File javaExe = new File(selectedPath, "java.exe");
+                File javaExecutable = new File(selectedPath, "java");
+
+                // user selected the bin dir
+                if (!jPath.exists() && (javaExe.exists() || javaExecutable.exists())) {
+                    javaPath.setText(selectedPath.getParent().toString());
+                } else {
+                    javaPath.setText(selectedPath.getAbsolutePath());
+                }
             }
         });
 
@@ -425,6 +463,59 @@ public class JavaSettingsTab extends AbstractSettingsTab implements Relocalizati
             }
         });
         add(useJavaProvidedByMinecraft, gbc);
+
+        // Disable Legacy Launching
+
+        gbc.gridx = 0;
+        gbc.gridy++;
+        gbc.insets = UIConstants.LABEL_INSETS;
+        gbc.anchor = GridBagConstraints.BASELINE_TRAILING;
+        disableLegacyLaunchingLabel = new JLabelWithHover(GetText.tr("Disable Legacy Launching") + "?", HELP_ICON,
+                new HTMLBuilder().center().text(GetText.tr(
+                        "This allows you to disable legacy launching for Minecraft < 1.6.<br/><br/>It's highly recommended to not disable this, unless you're having issues launching older Minecraft versions."))
+                        .build());
+        add(disableLegacyLaunchingLabel, gbc);
+
+        gbc.gridx++;
+        gbc.insets = UIConstants.CHECKBOX_FIELD_INSETS;
+        gbc.anchor = GridBagConstraints.BASELINE_LEADING;
+        disableLegacyLaunching = new JCheckBox();
+        disableLegacyLaunching.setSelected(App.settings.disableLegacyLaunching);
+        add(disableLegacyLaunching, gbc);
+
+        // Use System GLFW
+
+        gbc.gridx = 0;
+        gbc.gridy++;
+        gbc.insets = UIConstants.LABEL_INSETS;
+        gbc.anchor = GridBagConstraints.BASELINE_TRAILING;
+        useSystemGlfwLabel = new JLabelWithHover(GetText.tr("Use System GLFW") + "?", HELP_ICON, new HTMLBuilder()
+                .center().text(GetText.tr("Use the systems install for GLFW native library.")).build());
+        add(useSystemGlfwLabel, gbc);
+
+        gbc.gridx++;
+        gbc.insets = UIConstants.CHECKBOX_FIELD_INSETS;
+        gbc.anchor = GridBagConstraints.BASELINE_LEADING;
+        useSystemGlfw = new JCheckBox();
+        useSystemGlfw.setSelected(App.settings.useSystemGlfw);
+        add(useSystemGlfw, gbc);
+
+        // Use System OpenAL
+
+        gbc.gridx = 0;
+        gbc.gridy++;
+        gbc.insets = UIConstants.LABEL_INSETS;
+        gbc.anchor = GridBagConstraints.BASELINE_TRAILING;
+        useSystemOpenAlLabel = new JLabelWithHover(GetText.tr("Use System OpenAL") + "?", HELP_ICON, new HTMLBuilder()
+                .center().text(GetText.tr("Use the systems install for OpenAL native library.")).build());
+        add(useSystemOpenAlLabel, gbc);
+
+        gbc.gridx++;
+        gbc.insets = UIConstants.CHECKBOX_FIELD_INSETS;
+        gbc.anchor = GridBagConstraints.BASELINE_LEADING;
+        useSystemOpenAl = new JCheckBox();
+        useSystemOpenAl.setSelected(App.settings.useSystemOpenAl);
+        add(useSystemOpenAl, gbc);
     }
 
     public boolean isValidJavaPath() {
@@ -462,11 +553,19 @@ public class JavaSettingsTab extends AbstractSettingsTab implements Relocalizati
         App.settings.maximiseMinecraft = startMinecraftMaximised.isSelected();
         App.settings.ignoreJavaOnInstanceLaunch = ignoreJavaOnInstanceLaunch.isSelected();
         App.settings.useJavaProvidedByMinecraft = useJavaProvidedByMinecraft.isSelected();
+        App.settings.disableLegacyLaunching = disableLegacyLaunching.isSelected();
+        App.settings.useSystemGlfw = useSystemGlfw.isSelected();
+        App.settings.useSystemOpenAl = useSystemOpenAl.isSelected();
     }
 
     @Override
     public String getTitle() {
         return GetText.tr("Java/Minecraft");
+    }
+
+    @Override
+    public String getAnalyticsScreenViewName() {
+        return "Java/Minecraft";
     }
 
     @Override
@@ -517,6 +616,11 @@ public class JavaSettingsTab extends AbstractSettingsTab implements Relocalizati
         this.useJavaProvidedByMinecraftLabel.setText(GetText.tr("Use Java Provided By Minecraft") + "?");
         this.useJavaProvidedByMinecraftLabel.setToolTipText(new HTMLBuilder().center().text(GetText.tr(
                 "This allows you to enable/disable using the version of Java provided by the version of Minecraft you're running.<br/><br/>It's highly recommended to not disable this, unless you know what you're doing."))
+                .build());
+
+        this.disableLegacyLaunchingLabel.setText(GetText.tr("Disable Legacy Launching") + "?");
+        this.disableLegacyLaunchingLabel.setToolTipText(new HTMLBuilder().center().text(GetText.tr(
+                "This allows you to disable legacy launching for Minecraft < 1.6.<br/><br/>It's highly recommended to not disable this, unless you're having issues launching older Minecraft versions."))
                 .build());
     }
 

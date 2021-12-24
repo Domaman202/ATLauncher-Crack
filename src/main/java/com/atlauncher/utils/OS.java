@@ -25,10 +25,8 @@ import java.awt.Rectangle;
 import java.awt.Toolkit;
 import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.StringSelection;
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.lang.management.ManagementFactory;
 import java.lang.management.OperatingSystemMXBean;
 import java.lang.reflect.InvocationTargetException;
@@ -58,13 +56,13 @@ import com.atlauncher.utils.javafinder.JavaInfo;
 import oshi.SystemInfo;
 import oshi.hardware.GlobalMemory;
 import oshi.hardware.HardwareAbstractionLayer;
+import oshi.software.os.OperatingSystem;
 
 public enum OS {
     LINUX, WINDOWS, OSX;
 
     private static int memory = 0;
     private static SystemInfo systemInfo = null;
-    private static Integer memoryFromTool = null;
 
     public static OS getOS() {
         String osName = System.getProperty("os.name").toLowerCase();
@@ -103,13 +101,13 @@ public enum OS {
      */
     public static Path storagePath() {
         switch (getOS()) {
-            case WINDOWS:
-                return Paths.get(System.getenv("APPDATA")).resolve("." + Constants.LAUNCHER_NAME.toLowerCase());
-            case OSX:
-                return Paths.get(System.getProperty("user.home")).resolve("Library").resolve("Application Support")
-                        .resolve("." + Constants.LAUNCHER_NAME.toLowerCase());
-            default:
-                return Paths.get(System.getProperty("user.home")).resolve("." + Constants.LAUNCHER_NAME.toLowerCase());
+        case WINDOWS:
+            return Paths.get(System.getenv("APPDATA")).resolve("." + Constants.LAUNCHER_NAME.toLowerCase());
+        case OSX:
+            return Paths.get(System.getProperty("user.home")).resolve("Library").resolve("Application Support")
+                    .resolve("." + Constants.LAUNCHER_NAME.toLowerCase());
+        default:
+            return Paths.get(System.getProperty("user.home")).resolve("." + Constants.LAUNCHER_NAME.toLowerCase());
         }
     }
 
@@ -276,17 +274,19 @@ public enum OS {
     }
 
     /**
-     * Checks if the Java being used is 64 bit.
+     * Checks if the OS is 64 bit.
      */
     public static boolean is64Bit() {
-        return System.getProperty("sun.arch.data.model").contains("64");
-    }
+        try {
+            SystemInfo systemInfo = OS.getSystemInfo();
+            OperatingSystem os = systemInfo.getOperatingSystem();
 
-    /**
-     * Checks if Windows is 64 bit.
-     */
-    public static boolean isWindows64Bit() {
-        return System.getenv("ProgramFiles(x86)") != null;
+            return os.getBitness() == 64;
+        } catch (Throwable ignored) {
+        }
+
+        // worse case fallback to checking the Java install
+        return Java.is64Bit();
     }
 
     /**
@@ -335,13 +335,12 @@ public enum OS {
     }
 
     /**
-     * Returns the amount of RAM in the users system via the oshi (or if that fails
-     * the getMemory tool).
+     * Returns the amount of RAM in the users system via oshi.
      */
-    public static int getSystemRamViaTool() {
+    public static int getSystemRamViaOshi() {
         PerformanceManager.start();
 
-        int ram;
+        int ram = 0;
 
         try {
             SystemInfo systemInfo = getSystemInfo();
@@ -351,9 +350,6 @@ public enum OS {
             ram = (int) (globalMemory.getTotal() / 1048576);
         } catch (Throwable t) {
             LogManager.logStackTrace(t);
-
-            // getSystemInfo returned null/wrong, so use the old getMemory binary
-            ram = getMemoryFromTool();
         }
 
         PerformanceManager.end();
@@ -362,57 +358,7 @@ public enum OS {
     }
 
     /**
-     * Returns the amount of RAM in the users system via the getMemory tool.
-     */
-    public static int getMemoryFromTool() {
-        if (memoryFromTool == null) {
-            PerformanceManager.start();
-
-            String binaryFile = "getMemory";
-
-            if (OS.isArm()) {
-                binaryFile += "-arm";
-
-                if (OS.is64Bit()) {
-                    binaryFile += "64";
-                }
-            } else {
-                if (OS.is64Bit()) {
-                    binaryFile += "-x64";
-                }
-            }
-
-            if (OS.isWindows()) {
-                binaryFile += ".exe";
-            } else if (OS.isMac()) {
-                binaryFile += "-osx";
-            } else if (OS.isLinux()) {
-                binaryFile += "-linux";
-            }
-
-            if (Files.exists(FileSystem.TOOLS.resolve(binaryFile))) {
-                try {
-                    ProcessBuilder processBuilder = new ProcessBuilder(
-                            FileSystem.TOOLS.resolve(binaryFile).toAbsolutePath().toString());
-                    processBuilder.directory(FileSystem.TOOLS.toFile());
-                    processBuilder.redirectErrorStream(true);
-
-                    Process process = processBuilder.start();
-                    try (BufferedReader br = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-                        memoryFromTool = (int) (Long.parseLong(br.readLine()) / 1048576);
-                    }
-                } catch (IOException e) {
-                    LogManager.logStackTrace(e);
-                }
-            }
-            PerformanceManager.end();
-        }
-
-        return memoryFromTool;
-    }
-
-    /**
-     * Returns the system information via the getSystemInfo tool.
+     * Returns the system information via oshi.
      */
     public static SystemInfo getSystemInfo() {
         if (systemInfo == null) {
@@ -428,12 +374,12 @@ public enum OS {
      * Returns the amount of RAM in the users system.
      */
     public static int getSystemRam() {
-        // fetch the memory from the tool/bean if it's 0
+        // fetch the memory from the oshi/bean if it's 0
         if (memory == 0) {
             if (!Java.isSystemJavaNewerThanJava8()) {
                 memory = OS.getSystemRamViaBean();
             } else {
-                memory = OS.getSystemRamViaTool();
+                memory = OS.getSystemRamViaOshi();
             }
         }
 
@@ -587,27 +533,27 @@ public enum OS {
         String arch = "";
 
         switch (getOS()) {
-            case WINDOWS: {
-                name = "Windows NT " + getVersion();
+        case WINDOWS: {
+            name = "Windows NT " + getVersion();
 
-                if (OS.is64Bit()) {
-                    arch = "; Win64; x64";
-                }
-                break;
+            if (OS.is64Bit()) {
+                arch = "; Win64; x64";
             }
-            case OSX: {
-                // M1 machines still show Intel
-                name = String.format("Macintosh; Intel %s %s", getName(), getVersion().replaceAll(".", "_"));
-                break;
-            }
-            case LINUX: {
-                name = String.format("%s; Linux", getName());
+            break;
+        }
+        case OSX: {
+            // M1 machines still show Intel
+            name = String.format("Macintosh; Intel %s %s", getName(), getVersion().replaceAll(".", "_"));
+            break;
+        }
+        case LINUX: {
+            name = String.format("%s; Linux", getName());
 
-                if (OS.is64Bit()) {
-                    arch = "x86_64";
-                }
-                break;
+            if (OS.is64Bit()) {
+                arch = "x86_64";
             }
+            break;
+        }
         }
 
         return String.format("%s%s", name, arch);
