@@ -30,8 +30,8 @@ import javax.swing.ImageIcon;
 
 import com.atlauncher.FileSystem;
 import com.atlauncher.gui.dialogs.ProgressDialog;
+import com.atlauncher.gui.tabs.FeaturedPacksTab;
 import com.atlauncher.gui.tabs.InstancesTab;
-import com.atlauncher.gui.tabs.PacksTab;
 import com.atlauncher.gui.tabs.ServersTab;
 import com.atlauncher.managers.AccountManager;
 import com.atlauncher.managers.DialogManager;
@@ -68,12 +68,7 @@ public abstract class AbstractAccount implements Serializable {
     public String uuid;
 
     /**
-     * The type of the account.
-     */
-    public String type;
-
-    /**
-     * The pack names this account has collapsed in the {@link PacksTab}, if any.
+     * The pack names this account has collapsed in the {@link FeaturedPacksTab}, if any.
      */
     public List<String> collapsedPacks = new ArrayList<>();
 
@@ -97,6 +92,8 @@ public abstract class AbstractAccount implements Serializable {
     public abstract String getAccessToken();
 
     public abstract String getSessionToken();
+
+    public abstract String getUserType();
 
     public abstract String getCurrentUsername();
 

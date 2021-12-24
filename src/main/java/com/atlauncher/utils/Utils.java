@@ -23,7 +23,6 @@ import java.awt.image.BufferedImage;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
 import java.io.Closeable;
 import java.io.DataOutputStream;
 import java.io.File;
@@ -54,13 +53,15 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.security.InvalidKeyException;
 import java.security.Key;
-import java.util.Arrays;
 import java.util.Deque;
 import java.util.EnumSet;
 import java.util.Enumeration;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 import java.util.jar.JarInputStream;
 import java.util.jar.JarOutputStream;
 import java.util.regex.Pattern;
@@ -90,7 +91,6 @@ import com.google.gson.reflect.TypeToken;
 import org.tukaani.xz.LZMAInputStream;
 import org.tukaani.xz.XZInputStream;
 
-import io.pack200.Pack200;
 import net.iharder.Base64;
 
 public class Utils {
@@ -205,6 +205,7 @@ public class Utils {
             urlParameters += "text=" + URLEncoder.encode(log, "ISO-8859-1");
             URL url = new URL(Constants.PASTE_API_URL);
             URLConnection conn = url.openConnection();
+            conn.addRequestProperty("User-Agent", Network.USER_AGENT);
             conn.setDoOutput(true);
             OutputStreamWriter writer = new OutputStreamWriter(conn.getOutputStream());
             writer.write(urlParameters);
@@ -705,7 +706,6 @@ public class Utils {
     /**
      * Replace text.
      *
-     * @param originalFile    the original file
      * @param destinationFile the destination file
      * @param replaceThis     the replace this
      * @param withThis        the with this
@@ -723,6 +723,30 @@ public class Utils {
             if (line.contains(replaceThis)) {
                 line = line.replace(replaceThis, withThis);
             }
+            writer1.write(line);
+            writer1.write(System.getProperty("line.separator"));
+            line = br.readLine();
+        }
+        writer1.flush();
+        writer1.close();
+        br.close();
+    }
+
+    /**
+     * Write resource to file.
+     *
+     * @param destinationFile the destination file
+     * @throws IOException Signals that an I/O exception has occurred.
+     */
+    public static void writeResourceToFile(InputStream fs, File destinationFile)
+            throws IOException {
+
+        BufferedReader br = new BufferedReader(new InputStreamReader(fs));
+
+        FileWriter writer1 = new FileWriter(destinationFile);
+
+        String line = br.readLine();
+        while (line != null) {
             writer1.write(line);
             writer1.write(System.getProperty("line.separator"));
             line = br.readLine();
@@ -875,6 +899,117 @@ public class Utils {
             }
         }
         return false;
+    }
+
+    public static boolean combineJars(File mainJar, File jarToAdd, File outputJar) {
+        try (FileInputStream is = new FileInputStream(mainJar);
+                JarInputStream jis = new JarInputStream(is);
+                JarFile jarFile = new JarFile(mainJar);
+
+                FileInputStream is2 = new FileInputStream(jarToAdd);
+                JarInputStream jis2 = new JarInputStream(is2);
+                JarFile jarFile2 = new JarFile(jarToAdd);
+
+                FileOutputStream fos = new FileOutputStream(outputJar);
+                JarOutputStream jos = new JarOutputStream(fos)) {
+            Set<String> entriesAdded = new HashSet<>();
+            JarEntry entry;
+            while ((entry = jis2.getNextJarEntry()) != null) {
+                if (entry.getName().contains("META-INF")) {
+                    continue;
+                }
+
+                InputStream jfis = jarFile2.getInputStream(entry);
+
+                JarEntry newEntry = new JarEntry(entry.getName());
+                jos.putNextEntry(newEntry);
+                entriesAdded.add(entry.getName());
+
+                byte[] buffer = new byte[8192];
+
+                int r;
+                while ((r = jis2.read(buffer, 0, buffer.length)) >= 0) {
+                    jos.write(buffer, 0, r);
+                }
+
+                jfis.close();
+                jos.flush();
+                jos.closeEntry();
+            }
+
+            while ((entry = jis.getNextJarEntry()) != null) {
+                if (entry.getName().contains("META-INF") || entriesAdded.contains(entry.getName())) {
+                    continue;
+                }
+
+                InputStream jfis = jarFile.getInputStream(entry);
+
+                JarEntry newEntry = new JarEntry(entry.getName());
+                jos.putNextEntry(newEntry);
+                entriesAdded.add(entry.getName());
+
+                byte[] buffer = new byte[8192];
+
+                int r;
+                while ((r = jis.read(buffer, 0, buffer.length)) >= 0) {
+                    jos.write(buffer, 0, r);
+                }
+
+                jfis.close();
+                jos.flush();
+                jos.closeEntry();
+            }
+
+        } catch (Exception e) {
+            LogManager.logStackTrace(e);
+
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Checks for meta inf.
+     *
+     * @param minecraftJar the minecraft jar
+     * @return true, if successful
+     */
+    public static boolean stripMetaInf(File minecraftJar, File outputJar) {
+        try (FileInputStream is = new FileInputStream(minecraftJar);
+                JarInputStream jis = new JarInputStream(is);
+                FileOutputStream fos = new FileOutputStream(outputJar);
+                JarOutputStream jos = new JarOutputStream(fos);
+                JarFile jarFile = new JarFile(minecraftJar)) {
+            JarEntry entry;
+            while ((entry = jis.getNextJarEntry()) != null) {
+                if (entry.getName().contains("META-INF")) {
+                    continue;
+                }
+
+                InputStream jfis = jarFile.getInputStream(entry);
+
+                JarEntry newEntry = new JarEntry(entry.getName());
+                jos.putNextEntry(newEntry);
+
+                byte[] buffer = new byte[8192];
+
+                int r;
+                while ((r = jis.read(buffer, 0, buffer.length)) >= 0) {
+                    jos.write(buffer, 0, r);
+                }
+
+                jfis.close();
+                jos.flush();
+                jos.closeEntry();
+            }
+        } catch (Exception e) {
+            LogManager.logStackTrace(e);
+
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -1281,18 +1416,6 @@ public class Utils {
         return bytes;
     }
 
-    public static void unXZPackFile(File inputFile, File outputFile) throws IOException {
-        File packFile = new File(inputFile.getAbsolutePath().substring(0, inputFile.getAbsolutePath().length() - 3));
-        LogManager.debug("unXZPackFile " + inputFile.getAbsolutePath() + " : " + packFile.getAbsolutePath() + " : "
-                + outputFile.getAbsolutePath());
-
-        unXZFile(inputFile, packFile);
-        unpackFile(packFile, outputFile);
-
-        Utils.delete(inputFile);
-        Utils.delete(packFile);
-    }
-
     public static void unLzmaFile(File input, File output) {
         if (output.exists()) {
             Utils.delete(output);
@@ -1359,44 +1482,6 @@ public class Utils {
         if (xzis != null) {
             xzis.close();
         }
-    }
-
-    /*
-     * From: http://atl.pw/1
-     */
-    public static void unpackFile(File input, File output) throws IOException {
-        if (output.exists()) {
-            Utils.delete(output);
-        }
-
-        byte[] decompressed = readFile(input);
-
-        if (decompressed == null) {
-            LogManager.error("unpackFile: While reading in " + input.getName() + " the file returned null");
-            return;
-        }
-
-        String end = new String(decompressed, decompressed.length - 4, 4);
-        if (!end.equals("SIGN")) {
-            LogManager.error("unpackFile: Unpacking failed, signature missing " + end);
-            return;
-        }
-
-        int x = decompressed.length;
-        int len = ((decompressed[x - 8] & 0xFF)) | ((decompressed[x - 7] & 0xFF) << 8)
-                | ((decompressed[x - 6] & 0xFF) << 16) | ((decompressed[x - 5] & 0xFF) << 24);
-        byte[] checksums = Arrays.copyOfRange(decompressed, decompressed.length - len - 8, decompressed.length - 8);
-        FileOutputStream jarBytes = new FileOutputStream(output);
-        JarOutputStream jos = new JarOutputStream(jarBytes);
-
-        Pack200.newUnpacker().unpack(new ByteArrayInputStream(decompressed), jos);
-
-        jos.putNextEntry(new JarEntry("checksums.sha1"));
-        jos.write(checksums);
-        jos.closeEntry();
-
-        jos.close();
-        jarBytes.close();
     }
 
     private static String getMACAdressHash() {
@@ -1541,6 +1626,34 @@ public class Utils {
     public static String runProcess(String... command) {
         try {
             ProcessBuilder processBuilder = new ProcessBuilder(command);
+            processBuilder.redirectErrorStream(true);
+
+            Process process = processBuilder.start();
+            BufferedReader br = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            StringBuilder sb = new StringBuilder();
+
+            try {
+                String line;
+
+                while ((line = br.readLine()) != null) {
+                    sb.append(line).append("\n");
+                }
+            } finally {
+                br.close();
+            }
+
+            return sb.toString().trim();
+        } catch (IOException e) {
+            LogManager.logStackTrace(e);
+        }
+
+        return "";
+    }
+
+    public static String runProcess(Path workingDir, String... command) {
+        try {
+            ProcessBuilder processBuilder = new ProcessBuilder(command);
+            processBuilder.directory(workingDir.toFile());
             processBuilder.redirectErrorStream(true);
 
             Process process = processBuilder.start();

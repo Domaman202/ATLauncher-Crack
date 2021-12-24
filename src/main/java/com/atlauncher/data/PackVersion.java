@@ -33,14 +33,31 @@ public class PackVersion {
     public String loaderType;
     public transient Integer _modpacksChId = null;
     public transient CurseForgeFile _curseForgeFile = null;
+    public transient boolean _technicRecommended = false;
+    public transient boolean _technicLatest = false;
 
     public String getSafeVersion() {
         return this.version.replaceAll("[^A-Za-z0-9]", "");
     }
 
     public String toString() {
+        String versionString = getVersionString();
+
+        if (_technicRecommended) {
+            return versionString + " (Recommended)";
+        }
+
+        if (_technicLatest) {
+            return versionString + " (Latest)";
+        }
+
+        return versionString;
+    }
+
+    private String getVersionString() {
         if (this.minecraftVersion == null || (this.minecraftVersion.id.equalsIgnoreCase(this.version)
-                && this.minecraftVersion.type != VersionManifestVersionType.SNAPSHOT)) {
+                && this.minecraftVersion.type != VersionManifestVersionType.SNAPSHOT
+                && this.minecraftVersion.type != VersionManifestVersionType.EXPERIMENT)) {
             return this.version;
         }
 
@@ -49,8 +66,17 @@ public class PackVersion {
             return this.version + " (Snapshot)";
         }
 
+        if (this.minecraftVersion.id.equalsIgnoreCase(this.version)
+                && this.minecraftVersion.type == VersionManifestVersionType.EXPERIMENT) {
+            return this.version + " (Experiment)";
+        }
+
         if (this.minecraftVersion.type == VersionManifestVersionType.SNAPSHOT) {
             return this.version + " (" + this.minecraftVersion.id + ")" + " (Snapshot)";
+        }
+
+        if (this.minecraftVersion.type == VersionManifestVersionType.EXPERIMENT) {
+            return this.version + " (" + this.minecraftVersion.id + ")" + " (Experiment)";
         }
 
         return this.version + " (" + this.minecraftVersion.id + ")";

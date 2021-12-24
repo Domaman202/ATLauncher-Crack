@@ -47,9 +47,9 @@ import org.mini2Dx.gettext.GetText;
 
 @SuppressWarnings("serial")
 public final class CurseForgeFileDependencyCard extends JPanel {
-    private Window parent;
+    private final Window parent;
     private final CurseForgeFileDependency dependency;
-    private Instance instance;
+    private final Instance instance;
 
     public CurseForgeFileDependencyCard(Window parent, CurseForgeFileDependency dependency, Instance instance) {
         this.parent = parent;
@@ -106,7 +106,7 @@ public final class CurseForgeFileDependencyCard extends JPanel {
 
         Optional<CurseForgeAttachment> attachment = mod.attachments.stream().filter(a -> a.isDefault).findFirst();
         if (attachment.isPresent()) {
-            new BackgroundImageWorker(icon, attachment.get().thumbnailUrl).execute();
+            new BackgroundImageWorker(icon, attachment.get().thumbnailUrl, 60, 60).execute();
         }
     }
 }

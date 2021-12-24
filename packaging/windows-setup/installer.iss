@@ -1,11 +1,14 @@
 #define MyAppName "ATLauncher"
 #define MyAppURL "https://atlauncher.com"
+#define MyAppVersion "1.0.0.0"
 
 [Setup]
 AppId={{2F5FDA11-45A5-4CC3-8E51-5E11E2481697}
 AppName={#MyAppName}
 AppVerName={#MyAppName}
 AppPublisher={#MyAppName}
+AppVersion={#MyAppVersion}
+VersionInfoVersion={#MyAppVersion}
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
@@ -20,9 +23,9 @@ SetupIconFile=..\..\src\main\resources\assets\image\icon.ico
 WizardImageFile=wizardimage.bmp
 Compression=lzma
 SolidCompression=yes
-OutputBaseFilename={#MyAppName}-setup
+OutputBaseFilename={#MyAppName}-setup-{#MyAppVersion}
 UninstallDisplayIcon={app}\{#MyAppName}.exe
-UninstallDisplayName={#MyAppName}
+UninstallDisplayName={#MyAppName} Setup
 WizardStyle=modern
 ChangesAssociations=yes
 
@@ -40,7 +43,7 @@ Source: "{tmp}\jre.zip"; DestDir: "{tmp}"; Flags: external deleteafterinstall; C
 
 [Components]
 Name: "atlauncher"; Description: "ATLauncher"; ExtraDiskSpaceRequired: 20000000; Types: full compact custom; Flags: fixed
-Name: "java"; Description: "Install Java"; ExtraDiskSpaceRequired: 99192832; Types: full
+Name: "java"; Description: "Install Java"; ExtraDiskSpaceRequired: 99401728; Types: full
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -69,7 +72,7 @@ procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if (CurStep = ssPostInstall) then begin
     if WizardIsComponentSelected('java') then begin
-      if not RenameFile(ExpandConstant('{app}/jdk8u282-b08-jre'), ExpandConstant('{app}/jre')) then begin
+      if not RenameFile(ExpandConstant('{app}/jdk8u312-b07-jre'), ExpandConstant('{app}/jre')) then begin
         MsgBox('Failed to rename jre directory. Please try again or uncheck the "Install Java" option', mbError, MB_OK);
         WizardForm.Close;
       end
@@ -86,9 +89,9 @@ begin
 
     if WizardIsComponentSelected('java') then begin
       if IsWin64 then begin
-        DownloadPage.Add('https://github.com/AdoptOpenJDK/openjdk8-binaries/releases/download/jdk8u282-b08/OpenJDK8U-jre_x64_windows_hotspot_8u282b08.zip', 'jre.zip', '58f2bbf0e5abc6dee7ee65431fd2fc95cdb2c3d10126045c5882f739dda79c3b');
+        DownloadPage.Add('https://github.com/adoptium/temurin8-binaries/releases/download/jdk8u312-b07/OpenJDK8U-jre_x64_windows_hotspot_8u312b07.zip', 'jre.zip', 'a4623365d70e7bc969e84b7f29b6b2eecb6c0686863ed67651506e2b5adf43b0');
       end else begin
-        DownloadPage.Add('https://github.com/AdoptOpenJDK/openjdk8-binaries/releases/download/jdk8u282-b08/OpenJDK8U-jre_x86-32_windows_hotspot_8u282b08.zip', 'jre.zip', 'f7748dbdfc904a7e713aebec1aabdaf7b0a18b90517adec55b93f921dce8dd65');
+        DownloadPage.Add('https://github.com/adoptium/temurin8-binaries/releases/download/jdk8u312-b07/OpenJDK8U-jre_x86-32_windows_hotspot_8u312b07.zip', 'jre.zip', '789cfa21858156084020ee885ade643556dc57ddec2b44745b5489edb7945b64');
       end;
     end;
 

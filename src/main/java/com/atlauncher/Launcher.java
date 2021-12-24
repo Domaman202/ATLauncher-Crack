@@ -39,13 +39,14 @@ import com.atlauncher.constants.Constants;
 import com.atlauncher.data.DownloadableFile;
 import com.atlauncher.data.LauncherVersion;
 import com.atlauncher.gui.dialogs.ProgressDialog;
+import com.atlauncher.gui.tabs.FeaturedPacksTab;
 import com.atlauncher.gui.tabs.InstancesTab;
 import com.atlauncher.gui.tabs.NewsTab;
-import com.atlauncher.gui.tabs.PacksTab;
+import com.atlauncher.gui.tabs.PacksBrowserTab;
 import com.atlauncher.gui.tabs.ServersTab;
-import com.atlauncher.gui.tabs.VanillaPacksTab;
 import com.atlauncher.managers.AccountManager;
 import com.atlauncher.managers.CheckingServersManager;
+import com.atlauncher.managers.ConfigManager;
 import com.atlauncher.managers.CurseForgeUpdateManager;
 import com.atlauncher.managers.DialogManager;
 import com.atlauncher.managers.InstanceManager;
@@ -56,6 +57,7 @@ import com.atlauncher.managers.NewsManager;
 import com.atlauncher.managers.PackManager;
 import com.atlauncher.managers.PerformanceManager;
 import com.atlauncher.managers.ServerManager;
+import com.atlauncher.managers.TechnicModpackUpdateManager;
 import com.atlauncher.network.Analytics;
 import com.atlauncher.network.DownloadPool;
 import com.atlauncher.utils.Java;
@@ -79,9 +81,8 @@ public class Launcher {
     private InstancesTab instancesPanel; // The instances panel
     private ServersTab serversPanel; // The instances panel
     private NewsTab newsPanel; // The news panel
-    private VanillaPacksTab vanillaPacksPanel; // The vanilla packs panel
-    private PacksTab featuredPacksPanel; // The featured packs panel
-    private PacksTab packsPanel; // The packs panel
+    private FeaturedPacksTab featuredPacksPanel; // The featured packs panel
+    private PacksBrowserTab packsBrowserPanel; // The packs browser panel
 
     // Update thread
     private Thread updateThread;
@@ -90,30 +91,15 @@ public class Launcher {
     private Process minecraftProcess = null; // The process minecraft is running on
     public boolean minecraftLaunched = false; // If Minecraft has been Launched
 
-    public void checkIfWeCanLoad() {
-        if (!Java.isUsingJavaSupportingLetsEncrypt()) {
-            LogManager.warn("You're using an old version of Java that will not work!");
-
-            DialogManager.optionDialog().setTitle(GetText.tr("Unsupported Java Version"))
-                    .setContent(new HTMLBuilder().center().text(GetText.tr(
-                            "You're using an unsupported version of Java. You need to upgrade your Java to at minimum Java 8 version 141.<br/><br/>The launcher will not start until you do this.<br/><br/>If you're seeing this message even after installing a newer version, you may need to uninstall the old version first.<br/><br/>Click ok to open the Java download page and close the launcher."))
-                            .build())
-                    .addOption(GetText.tr("Ok")).setType(DialogManager.ERROR).show();
-
-            OS.openWebBrowser("https://atl.pw/java8download");
-            System.exit(0);
-        }
-    }
-
     public void loadEverything() {
         PerformanceManager.start();
         if (hasUpdatedFiles()) {
             downloadUpdatedFiles(); // Downloads updated files on the server
         }
 
-        checkForLauncherUpdate();
+//        checkForLauncherUpdate();
 
-        addExecutableBitToTools();
+        ConfigManager.loadConfig(); // Load the config
 
         NewsManager.loadNews(); // Load the news
 
@@ -138,7 +124,7 @@ public class Launcher {
 
         PackManager.removeUnusedImages(); // remove unused pack images
 
-        if (OS.isWindows() && !OS.is64Bit() && OS.isWindows64Bit()) {
+        if (OS.isWindows() && !Java.is64Bit() && OS.is64Bit()) {
             LogManager.warn("You're using 32 bit Java on a 64 bit Windows install!");
 
             int ret = DialogManager.yesNoDialog().setTitle(GetText.tr("Running 32 Bit Java on 64 Bit Windows"))
@@ -150,45 +136,6 @@ public class Launcher {
             if (ret == 0) {
                 OS.openWebBrowser("https://atlauncher.com/help/32bit/");
                 System.exit(0);
-            }
-        }
-
-        if (Java.isMinecraftJavaNewerThanJava8() && !App.settings.hideJava9Warning) {
-            LogManager.warn("You're using a newer version of Java than Java 8! Modpacks may not launch!");
-
-            int ret = DialogManager.optionDialog()
-                    .setTitle(GetText.tr("Warning! You may not be able to play Minecraft"))
-                    .setContent(new HTMLBuilder().center().text(GetText.tr(
-                            "You're using Java 9 or newer! Older modpacks may not work.<br/><br/>If you have issues playing some packs, you may need to install Java 8 and set it to be used in the launchers java settings"))
-                            .build())
-                    .addOption(GetText.tr("Download"), true).addOption(GetText.tr("Ok"))
-                    .addOption(GetText.tr("Don't Remind Me Again")).setType(DialogManager.WARNING).show();
-
-            if (ret == 0) {
-                OS.openWebBrowser("https://atl.pw/java8download");
-                System.exit(0);
-            } else if (ret == 2) {
-                App.settings.hideJava9Warning = true;
-                App.settings.save();
-            }
-        }
-
-        if (!Java.isJava7OrAbove(true) && !App.settings.hideOldJavaWarning) {
-            LogManager.warn("You're using an old unsupported version of Java (Java 7 or older)!");
-
-            int ret = DialogManager.optionDialog().setTitle(GetText.tr("Unsupported Java Version"))
-                    .setContent(new HTMLBuilder().center().text(GetText.tr(
-                            "You're using an unsupported version of Java. You should upgrade your Java to at minimum Java 7.<br/><br/>Without Java 7 some mods will refuse to load meaning you cannot play.<br/><br/>Click Download to go to the Java downloads page"))
-                            .build())
-                    .addOption(GetText.tr("Download"), true).addOption(GetText.tr("Ok"))
-                    .addOption(GetText.tr("Don't Remind Me Again")).setType(DialogManager.WARNING).show();
-
-            if (ret == 0) {
-                OS.openWebBrowser("https://atl.pw/java8download");
-                System.exit(0);
-            } else if (ret == 2) {
-                App.settings.hideOldJavaWarning = true;
-                App.settings.save();
             }
         }
 
@@ -300,17 +247,24 @@ public class Launcher {
             if (InstanceManager.getInstances().stream().anyMatch(i -> i.isCurseForgePack())) {
                 CurseForgeUpdateManager.checkForUpdates();
             }
+            if (InstanceManager.getInstances().stream().anyMatch(i -> i.isTechnicPack())) {
+                TechnicModpackUpdateManager.checkForUpdates();
+            }
         });
         updateThread.start();
     }
 
     public void updateData() {
+        updateData(false);
+    }
+
+    public void updateData(boolean force) {
         if (checkForUpdatedFiles()) {
             reloadLauncherData();
         }
 
-        MinecraftManager.loadMinecraftVersions(); // Load info about the different Minecraft versions
-        MinecraftManager.loadJavaRuntimes(); // Load info about the different java runtimes
+        MinecraftManager.loadMinecraftVersions(force); // Load info about the different Minecraft versions
+        MinecraftManager.loadJavaRuntimes(force); // Load info about the different java runtimes
     }
 
     public void reloadLauncherData() {
@@ -325,15 +279,15 @@ public class Launcher {
             if (hasUpdatedFiles()) {
                 downloadUpdatedFiles(); // Downloads updated files on the server
             }
-            checkForLauncherUpdate();
+//            checkForLauncherUpdate();
             checkForExternalPackUpdates();
-            addExecutableBitToTools();
 
+            ConfigManager.loadConfig(); // Load the config
             NewsManager.loadNews(); // Load the news
             reloadNewsPanel(); // Reload news panel
             PackManager.loadPacks(); // Load the Packs available in the Launcher
             reloadFeaturedPacksPanel(); // Reload packs panel
-            reloadPacksPanel(); // Reload packs panel
+            reloadPacksBrowserPanel();// Reload packs browser panel
             PackManager.loadUsers(); // Load the Testers and Allowed Players for the packs
             InstanceManager.loadInstances(); // Load the users installed Instances
             reloadInstancesPanel(); // Reload instances panel
@@ -344,7 +298,7 @@ public class Launcher {
         dialog.setVisible(true);
     }
 
-    private void checkForLauncherUpdate() {
+    /*private void checkForLauncherUpdate() {
         PerformanceManager.start();
 
         LogManager.debug("Checking for launcher update");
@@ -365,21 +319,7 @@ public class Launcher {
         }
         LogManager.debug("Finished checking for launcher update");
         PerformanceManager.end();
-    }
-
-    private void addExecutableBitToTools() {
-        PerformanceManager.start();
-        File[] files = FileSystem.TOOLS.toFile().listFiles();
-        if (files != null) {
-            for (File file : files) {
-                if (!file.canExecute()) {
-                    LogManager.info("Executable bit being set on " + file.getName());
-                    file.setExecutable(true);
-                }
-            }
-        }
-        PerformanceManager.end();
-    }
+    }*/
 
     /**
      * Sets the main parent JFrame reference for the Launcher
@@ -433,30 +373,21 @@ public class Launcher {
     }
 
     /**
-     * Sets the panel used for Vanilla Packs
-     *
-     * @param vanillaPacksPanel Vanilla Packs Panel
-     */
-    public void setVanillaPacksPanel(VanillaPacksTab vanillaPacksPanel) {
-        this.vanillaPacksPanel = vanillaPacksPanel;
-    }
-
-    /**
      * Sets the panel used for Featured Packs
      *
      * @param featuredPacksPanel Featured Packs Panel
      */
-    public void setFeaturedPacksPanel(PacksTab featuredPacksPanel) {
+    public void setFeaturedPacksPanel(FeaturedPacksTab featuredPacksPanel) {
         this.featuredPacksPanel = featuredPacksPanel;
     }
 
     /**
-     * Sets the panel used for Packs
+     * Sets the panel used for the Packs Browser
      *
-     * @param packsPanel Packs Panel
+     * @param packsBrowserPanel Packs Browser Panel
      */
-    public void setPacksPanel(PacksTab packsPanel) {
-        this.packsPanel = packsPanel;
+    public void setPacksBrowserPanel(PacksBrowserTab packsBrowserPanel) {
+        this.packsBrowserPanel = packsBrowserPanel;
     }
 
     /**
@@ -490,17 +421,17 @@ public class Launcher {
     }
 
     /**
-     * Reloads the panel used for Packs
+     * Reloads the panel used for the Packs browser
      */
-    public void reloadPacksPanel() {
-        this.packsPanel.reload(); // Reload the instances panel
+    public void reloadPacksBrowserPanel() {
+        this.packsBrowserPanel.reload(); // Reload the packs browser panel
     }
 
     /**
-     * Refreshes the panel used for Packs
+     * Refreshes the panel used for  thePacks browser
      */
-    public void refreshPacksPanel() {
-        this.packsPanel.refresh(); // Refresh the instances panel
+    public void refreshPacksBrowserPanel() {
+        this.packsBrowserPanel.refresh(); // Refresh the packs browser panel
     }
 
     public void showKillMinecraft(Process minecraft) {
@@ -516,7 +447,7 @@ public class Launcher {
         if (this.minecraftProcess != null) {
             LogManager.error("Killing Minecraft");
 
-            if (App.settings.enableDiscordIntegration && App.discordInitialized) {
+            if (App.discordInitialized) {
                 DiscordRPC.discordClearPresence();
             }
 

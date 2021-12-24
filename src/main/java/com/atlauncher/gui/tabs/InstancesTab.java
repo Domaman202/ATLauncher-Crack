@@ -40,8 +40,6 @@ import com.atlauncher.evnt.listener.RelocalizationListener;
 import com.atlauncher.evnt.manager.RelocalizationManager;
 import com.atlauncher.gui.card.InstanceCard;
 import com.atlauncher.gui.card.NilCard;
-import com.atlauncher.gui.dialogs.AddCurseForgePackDialog;
-import com.atlauncher.gui.dialogs.AddFTBPackDialog;
 import com.atlauncher.gui.dialogs.ImportInstanceDialog;
 import com.atlauncher.managers.InstanceManager;
 import com.atlauncher.network.Analytics;
@@ -75,12 +73,6 @@ public class InstancesTab extends JPanel implements Tab, RelocalizationListener 
         JButton importButton = new JButton(GetText.tr("Import"));
         importButton.addActionListener(e -> new ImportInstanceDialog());
 
-        JButton addCurseForgePackButton = new JButton(GetText.tr("Add CurseForge Pack"));
-        addCurseForgePackButton.addActionListener(e -> new AddCurseForgePackDialog());
-
-        JButton addFTBPackButton = new JButton(GetText.tr("Add FTB Pack"));
-        addFTBPackButton.addActionListener(e -> new AddFTBPackDialog());
-
         searchField = new JTextField(16);
         if (keepFilters) {
             searchField.setText(this.searchText);
@@ -111,10 +103,6 @@ public class InstancesTab extends JPanel implements Tab, RelocalizationListener 
         topPanel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
 
         topPanel.add(importButton);
-        topPanel.add(Box.createHorizontalStrut(5));
-        topPanel.add(addCurseForgePackButton);
-        topPanel.add(Box.createHorizontalStrut(5));
-        topPanel.add(addFTBPackButton);
         topPanel.add(Box.createHorizontalGlue());
         topPanel.add(searchField);
         topPanel.add(Box.createHorizontalStrut(5));
@@ -183,6 +171,11 @@ public class InstancesTab extends JPanel implements Tab, RelocalizationListener 
     @Override
     public String getTitle() {
         return GetText.tr("Instances");
+    }
+
+    @Override
+    public String getAnalyticsScreenViewName() {
+        return "Instances";
     }
 
     @Override

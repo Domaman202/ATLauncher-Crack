@@ -44,12 +44,11 @@ public class Settings {
     // Launcher things
     public String lastAccount;
     public boolean usingCustomJavaPath = false;
-    public boolean hideOldJavaWarning = false;
     public boolean firstTimeRun = true;
-    public boolean hideJava9Warning = false;
     public List<String> addedPacks = new ArrayList<>();
     public boolean ignoreOneDriveWarning = false;
     public boolean ignoreProgramFilesWarning = false;
+    public boolean ignoreJavaOptionsWarning = false;
 
     // Window settings
     public boolean rememberWindowSizePosition = false;
@@ -61,11 +60,11 @@ public class Settings {
     // General
     public String language = "English";
     public String theme = Constants.DEFAULT_THEME_CLASS;
-    public String dateFormat = "dd/MM/yyyy";
-    public String instanceTitleFormat = "dd/MM/yyyy";
+    public String dateFormat = Constants.DATE_FORMATS[0];
+    public String instanceTitleFormat = Constants.INSTANCE_TITLE_FORMATS[0];
     public int selectedTabOnStartup = 0;
     public boolean sortPacksAlphabetically = false;
-    public Boolean showPackNameAndVersion = true;
+    public Boolean showPackNameAndVersion = null;
     public boolean keepLauncherOpen = true;
     public boolean enableConsole = true;
     public boolean enableTrayMenu = true;
@@ -92,6 +91,9 @@ public class Settings {
     public boolean maximiseMinecraft = false;
     public boolean ignoreJavaOnInstanceLaunch = false;
     public boolean useJavaProvidedByMinecraft = true;
+    public boolean disableLegacyLaunching = false;
+    public boolean useSystemGlfw = false;
+    public boolean useSystemOpenAl = false;
 
     // Network
     public int concurrentConnections = 8;
@@ -117,6 +119,12 @@ public class Settings {
     // Backups
     public boolean enableAutomaticBackupAfterLaunch = false;
     public BackupMode backupMode = BackupMode.NORMAL;
+
+    // Commands
+    public boolean enableCommands = false;
+    public String preLaunchCommand = null;
+    public String postExitCommand = null;
+    public String wrapperCommand = null;
 
     public void convert(Properties properties) {
         String importedDateFormat = properties.getProperty("dateformat");
@@ -178,16 +186,6 @@ public class Settings {
         String importedFirstTimeRun = properties.getProperty("firsttimerun");
         if (importedFirstTimeRun != null) {
             firstTimeRun = Boolean.parseBoolean(importedFirstTimeRun);
-        }
-
-        String importedHideOldJavaWarning = properties.getProperty("hideoldjavawarning");
-        if (importedHideOldJavaWarning != null) {
-            hideOldJavaWarning = Boolean.parseBoolean(importedHideOldJavaWarning);
-        }
-
-        String importedHideJava9Warning = properties.getProperty("hideJava9Warning");
-        if (importedHideJava9Warning != null) {
-            hideJava9Warning = Boolean.parseBoolean(importedHideJava9Warning);
         }
 
         String importedForgeLoggingLevel = properties.getProperty("forgelogginglevel");
@@ -382,14 +380,6 @@ public class Settings {
             javaPath = OS.getDefaultJavaPath();
         }
 
-        // TODO: figure out why this nonsense is here
-        if (OS.isUsingMacApp()) {
-            File oracleJava = new File("/Library/Internet Plug-Ins/JavaAppletPlugin.plugin/Contents/Home/bin/java");
-            if (oracleJava.exists() && oracleJava.canExecute()) {
-                javaPath = "/Library/Internet Plug-Ins/JavaAppletPlugin.plugin/Contents/Home";
-            }
-        }
-
         // now validate the java path actually exists
         if (!new File(javaPath, "bin" + File.separator + "java" + (OS.isWindows() ? ".exe" : "")).exists()) {
             LogManager.warn("Custom Java Path Is Incorrect! Defaulting to valid value!");
@@ -398,16 +388,19 @@ public class Settings {
     }
 
     private void validateMemory() {
+        boolean needToSave = false;
         int systemMemory = OS.getMaximumRam();
 
         if (systemMemory != 0 && initialMemory > systemMemory) {
             LogManager.warn("Tried to allocate " + initialMemory + "MB for initial memory but only " + systemMemory
                     + "MB is available to use!");
             initialMemory = 512;
+            needToSave = true;
         } else if (initialMemory > maximumMemory) {
             LogManager.warn("Tried to allocate " + initialMemory + "MB for initial memory which is more than "
                     + maximumMemory + "MB set for the maximum memory!");
             initialMemory = 512;
+            needToSave = true;
         }
 
         if (systemMemory != 0 && maximumMemory > systemMemory) {
@@ -416,9 +409,15 @@ public class Settings {
 
             if (OS.is64Bit()) {
                 maximumMemory = Math.min((systemMemory / 1000) * 512, 8192);
+                needToSave = true;
             } else {
                 maximumMemory = 1024;
+                needToSave = true;
             }
+        }
+
+        if (needToSave) {
+            save();
         }
     }
 

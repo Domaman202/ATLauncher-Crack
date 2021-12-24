@@ -21,6 +21,8 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.Optional;
 
+import com.atlauncher.builders.HTMLBuilder;
+import com.atlauncher.data.microsoft.Entitlements;
 import com.atlauncher.data.microsoft.LoginResponse;
 import com.atlauncher.data.microsoft.OauthTokenResponse;
 import com.atlauncher.data.microsoft.Profile;
@@ -29,6 +31,7 @@ import com.atlauncher.gui.dialogs.LoginWithMicrosoftDialog;
 import com.atlauncher.managers.AccountManager;
 import com.atlauncher.managers.DialogManager;
 import com.atlauncher.managers.LogManager;
+import com.atlauncher.network.DownloadException;
 import com.atlauncher.utils.MicrosoftAuthAPI;
 
 import org.mini2Dx.gettext.GetText;
@@ -78,7 +81,6 @@ public class MicrosoftAccount extends AbstractAccount {
         this.minecraftUsername = profile.name;
         this.uuid = profile.id;
         this.username = loginResponse.username;
-        this.type = "Xbox";
         this.mustLogin = false;
 
         this.accessTokenExpiresAt = new Date();
@@ -96,8 +98,20 @@ public class MicrosoftAccount extends AbstractAccount {
     }
 
     @Override
+    public String getUserType() {
+        return "msa";
+    }
+
+    @Override
     public String getCurrentUsername() {
-        Profile profile = MicrosoftAuthAPI.getMcProfile(accessToken);
+        Profile profile = null;
+
+        try {
+            profile = MicrosoftAuthAPI.getMcProfile(accessToken);
+        } catch (Exception e) {
+            LogManager.error("Error getting Minecraft profile");
+            return null;
+        }
 
         if (profile == null) {
             LogManager.error("Error getting Minecraft profile");
@@ -114,7 +128,14 @@ public class MicrosoftAccount extends AbstractAccount {
 
     @Override
     public String getSkinUrl() {
-        Profile profile = MicrosoftAuthAPI.getMcProfile(accessToken);
+        Profile profile = null;
+
+        try {
+            profile = MicrosoftAuthAPI.getMcProfile(accessToken);
+        } catch (Exception e) {
+            LogManager.error("Error getting Minecraft profile");
+            return null;
+        }
 
         if (profile == null) {
             LogManager.error("Error getting Minecraft profile");
@@ -172,6 +193,23 @@ public class MicrosoftAccount extends AbstractAccount {
                     return false;
                 }
 
+                Entitlements entitlements = MicrosoftAuthAPI.getEntitlements(loginResponse.accessToken);
+
+                if (!(entitlements.items.stream().anyMatch(i -> i.name.equalsIgnoreCase("product_minecraft"))
+                        && entitlements.items.stream().anyMatch(i -> i.name.equalsIgnoreCase("game_minecraft")))) {
+                    LogManager.error("This account doesn't have a valid purchase of Minecraft");
+                    return false;
+                }
+
+                // make sure they have a Minecraft profile before saving logins
+                if (!checkAndUpdateProfile(loginResponse.accessToken)) {
+                    mustLogin = true;
+                    AccountManager.saveAccounts();
+
+                    return false;
+                }
+
+                this.mustLogin = false;
                 this.accessToken = loginResponse.accessToken;
                 this.username = loginResponse.username;
 
@@ -192,11 +230,50 @@ public class MicrosoftAccount extends AbstractAccount {
         return true;
     }
 
+    /**
+     * This will check the user has a Minecraft profile (Game Pass subscribers will
+     * not until first login of the Minecraft Launcher).
+     *
+     * If an account doesn't have a Minecraft profile, then they either don't own
+     * Minecraft Java edition, or their Game Pass subscription has expired and no
+     * longer has a profile.
+     *
+     * @param accessToken
+     */
+    private boolean checkAndUpdateProfile(String accessToken) {
+        Profile profile = null;
+
+        try {
+            profile = MicrosoftAuthAPI.getMcProfile(accessToken);
+        } catch (DownloadException e) {
+            LogManager.error("Minecraft Profile not found");
+            DialogManager.okDialog().setTitle(GetText.tr("Minecraft Profile Not Found"))
+                    .setContent(new HTMLBuilder().center().text(GetText.tr(
+                            "No Minecraft profiles were found for this account. Have you purchased Minecraft?<br/><br/>Please make sure you've bought the Java edition of Minecraft and then try again.<br/><br/>If you're an Xbox Game Pass subscriber, make sure to login and play through the Minecraft<br/>Launcher once in order to create your Minecraft profile, then try logging in again."))
+                            .build())
+                    .setType(DialogManager.ERROR).show();
+            return false;
+        } catch (Exception e) {
+            LogManager.logStackTrace("Failed to get Minecraft profile", e);
+            return false;
+        }
+
+        if (profile == null) {
+            LogManager.error("Failed to get Minecraft profile");
+            return false;
+        }
+
+        this.minecraftUsername = profile.name;
+        this.uuid = profile.id;
+
+        return true;
+    }
+
     private String getIdentityToken() {
         return "XBL3.0 x=" + xstsAuth.displayClaims.xui.get(0).uhs + ";" + xstsAuth.token;
     }
 
-    public boolean ensureAccessTokenValid() {
+    public boolean ensureAccountIsLoggedIn() {
         boolean hasCancelled = false;
         while (mustLogin) {
             int ret = DialogManager.okCancelDialog().setTitle(GetText.tr("You Must Login Again"))
@@ -212,6 +289,14 @@ public class MicrosoftAccount extends AbstractAccount {
         }
 
         if (hasCancelled) {
+            return false;
+        }
+
+        return true;
+    }
+
+    public boolean ensureAccessTokenValid() {
+        if (!ensureAccountIsLoggedIn()) {
             return false;
         }
 

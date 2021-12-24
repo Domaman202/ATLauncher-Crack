@@ -31,6 +31,7 @@ import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
 import java.util.jar.JarInputStream;
 import java.util.jar.Manifest;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -40,6 +41,7 @@ import com.atlauncher.data.minecraft.Arguments;
 import com.atlauncher.data.minecraft.Library;
 import com.atlauncher.data.minecraft.loaders.Loader;
 import com.atlauncher.data.minecraft.loaders.LoaderVersion;
+import com.atlauncher.managers.ConfigManager;
 import com.atlauncher.managers.LogManager;
 import com.atlauncher.network.Download;
 import com.atlauncher.utils.Utils;
@@ -51,6 +53,7 @@ public class FabricLoader implements Loader {
     protected FabricMetaVersion version;
     protected File tempDir;
     protected InstanceInstaller instanceInstaller;
+    private final Pattern manifestPattern = Pattern.compile("META-INF/[^/]+\\.(SF|DSA|RSA|EC)");
 
     @Override
     public void set(Map<String, Object> metadata, File tempDir, InstanceInstaller instanceInstaller,
@@ -174,7 +177,8 @@ public class FabricLoader implements Loader {
                     try (FileInputStream is = new FileInputStream(f); JarInputStream jis = new JarInputStream(is)) {
                         JarEntry entry;
                         while ((entry = jis.getNextJarEntry()) != null) {
-                            if (!addedEntries.contains(entry.getName())) {
+                            if (!addedEntries.contains(entry.getName())
+                                    && !manifestPattern.matcher(entry.getName()).matches()) {
                                 JarEntry newEntry = new JarEntry(entry.getName());
                                 zipOutputStream.putNextEntry(newEntry);
 
@@ -228,7 +232,11 @@ public class FabricLoader implements Loader {
                     .setUrl(String.format("https://meta.fabricmc.net/v2/versions/loader/%s", minecraft))
                     .asTypeWithThrow(type);
 
-            return versions.stream().map(version -> new LoaderVersion(version.loader.version, false, "Fabric"))
+            List<String> disabledVersions = ConfigManager.getConfigItem("loaders.fabric.disabledVersions",
+                    new ArrayList<String>());
+
+            return versions.stream().filter(fv -> !disabledVersions.contains(fv.loader.version))
+                    .map(version -> new LoaderVersion(version.loader.version, false, "Fabric"))
                     .collect(Collectors.toList());
         } catch (IOException e) {
             return new ArrayList<>();

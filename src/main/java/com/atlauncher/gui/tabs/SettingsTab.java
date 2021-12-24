@@ -31,6 +31,7 @@ import com.atlauncher.evnt.manager.RelocalizationManager;
 import com.atlauncher.evnt.manager.SettingsManager;
 import com.atlauncher.evnt.manager.ThemeManager;
 import com.atlauncher.gui.tabs.settings.BackupsSettingsTab;
+import com.atlauncher.gui.tabs.settings.CommandsSettingsTab;
 import com.atlauncher.gui.tabs.settings.GeneralSettingsTab;
 import com.atlauncher.gui.tabs.settings.JavaSettingsTab;
 import com.atlauncher.gui.tabs.settings.LoggingSettingsTab;
@@ -52,9 +53,10 @@ public class SettingsTab extends JPanel implements Tab, RelocalizationListener {
     private final LoggingSettingsTab loggingSettingsTab = new LoggingSettingsTab();
     private final ToolsSettingsTab toolsSettingsTab = new ToolsSettingsTab();
     private final BackupsSettingsTab backupsSettingsTab = new BackupsSettingsTab();
-    private final List<Tab> tabs = Arrays
-            .asList(new Tab[] { this.generalSettingsTab, this.modsSettingsTab, this.javaSettingsTab,
-                    this.networkSettingsTab, this.loggingSettingsTab, this.toolsSettingsTab, this.backupsSettingsTab });
+    private final CommandsSettingsTab commandSettingsTab = new CommandsSettingsTab();
+    private final List<Tab> tabs = Arrays.asList(
+            new Tab[] { this.generalSettingsTab, this.modsSettingsTab, this.javaSettingsTab, this.networkSettingsTab,
+                    this.loggingSettingsTab, this.toolsSettingsTab, this.backupsSettingsTab, this.commandSettingsTab });
     private final JTabbedPane tabbedPane;
     private final JButton saveButton = new JButton(GetText.tr("Save"));
 
@@ -91,10 +93,11 @@ public class SettingsTab extends JPanel implements Tab, RelocalizationListener {
                 loggingSettingsTab.save();
                 toolsSettingsTab.save();
                 backupsSettingsTab.save();
+                commandSettingsTab.save();
                 App.settings.save();
                 SettingsManager.post();
                 if (reloadPacksPanel) {
-                    App.launcher.reloadPacksPanel();
+                    App.launcher.reloadPacksBrowserPanel();
                 }
                 if (reloadInstancesPanel) {
                     App.launcher.reloadInstancesPanel();
@@ -114,15 +117,19 @@ public class SettingsTab extends JPanel implements Tab, RelocalizationListener {
             }
         });
 
-        tabbedPane.addChangeListener(
-                e -> Analytics.sendScreenView(((Tab) tabbedPane.getSelectedComponent()).getTitle() + " Settings"));
-
-        Analytics.sendScreenView(((Tab) tabbedPane.getSelectedComponent()).getTitle() + " Settings");
+        tabbedPane.addChangeListener(e -> Analytics
+                .sendScreenView(((Tab) tabbedPane.getSelectedComponent()).getAnalyticsScreenViewName() + " Settings"));
     }
 
     @Override
     public String getTitle() {
         return GetText.tr("Settings");
+    }
+
+    @Override
+    public String getAnalyticsScreenViewName() {
+        // since this is the default, this is the main view name
+        return "General Settings";
     }
 
     @Override

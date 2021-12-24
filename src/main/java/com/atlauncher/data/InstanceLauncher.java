@@ -28,7 +28,9 @@ import com.atlauncher.data.json.Java;
 import com.atlauncher.data.minecraft.loaders.LoaderVersion;
 import com.atlauncher.data.modpacksch.ModpacksChPackManifest;
 import com.atlauncher.data.modpacksch.ModpacksChPackVersionManifest;
+import com.atlauncher.data.modrinth.pack.ModrinthModpackManifest;
 import com.atlauncher.data.multimc.MultiMCManifest;
+import com.atlauncher.data.technic.TechnicModpack;
 import com.google.gson.annotations.SerializedName;
 
 @Json
@@ -37,7 +39,10 @@ public class InstanceLauncher {
     public String pack;
     public String description;
     public Integer packId;
-    public Integer externaPackId;
+
+    @SerializedName(value = "externalPackId", alternate = { "externaPackId" })
+    public Integer externalPackId;
+
     public String version;
     public String hash;
 
@@ -58,6 +63,15 @@ public class InstanceLauncher {
     public String javaPath;
     public String javaArguments;
     public String account;
+    public Boolean enableDiscordIntegration = null;
+    public Boolean useJavaProvidedByMinecraft = null;
+    public Boolean disableLegacyLaunching = null;
+    public Boolean enableCommands = null;
+    public String preLaunchCommand = null;
+    public String postExitCommand = null;
+    public String wrapperCommand = null;
+    public Boolean useSystemGlfw = null;
+    public Boolean useSystemOpenAl = null;
 
     public boolean isDev;
     public boolean isPlayable;
@@ -69,8 +83,10 @@ public class InstanceLauncher {
     public CurseForgeProject curseForgeProject;
     public CurseForgeFile curseForgeFile;
     public MultiMCManifest multiMCManifest;
+    public ModrinthModpackManifest modrinthManifest;
     public ModpacksChPackManifest modpacksChPackManifest;
     public ModpacksChPackVersionManifest modpacksChPackVersionManifest;
+    public TechnicModpack technicModpack;
 
     public List<DisableableMod> mods = new ArrayList<>();
     public List<String> ignoredUpdates = new ArrayList<>();

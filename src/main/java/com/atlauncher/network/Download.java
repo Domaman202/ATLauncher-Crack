@@ -46,6 +46,7 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 
+// TODO: fuck this file, it's shit, I hate it
 public final class Download {
     public static final int MAX_ATTEMPTS = 3;
 
@@ -57,6 +58,7 @@ public final class Download {
     public Path extractedTo;
     public Path copyTo;
     private boolean ignoreFailures = false;
+    private boolean deleteAfterExtract = false;
     private String hash;
     private Long fingerprint = null;
     public long size = -1L;
@@ -65,7 +67,7 @@ public final class Download {
     private OkHttpClient httpClient = Network.CLIENT;
     private RequestBody post = null;
     private CacheControl cacheControl = null;
-    private Map<String, String> headers = new HashMap<String, String>();
+    private final Map<String, String> headers = new HashMap<String, String>();
 
     // generated on/after request
     public Response response;
@@ -212,6 +214,12 @@ public final class Download {
 
     public Download ignoreFailures() {
         this.ignoreFailures = true;
+
+        return this;
+    }
+
+    public Download deleteAfterExtract() {
+        this.deleteAfterExtract = true;
 
         return this;
     }
@@ -378,7 +386,7 @@ public final class Download {
                 if (this.response == null) {
                     this.execute();
                 }
-                long size = Long.parseLong(this.response.header("Content-Length"));
+                long size = Long.parseLong(this.response.header("Content-Length", "0"));
 
                 if (size == -1L) {
                     this.size = 0L;
@@ -386,11 +394,8 @@ public final class Download {
                     this.size = size;
                 }
             }
-        } catch (Exception ignored) {
-            if (this.response != null) {
-                this.response.close();
-                this.response = null;
-            }
+        } catch (Exception e) {
+            LogManager.logStackTrace(e);
             return -1;
         }
 
@@ -500,8 +505,19 @@ public final class Download {
         // download the file to disk
         this.downloadDirect();
 
-        // check if the hash matches (or they're ignored and file isn't 0 bytes)
-        if ((this.ignoreFailures && this.to.toFile().length() != 0) || hashMatches()) {
+        boolean hashMatches = hashMatches();
+
+        // if hash matches we're good
+        if (hashMatches) {
+            return true;
+        }
+
+        // if hash doesn't match but we're ignoring failures, then pass it if not 0 in
+        // size and log a warning
+        if (this.ignoreFailures && this.to.toFile().length() != 0) {
+            LogManager
+                    .warn(String.format("%s (of size %d) hash didn't match, but we're ignoring failures, so continuing",
+                            this.to.getFileName(), this.to.toFile().length()));
             return true;
         }
 
@@ -606,7 +622,7 @@ public final class Download {
             boolean downloaded = this.downloadRec(1);
 
             if (!downloaded) {
-                if (this.response.header("content-type").contains("text/html")) {
+                if (this.response != null && this.response.header("content-type").contains("text/html")) {
                     LogManager.error(
                             "The response from this request was a HTML response. This is usually caused by an antivirus or firewall software intercepting and rewriting the response. The response is below.");
 
@@ -667,7 +683,7 @@ public final class Download {
         }
     }
 
-    private void runPostProcessors() {
+    public void runPostProcessors() {
         if (this.response != null) {
             this.response.close();
         }
@@ -676,6 +692,10 @@ public final class Download {
             FileUtils.createDirectory(this.unzipTo);
 
             ArchiveUtils.extract(this.to, this.unzipTo);
+
+            if (this.deleteAfterExtract) {
+                FileUtils.delete(this.to);
+            }
         }
 
         if (Files.exists(this.to) && this.executable) {
