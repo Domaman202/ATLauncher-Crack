@@ -36,6 +36,7 @@ public final class FileSystem {
     public static final Path LOGS = BASE_DIR.resolve("logs");
     public static final Path BACKUPS = BASE_DIR.resolve("backups");
     public static final Path CACHE = BASE_DIR.resolve("cache");
+    public static final Path REMOTE_IMAGE_CACHE = CACHE.resolve("remote_image");
     public static final Path LOADERS = BASE_DIR.resolve("loaders");
     public static final Path RUNTIMES = BASE_DIR.resolve("runtimes");
     public static final Path MINECRAFT_RUNTIMES = RUNTIMES.resolve("minecraft");
@@ -46,7 +47,6 @@ public final class FileSystem {
     public static final Path SKINS = IMAGES.resolve("skins");
     public static final Path JSON = CONFIGS.resolve("json");
     public static final Path THEMES = CONFIGS.resolve("themes");
-    public static final Path TOOLS = CONFIGS.resolve("tools");
 
     public static final Path ASSETS = BASE_DIR.resolve("assets");
     public static final Path RESOURCES_LOG_CONFIGS = ASSETS.resolve("log_configs");
@@ -58,6 +58,7 @@ public final class FileSystem {
     public static final Path LIBRARIES = BASE_DIR.resolve("libraries");
 
     public static final Path DOWNLOADS = BASE_DIR.resolve("downloads");
+    public static final Path TECHNIC_DOWNLOADS = DOWNLOADS.resolve("technic");
     public static final Path INSTANCES = BASE_DIR.resolve("instances");
     public static final Path SERVERS = BASE_DIR.resolve("servers");
     public static final Path TEMP = BASE_DIR.resolve("temp");
@@ -101,6 +102,10 @@ public final class FileSystem {
         if (Files.exists(CONFIGS.resolve("instancesdata"))) {
             FileUtils.delete(CONFIGS.resolve("instancesdata"));
         }
+
+        if (Files.exists(CONFIGS.resolve("tools"))) {
+            FileUtils.delete(CONFIGS.resolve("tools"));
+        }
     }
 
     private static void cleanTempDirectory() {
@@ -120,7 +125,6 @@ public final class FileSystem {
         renameDirectory(CONFIGS.resolve("Skins"), SKINS);
         renameDirectory(CONFIGS.resolve("JSON"), JSON);
         renameDirectory(CONFIGS.resolve("Themes"), THEMES);
-        renameDirectory(CONFIGS.resolve("Tools"), TOOLS);
     }
 
     private static void renameDirectory(Path from, Path to) {
@@ -154,8 +158,11 @@ public final class FileSystem {
     }
 
     private static void createDirectories() {
+        FileUtils.createDirectory(BASE_DIR);
+
         FileUtils.createDirectory(BACKUPS);
         FileUtils.createDirectory(CACHE);
+        FileUtils.createDirectory(REMOTE_IMAGE_CACHE);
         FileUtils.createDirectory(INSTANCES);
         FileUtils.createDirectory(LIBRARIES);
         FileUtils.createDirectory(LOADERS);
@@ -171,7 +178,6 @@ public final class FileSystem {
         FileUtils.createDirectory(SKINS);
         FileUtils.createDirectory(JSON);
         FileUtils.createDirectory(THEMES);
-        FileUtils.createDirectory(TOOLS);
 
         FileUtils.createDirectory(ASSETS);
         FileUtils.createDirectory(RESOURCES_INDEXES);
@@ -181,6 +187,7 @@ public final class FileSystem {
         FileUtils.createDirectory(RESOURCES_VIRTUAL_LEGACY);
 
         FileUtils.createDirectory(DOWNLOADS);
+        FileUtils.createDirectory(TECHNIC_DOWNLOADS);
         FileUtils.createDirectory(FAILED_DOWNLOADS);
     }
 

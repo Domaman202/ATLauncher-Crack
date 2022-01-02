@@ -18,9 +18,12 @@
 package com.atlauncher.managers;
 
 import java.io.CharArrayWriter;
+import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import com.atlauncher.Gsons;
 import com.atlauncher.evnt.LogEvent;
@@ -30,13 +33,29 @@ import com.atlauncher.network.Analytics;
 import com.atlauncher.network.DownloadException;
 import com.atlauncher.network.ErrorReporting;
 import com.atlauncher.thread.LoggingThread;
+import com.atlauncher.utils.SystemOutInterceptor;
 
 public final class LogManager {
     private static final BlockingQueue<LogEvent> queue = new ArrayBlockingQueue<>(128);
     public static boolean showDebug = false;
 
+    private static final Pattern LOG4J_THREAD_REGEX = Pattern.compile("<log4j:Event.*?thread=\"(.*?)\".*?>");
+    private static final Pattern LOG4J_LEVEL_REGEX = Pattern.compile("<log4j:Event.*?level=\"(.*?)\".*?>");
+    private static final Pattern LOG4J_MESSAGE_REGEX = Pattern
+            .compile("<log4j:Message><!\\[CDATA\\[(.*?)\\]\\]></log4j:Message>");
+
     public static void start() {
         new LoggingThread(queue).start();
+
+        redirectSystemOutLogs();
+    }
+
+    private static void redirectSystemOutLogs() {
+        PrintStream origOut = System.out;
+        PrintStream origErr = System.err;
+
+        System.setOut(new SystemOutInterceptor(origOut, LogType.DEBUG));
+        System.setErr(new SystemOutInterceptor(origErr, LogType.ERROR));
     }
 
     /**
@@ -202,5 +221,38 @@ public final class LogManager {
         }
 
         return new Object[] { type, message };
+    }
+
+    public static void minecraftLog4j(String string) {
+        String thread = "";
+        String message = "";
+        String levelString = "";
+        LogType level = LogType.INFO;
+
+        Matcher threadMatcher = LOG4J_THREAD_REGEX.matcher(string);
+        if (threadMatcher.find()) {
+            thread = threadMatcher.group(1);
+        }
+
+        Matcher levelMatcher = LOG4J_LEVEL_REGEX.matcher(string);
+        if (levelMatcher.find()) {
+            levelString = levelMatcher.group(1);
+
+            if (levelString.equalsIgnoreCase("INFO")) {
+                level = LogType.INFO;
+            } else if (levelString.equalsIgnoreCase("ERROR") || levelString.equalsIgnoreCase("SEVERE")) {
+                level = LogType.ERROR;
+            } else if (levelString.equalsIgnoreCase("WARN")) {
+                level = LogType.WARN;
+            }
+        }
+
+        Matcher messageMatcher = LOG4J_MESSAGE_REGEX.matcher(string);
+        if (messageMatcher.find()) {
+            message = messageMatcher.group(1);
+        }
+
+        queue.offer(new LogEvent(level, String.format("[%s/%s] %s", thread, levelString, message),
+                LogEvent.CONSOLE));
     }
 }

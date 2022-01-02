@@ -72,8 +72,9 @@ public class Constants {
     // CurseForge domains, endpoints, config, etc
     public static final String CURSEFORGE_API_URL = "https://addons-ecs.forgesvc.net/api/v2";
     public static final String CURSEFORGE_HOST = "addons-ecs.forgesvc.net";
-    public static final int CURSEFORGE_FABRIC_CATEGORY_ID = 4780;
-    public static final int CURSEFORGE_PAGINATION_SIZE = 40;
+    public static final int CURSEFORGE_FORGE_MODLOADER_ID = 1;
+    public static final int CURSEFORGE_FABRIC_MODLOADER_ID = 4;
+    public static final int CURSEFORGE_PAGINATION_SIZE = 20;
     public static final int CURSEFORGE_FABRIC_MOD_ID = 306612;
     public static final int CURSEFORGE_JUMPLOADER_MOD_ID = 361988;
     public static final int CURSEFORGE_MODS_SECTION_ID = 6;
@@ -85,22 +86,32 @@ public class Constants {
     public static final String MODRINTH_API_URL = "https://api.modrinth.com/api/v1";
     public static final String MODRINTH_HOST = "api.modrinth.com";
     public static final String MODRINTH_FABRIC_MOD_ID = "P7dR8mSH";
-    public static final int MODRINTH_PAGINATION_SIZE = 40;
+    public static final int MODRINTH_PAGINATION_SIZE = 20;
 
     // Modpacks.ch domains, endpoints, config, etc
     public static final String MODPACKS_CH_API_URL = "https://api.modpacks.ch/public";
     public static final String MODPACKS_CH_HOST = "api.modpacks.ch";
     public static final int MODPACKS_CH_PAGINATION_SIZE = 20;
 
+    // Technic domains, endpoints, config, etc
+    public static final String TECHNIC_API_URL = "https://api.technicpack.net";
+    public static final String TECHNIC_HOST = "api.technicpack.net";
+    public static final int TECHNIC_PAGINATION_SIZE = 20;
+
     // Forge domains, endpoints, etc
     public static final String FORGE_MAVEN = "https://maven.minecraftforge.net/net/minecraftforge/forge";
     public static final String FORGE_PROMOTIONS_FILE = "https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json";
     public static final String FORGE_MAVEN_BASE = "https://maven.minecraftforge.net/";
     public static final String FORGE_HOST = "maven.minecraftforge.net";
+    public static final String FORGE_OLD_MAVEN_BASE = "https://files.minecraftforge.net/maven/";
 
     // Fabric domains, endpoints, etc
     public static final String FABRIC_MAVEN = "https://maven.fabricmc.net/";
     public static final String FABRIC_HOST = "maven.fabricmc.net";
+
+    // Quilt domains, endpoints, etc
+    public static final String QUILT_MAVEN = "https://maven.quiltmc.org/repository/release/";
+    public static final String QUILT_HOST = "maven.quiltmc.org";
 
     // Minecraft domains, endpoints, etc
     public static final String LAUNCHER_META_MINECRAFT = "https://launchermeta.mojang.com";
@@ -116,7 +127,8 @@ public class Constants {
     public static final String LEGACY_JAVA_FIXER_MD5 = "12c337cb2445b56b097e7c25a5642710";
     public static final String[] DATE_FORMATS = { "dd/MM/yyyy", "MM/dd/yyyy", "yyyy/MM/dd", "dd MMMM yyyy",
             "dd-MM-yyyy", "MM-dd-yyyy", "yyyy-MM-dd" };
-    public static final String[] INSTANCE_TITLE_FORMATS = { "%1$s (%2$s %3$s)", "%1$s", "%1$s (%4$s)" }; // instance name, pack name, pack version, minecraft version
+    // instance name, pack name, pack version, minecraft version
+    public static final String[] INSTANCE_TITLE_FORMATS = { "%1$s (%2$s %3$s)", "%1$s", "%1$s (%4$s)" };
     public static final String[] SCREEN_RESOLUTIONS = { "854x480", "1280x720", "1366x768", "1600x900", "1920x1080",
             "2560x1440", "3440x1440", "3840x2160" };
     public static final String DEFAULT_JAVA_PARAMETERS = "-XX:+UnlockExperimentalVMOptions -XX:+UseG1GC -XX:G1NewSizePercent=20 -XX:G1ReservePercent=20 -XX:MaxGCPauseMillis=50 -XX:G1HeapRegionSize=32M";
@@ -137,9 +149,9 @@ public class Constants {
     public static final String MICROSOFT_AUTH_TOKEN_URL = "https://login.live.com/oauth20_token.srf";
     public static final String MICROSOFT_XBL_AUTH_TOKEN_URL = "https://user.auth.xboxlive.com/user/authenticate";
     public static final String MICROSOFT_XSTS_AUTH_TOKEN_URL = "https://xsts.auth.xboxlive.com/xsts/authorize";
-    public static final String MICROSOFT_MINECRAFT_LOGIN_URL = "https://api.minecraftservices.com/authentication/login_with_xbox";
-    public static final String MICROSOFT_MINECRAFT_STORE_URL = "https://api.minecraftservices.com/entitlements/mcstore";
+    public static final String MICROSOFT_MINECRAFT_LOGIN_URL = "https://api.minecraftservices.com/launcher/login";
     public static final String MICROSOFT_MINECRAFT_PROFILE_URL = "https://api.minecraftservices.com/minecraft/profile";
+    public static final String MICROSOFT_MINECRAFT_ENTITLEMENTS_URL = "https://api.minecraftservices.com/entitlements/license";
 
     public static void setBaseLauncherDomain(String baseLauncherDomain) {
         String host = baseLauncherDomain.replace("https://", "").replace("http://", "");

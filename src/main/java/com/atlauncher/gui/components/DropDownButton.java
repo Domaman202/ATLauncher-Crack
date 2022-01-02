@@ -22,9 +22,11 @@ import java.awt.Graphics;
 import java.awt.Insets;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
 
 import javax.swing.JButton;
 import javax.swing.JPopupMenu;
+import javax.swing.UIManager;
 
 import com.atlauncher.App;
 import com.atlauncher.utils.Utils;
@@ -32,10 +34,16 @@ import com.atlauncher.utils.Utils;
 @SuppressWarnings("serial")
 public class DropDownButton extends JButton {
     private final JPopupMenu popupMenu;
+    private final boolean isSeparated;
 
     public DropDownButton(String label, JPopupMenu popupMenu) {
+        this(label, popupMenu, false, null);
+    }
+
+    public DropDownButton(String label, JPopupMenu popupMenu, boolean isSeparated, MouseListener l) {
         super(label);
         this.popupMenu = popupMenu;
+        this.isSeparated = isSeparated;
 
         setPreferredSize(new Dimension(getPreferredSize().width + 16, getPreferredSize().height));
         setMargin(new Insets(0, 0, 0, 12));
@@ -43,9 +51,13 @@ public class DropDownButton extends JButton {
         addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
-                popupMenu.setPreferredSize(new Dimension(Math.max(getWidth(), popupMenu.getPreferredSize().width),
-                        popupMenu.getPreferredSize().height));
-                popupMenu.show(DropDownButton.this, 0, getHeight());
+                if (isSeparated && e.getX() < getWidth() - 24 && l != null) {
+                    l.mousePressed(e);
+                } else {
+                    popupMenu.setPreferredSize(new Dimension(Math.max(getWidth(), popupMenu.getPreferredSize().width),
+                            popupMenu.getPreferredSize().height));
+                    popupMenu.show(DropDownButton.this, 0, getHeight());
+                }
             }
         });
     }
@@ -53,9 +65,12 @@ public class DropDownButton extends JButton {
     @Override
     public void paint(Graphics g) {
         super.paint(g);
-        g.drawImage(
-                Utils.getIconImage(App.THEME.getIconPath((popupMenu.isShowing() ? "expanded" : "collapsed")))
-                        .getImage(),
-                getWidth() - 20, ((getHeight() - 12) / 2), null);
+        g.drawImage(Utils.getIconImage(App.THEME.getIconPath((popupMenu.isShowing() ? "expanded" : "collapsed")))
+                .getImage(), getWidth() - 20, ((getHeight() - 12) / 2), null);
+
+        if (isSeparated) {
+            g.setColor(UIManager.getColor("Button.borderColor"));
+            g.drawLine(getWidth() - 24, 4, getWidth() - 24, getHeight() - 4);
+        }
     }
 }

@@ -93,7 +93,6 @@ public class MojangAccount extends AbstractAccount {
         this.remember = remember;
         this.clientToken = clientToken;
         this.store = store;
-        this.type = "mojang";
     }
 
     @Override
@@ -204,6 +203,11 @@ public class MojangAccount extends AbstractAccount {
         return String.format("token:%s:%s", this.getAccessToken(), this.getUUIDNoDashes());
     }
 
+    @Override
+    public String getUserType() {
+        return "mojang";
+    }
+
     public LoginResponse login() {
         LoginResponse response = null;
 
@@ -212,7 +216,7 @@ public class MojangAccount extends AbstractAccount {
             response = Authentication.login(this, false);
         }
 
-        if (response == null || response.hasError()) {
+        if (response == null || (response.hasError() && !response.isOffline())) {
             LogManager.error("Access token is NOT valid! Will attempt to get another one!");
 
             response = Authentication.login(MojangAccount.this, true);

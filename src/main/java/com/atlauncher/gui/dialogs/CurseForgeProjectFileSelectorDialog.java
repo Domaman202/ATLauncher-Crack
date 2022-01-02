@@ -51,6 +51,7 @@ import com.atlauncher.managers.LogManager;
 import com.atlauncher.managers.MinecraftManager;
 import com.atlauncher.network.Analytics;
 import com.atlauncher.utils.CurseForgeApi;
+import com.atlauncher.utils.OS;
 
 import org.mini2Dx.gettext.GetText;
 
@@ -58,11 +59,13 @@ import org.mini2Dx.gettext.GetText;
 public class CurseForgeProjectFileSelectorDialog extends JDialog {
     private int filesLength = 0;
     private final CurseForgeProject mod;
-    private Instance instance;
+    private final Instance instance;
     private Integer installedFileId = null;
 
     private final JPanel dependenciesPanel = new JPanel(new FlowLayout());
     private JButton addButton;
+    private JButton viewModButton;
+    private JButton viewFileButton;
     private JLabel versionsLabel;
     private JLabel installedJLabel;
     private JComboBox<CurseForgeFile> filesDropdown;
@@ -107,6 +110,12 @@ public class CurseForgeProjectFileSelectorDialog extends JDialog {
 
         addButton = new JButton(GetText.tr("Add"));
         addButton.setEnabled(false);
+
+        viewModButton = new JButton(GetText.tr("View Mod"));
+        viewModButton.setEnabled(false);
+
+        viewFileButton = new JButton(GetText.tr("View File"));
+        viewFileButton.setEnabled(false);
 
         dependenciesPanel.setVisible(false);
         dependenciesPanel
@@ -164,6 +173,16 @@ public class CurseForgeProjectFileSelectorDialog extends JDialog {
             dispose();
         });
 
+        viewModButton.addActionListener(e -> {
+            OS.openWebBrowser(mod.websiteUrl);
+        });
+
+        viewFileButton.addActionListener(e -> {
+            CurseForgeFile file = (CurseForgeFile) filesDropdown.getSelectedItem();
+
+            OS.openWebBrowser(String.format("%s/files/%d", mod.websiteUrl, file.id));
+        });
+
         filesDropdown.addActionListener(e -> {
             CurseForgeFile selectedFile = (CurseForgeFile) filesDropdown.getSelectedItem();
 
@@ -201,6 +220,8 @@ public class CurseForgeProjectFileSelectorDialog extends JDialog {
         JButton cancel = new JButton(GetText.tr("Cancel"));
         cancel.addActionListener(e -> dispose());
         bottom.add(addButton);
+        bottom.add(viewModButton);
+        bottom.add(viewFileButton);
         bottom.add(cancel);
 
         add(top, BorderLayout.NORTH);
@@ -238,11 +259,11 @@ public class CurseForgeProjectFileSelectorDialog extends JDialog {
 
             // filter out mods that are explicitely for Forge/Fabric and not our loader
             curseForgeFilesStream = curseForgeFilesStream.filter(cf -> {
-                if (cf.gameVersion.contains("Forge") && loaderVersion.isFabric()) {
+                if (cf.gameVersion.contains("Forge") && loaderVersion != null && loaderVersion.isFabric()) {
                     return false;
                 }
 
-                if (cf.gameVersion.contains("Fabric") && !loaderVersion.isFabric()) {
+                if (cf.gameVersion.contains("Fabric") && loaderVersion != null && !loaderVersion.isFabric()) {
                     return false;
                 }
 
@@ -308,6 +329,8 @@ public class CurseForgeProjectFileSelectorDialog extends JDialog {
             versionsLabel.setVisible(true);
             filesDropdown.setVisible(true);
             addButton.setEnabled(true);
+            viewModButton.setEnabled(true);
+            viewFileButton.setEnabled(true);
             filesDropdown.setEnabled(true);
         };
 

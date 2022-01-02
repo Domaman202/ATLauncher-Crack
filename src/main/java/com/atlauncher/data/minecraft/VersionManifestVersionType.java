@@ -22,6 +22,17 @@ import com.google.gson.annotations.SerializedName;
 
 @Json
 public enum VersionManifestVersionType {
+    @SerializedName("experiment")
+    EXPERIMENT {
+        public String getValue() {
+            return "experiment";
+        }
+
+        public String toString() {
+            return "Experiment";
+        }
+    },
+
     @SerializedName("snapshot")
     SNAPSHOT {
         public String getValue() {

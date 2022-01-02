@@ -157,6 +157,7 @@ public class InstanceExportDialog extends JDialog {
         gbc.anchor = GridBagConstraints.BASELINE_LEADING;
         final JComboBox<ComboItem<InstanceExportFormat>> format = new JComboBox<>();
         format.addItem(new ComboItem<>(InstanceExportFormat.CURSEFORGE, "CurseForge"));
+        format.addItem(new ComboItem<>(InstanceExportFormat.MODRINTH, "Modrinth"));
         format.addItem(new ComboItem<>(InstanceExportFormat.MULTIMC, "MultiMC"));
         topPanel.add(format, gbc);
 
@@ -279,6 +280,12 @@ public class InstanceExportDialog extends JDialog {
             dialog.start();
         });
         bottomPanel.add(exportButton);
+
+        JButton cancelButton = new JButton(GetText.tr("Cancel"));
+        cancelButton.addActionListener(arg0 -> {
+            close();
+        });
+        bottomPanel.add(cancelButton);
 
         add(topPanel, BorderLayout.CENTER);
         add(bottomPanel, BorderLayout.SOUTH);

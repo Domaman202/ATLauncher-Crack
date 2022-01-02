@@ -17,6 +17,8 @@
  */
 package com.atlauncher.data.minecraft.loaders;
 
+import com.atlauncher.data.Instance;
+
 public class LoaderVersion {
     public String version;
     public String rawVersion;
@@ -54,11 +56,71 @@ public class LoaderVersion {
         return this.type.equalsIgnoreCase("Forge");
     }
 
+    public boolean isQuilt() {
+        return this.type.equalsIgnoreCase("Quilt");
+    }
+
     public String toString() {
         if (this.recommended) {
             return this.version + " (Recommended)";
         }
 
         return this.version;
+    }
+
+    public LoaderType getLoaderType() {
+        if (isFabric()) {
+            return LoaderType.FABRIC;
+        }
+
+        if (isQuilt()) {
+            return LoaderType.QUILT;
+        }
+
+        return LoaderType.FORGE;
+    }
+
+    public String toStringWithCurrent(Instance instance) {
+        String string = this.version;
+
+        if (this.recommended) {
+            string += " (Recommended)";
+        }
+
+        if (instance != null && instance.launcher.loaderVersion != null
+                && instance.launcher.loaderVersion.version.equals(this.version)) {
+            string += " (Current)";
+        }
+
+        return string;
+    }
+
+    public boolean shouldInstallServerScripts() {
+        // Forge 37 and newer (assumed) provide their own scripts for launching
+        if (this.isForge() && Integer.parseInt(this.version.substring(0, this.version.indexOf(".")), 10) >= 37) {
+            return false;
+        }
+
+        return true;
+    }
+
+    public String getTypeForModrinthExport() {
+        if (this.isFabric()) {
+            return "fabric-loader";
+        }
+
+        return "forge";
+    }
+
+    public Integer getAnalyticsValue() {
+        if (isForge()) {
+            return 1;
+        }
+
+        if (isFabric()) {
+            return 2;
+        }
+
+        return 3;
     }
 }

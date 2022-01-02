@@ -275,40 +275,40 @@ public class DisableableMod implements Serializable {
             dir = base.resolve(path).toFile();
         } else {
             switch (type) {
-            case jar:
-            case forge:
-            case mcpc:
-                dir = base.resolve("jarmods").toFile();
-                break;
-            case texturepack:
-                dir = base.resolve("texturepacks").toFile();
-                break;
-            case resourcepack:
-                dir = base.resolve("resourcepacks").toFile();
-                break;
-            case mods:
-                dir = base.resolve("mods").toFile();
-                break;
-            case ic2lib:
-                dir = base.resolve("mods/ic2").toFile();
-                break;
-            case denlib:
-                dir = base.resolve("mods/denlib").toFile();
-                break;
-            case coremods:
-                dir = base.resolve("coremods").toFile();
-                break;
-            case shaderpack:
-                dir = base.resolve("shaderpacks").toFile();
-                break;
-            case dependency:
-                if (mcVersion != null) {
-                    dir = base.resolve("mods/" + mcVersion).toFile();
-                }
-                break;
-            default:
-                LogManager.warn("Unsupported mod for enabling/disabling " + this.name);
-                break;
+                case jar:
+                case forge:
+                case mcpc:
+                    dir = base.resolve("jarmods").toFile();
+                    break;
+                case texturepack:
+                    dir = base.resolve("texturepacks").toFile();
+                    break;
+                case resourcepack:
+                    dir = base.resolve("resourcepacks").toFile();
+                    break;
+                case mods:
+                    dir = base.resolve("mods").toFile();
+                    break;
+                case ic2lib:
+                    dir = base.resolve("mods/ic2").toFile();
+                    break;
+                case denlib:
+                    dir = base.resolve("mods/denlib").toFile();
+                    break;
+                case coremods:
+                    dir = base.resolve("coremods").toFile();
+                    break;
+                case shaderpack:
+                    dir = base.resolve("shaderpacks").toFile();
+                    break;
+                case dependency:
+                    if (mcVersion != null) {
+                        dir = base.resolve("mods/" + mcVersion).toFile();
+                    }
+                    break;
+                default:
+                    LogManager.warn("Unsupported mod for enabling/disabling " + this.name);
+                    break;
             }
         }
         if (dir == null) {
@@ -326,6 +326,10 @@ public class DisableableMod implements Serializable {
 
         if (isFromCurseForge()) {
             List<CurseForgeFile> curseForgeFiles = CurseForgeApi.getFilesForProject(curseForgeProjectId);
+
+            if (curseForgeFiles == null) {
+                return false;
+            }
 
             Stream<CurseForgeFile> curseForgeFilesStream = curseForgeFiles.stream()
                     .sorted(Comparator.comparingInt((CurseForgeFile file) -> file.id).reversed());
@@ -348,11 +352,13 @@ public class DisableableMod implements Serializable {
 
             // filter out mods that are explicitely for Forge/Fabric and not our loader
             curseForgeFilesStream = curseForgeFilesStream.filter(cf -> {
-                if (cf.gameVersion.contains("Forge") && instance.launcher.loaderVersion.isFabric()) {
+                if (cf.gameVersion.contains("Forge") && instance.launcher.loaderVersion != null
+                        && !instance.launcher.loaderVersion.isForge()) {
                     return false;
                 }
 
-                if (cf.gameVersion.contains("Fabric") && !instance.launcher.loaderVersion.isFabric()) {
+                if (cf.gameVersion.contains("Fabric") && instance.launcher.loaderVersion != null
+                        && !instance.launcher.loaderVersion.isFabric()) {
                     return false;
                 }
 

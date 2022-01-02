@@ -47,19 +47,19 @@ import javax.swing.SwingConstants;
 import javax.swing.UIManager;
 
 import com.atlauncher.App;
+import com.atlauncher.builders.HTMLBuilder;
 import com.atlauncher.data.DisableableMod;
 import com.atlauncher.data.Instance;
 import com.atlauncher.data.curseforge.CurseForgeFingerprint;
 import com.atlauncher.data.curseforge.CurseForgeFingerprintedMod;
 import com.atlauncher.data.minecraft.FabricMod;
 import com.atlauncher.data.minecraft.MCMod;
-import com.atlauncher.exceptions.InvalidMinecraftVersion;
 import com.atlauncher.gui.components.ModsJCheckBox;
 import com.atlauncher.gui.handlers.ModsJCheckBoxTransferHandler;
 import com.atlauncher.gui.layouts.WrapLayout;
+import com.atlauncher.managers.ConfigManager;
 import com.atlauncher.managers.DialogManager;
 import com.atlauncher.managers.LogManager;
-import com.atlauncher.managers.MinecraftManager;
 import com.atlauncher.managers.PerformanceManager;
 import com.atlauncher.network.Analytics;
 import com.atlauncher.utils.CurseForgeApi;
@@ -199,7 +199,7 @@ public class EditModsDialog extends JDialog {
 
         JButton addButton = new JButton(GetText.tr("Add Mod"));
         addButton.addActionListener(e -> {
-            String[] modTypes = new String[] { "Mods Folder", "Inside Minecraft.jar", "Resource Pack", "Shader Pack" };
+            String[] modTypes = new String[] { "Mods Folder", "Resource Pack", "Shader Pack", "Inside Minecraft.jar" };
 
             FileChooserDialog fcd = new FileChooserDialog(this, GetText.tr("Add Mod"), GetText.tr("Mod"),
                     GetText.tr("Add"), GetText.tr("Type of Mod"), modTypes);
@@ -221,7 +221,17 @@ public class EditModsDialog extends JDialog {
                         if (typeTemp.equalsIgnoreCase("Mods Folder")) {
                             type = com.atlauncher.data.Type.mods;
                         } else if (typeTemp.equalsIgnoreCase("Inside Minecraft.jar")) {
-                            type = com.atlauncher.data.Type.jar;
+                            int ret = DialogManager.yesNoDialog().setTitle(GetText.tr("Add As Mod?"))
+                                    .setContent(new HTMLBuilder().text(GetText.tr(
+                                            "Adding as Inside Minecraft.jar is usually not what you want and will likely cause issues.<br/><br/>If you're adding mods this is usually not correct. Do you want to add this as a mod instead?"))
+                                            .build())
+                                    .setType(DialogManager.WARNING).show();
+
+                            if (ret != 0) {
+                                type = com.atlauncher.data.Type.jar;
+                            } else {
+                                type = com.atlauncher.data.Type.mods;
+                            }
                         } else if (typeTemp.equalsIgnoreCase("CoreMods Mod")) {
                             type = com.atlauncher.data.Type.coremods;
                         } else if (typeTemp.equalsIgnoreCase("Texture Pack")) {
@@ -258,16 +268,19 @@ public class EditModsDialog extends JDialog {
         bottomPanel.add(addButton);
 
         if (instance.launcher.enableCurseForgeIntegration) {
-            JButton browseMods = new JButton(GetText.tr("Browse Mods"));
-            browseMods.addActionListener(e -> {
-                new AddModsDialog(this, instance);
+            if (ConfigManager.getConfigItem("platforms.curseforge.modsEnabled", true) == true
+                    || (ConfigManager.getConfigItem("platforms.modrinth.modsEnabled", true) == true
+                            && this.instance.launcher.loaderVersion != null)) {
+                JButton browseMods = new JButton(GetText.tr("Browse Mods"));
+                browseMods.addActionListener(e -> {
+                    new AddModsDialog(this, instance);
 
-                loadMods();
+                    loadMods();
 
-                reloadPanels();
-
-            });
-            bottomPanel.add(browseMods);
+                    reloadPanels();
+                });
+                bottomPanel.add(browseMods);
+            }
 
             checkForUpdatesButton = new JButton(GetText.tr("Check For Updates"));
             checkForUpdatesButton.addActionListener(e -> checkForUpdates());

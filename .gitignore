@@ -5,17 +5,15 @@ build/
 # Runtime
 bin/
 dist/
-testLauncher/
 run/
-configs/
-cache/
 
 # IDE Config
-.idea/
-*.iml
 .settings/
 .classpath
 .project
+
+# Launcher Test Run Directory
+testLauncher/
 
 # OS X
 .DS_Store

@@ -18,5 +18,5 @@
 package com.atlauncher.data;
 
 public enum InstanceExportFormat {
-    CURSEFORGE, MULTIMC
+    CURSEFORGE, MODRINTH, MULTIMC
 }

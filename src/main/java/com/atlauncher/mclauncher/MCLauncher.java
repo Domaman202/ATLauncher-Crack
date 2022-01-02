@@ -18,13 +18,17 @@
 package com.atlauncher.mclauncher;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import com.atlauncher.App;
 import com.atlauncher.FileSystem;
@@ -34,10 +38,11 @@ import com.atlauncher.data.Instance;
 import com.atlauncher.data.LoginResponse;
 import com.atlauncher.data.MicrosoftAccount;
 import com.atlauncher.data.MojangAccount;
-import com.atlauncher.data.minecraft.JavaRuntimes;
 import com.atlauncher.data.minecraft.Library;
+import com.atlauncher.data.minecraft.LoggingClient;
 import com.atlauncher.data.minecraft.PropertyMapSerializer;
 import com.atlauncher.managers.LogManager;
+import com.atlauncher.mclauncher.legacy.LegacyMCLauncher;
 import com.atlauncher.network.ErrorReporting;
 import com.atlauncher.utils.Java;
 import com.atlauncher.utils.OS;
@@ -48,13 +53,23 @@ import com.mojang.authlib.properties.PropertyMap;
 import com.mojang.util.UUIDTypeAdapter;
 
 public class MCLauncher {
+    public static final List<String> IGNORED_ARGUMENTS = new ArrayList<String>() {
+        {
+            // these seem to be tracking/telemetry things
+            add("--clientId");
+            add("${clientid}");
+            add("--xuid");
+            add("${auth_xuid}");
+        }
+    };
 
-    public static Process launch(MicrosoftAccount account, Instance instance, Path nativesTempDir) throws Exception {
-        return launch(account, instance, null, nativesTempDir.toFile());
+    public static Process launch(MicrosoftAccount account, Instance instance, Path nativesTempDir,
+            String wrapperCommand, String username) throws Exception {
+        return launch(account, instance, null, nativesTempDir.toFile(), wrapperCommand, username);
     }
 
-    public static Process launch(MojangAccount account, Instance instance, LoginResponse response, Path nativesTempDir)
-            throws Exception {
+    public static Process launch(MojangAccount account, Instance instance, LoginResponse response, Path nativesTempDir,
+            String wrapperCommand, String username) throws Exception {
         String props = "[]";
 
         if (!response.isOffline()) {
@@ -63,15 +78,20 @@ public class MCLauncher {
                 props = gson.toJson(response.getAuth().getUserProperties());
         }
 
-        return launch(account, instance, props, nativesTempDir.toFile());
+        return launch(account, instance, props, nativesTempDir.toFile(), wrapperCommand, username);
     }
 
-    private static Process launch(AbstractAccount account, Instance instance, String props, File nativesDir)
-            throws Exception {
-        List<String> arguments = getArguments(account, instance, props, nativesDir.getAbsolutePath());
+    private static Process launch(AbstractAccount account, Instance instance, String props, File nativesDir,
+            String wrapperCommand, String username) throws Exception {
+        List<String> arguments = getArguments(account, instance, props, nativesDir.getAbsolutePath(), username);
+        if (wrapperCommand != null && !wrapperCommand.isEmpty()) {
+            arguments = wrapArguments(wrapperCommand, arguments);
+        }
+
+        logInstanceInformation(instance);
 
         LogManager.info("Launching Minecraft with the following arguments (user related stuff has been removed): "
-                + censorArguments(arguments, account, props));
+                + censorArguments(arguments, account, props, username));
         ProcessBuilder processBuilder = new ProcessBuilder(arguments);
         processBuilder.directory(instance.getRootDirectory());
         processBuilder.redirectErrorStream(true);
@@ -79,39 +99,79 @@ public class MCLauncher {
         return processBuilder.start();
     }
 
+    private static void logInstanceInformation(Instance instance) {
+        try {
+            if (instance.launcher.loaderVersion != null) {
+                LogManager.info(String.format("Loader: %s %s", instance.launcher.loaderVersion.type,
+                        instance.launcher.loaderVersion.version));
+            }
+
+            if (instance.ROOT.resolve("mods").toFile().listFiles().length != 0) {
+                LogManager.info("Mods:");
+                Files.walk(instance.ROOT.resolve("mods"))
+                        .filter(file -> Files.isRegularFile(file)
+                                && (file.toString().endsWith(".jar") || file.toString().endsWith(".zip")))
+                        .forEach(file -> {
+                            LogManager.info(
+                                    " - " + file.toString().replace(instance.ROOT.resolve("mods").toString(), ""));
+                        });
+            }
+
+            if (instance.shouldUseLegacyLaunch() && Optional.ofNullable(instance.launcher.disableLegacyLaunching)
+                    .orElse(App.settings.disableLegacyLaunching)) {
+                LogManager.warn(
+                        "Legacy launching disabled. If you have issues with Minecraft, please enable this setting again");
+            }
+        } catch (IOException ignored) {
+        }
+    }
+
+    private static List<String> wrapArguments(String wrapperCommand, List<String> args) {
+        List<String> wrapArgs = new LinkedList<String>(Arrays.asList(wrapperCommand.trim().split("\\s+")));
+
+        // wrapper not set
+        if (wrapArgs.isEmpty()) {
+            return args;
+        }
+
+        String wrapArgsKey = "%command%";
+        int commandIndex = wrapArgs.indexOf(wrapArgsKey);
+        if (commandIndex >= 0) {
+            wrapArgs.remove(commandIndex);
+            wrapArgs.addAll(commandIndex, args);
+            return wrapArgs;
+        }
+
+        // make args as a whole string, useful in the case of ''
+        String wrapArgsAsWholeStringKey = "%\"command\"%";
+        commandIndex = wrapArgs.indexOf(wrapArgsAsWholeStringKey);
+        if (commandIndex >= 0) {
+            wrapArgs.set(commandIndex, "'" + String.join("' '", args) + "'");
+            return wrapArgs;
+        }
+
+        // failback to wrap command with the rest of the arguments added in
+        wrapArgs.addAll(args);
+        return wrapArgs;
+    }
+
     private static List<String> getArguments(AbstractAccount account, Instance instance, String props,
-            String nativesDir) {
+            String nativesDir, String username) {
         StringBuilder cpb = new StringBuilder();
         boolean hasCustomJarMods = false;
 
         ErrorReporting.recordInstancePlay(instance.getPackName(), instance.getVersion(), instance.getLoaderVersion(),
-                (instance instanceof Instance ? 2 : 1));
+                2);
 
         int initialMemory = Optional.ofNullable(instance.launcher.initialMemory).orElse(App.settings.initialMemory);
         int maximumMemory = Optional.ofNullable(instance.launcher.maximumMemory).orElse(App.settings.maximumMemory);
         int permGen = Optional.ofNullable(instance.launcher.permGen).orElse(App.settings.metaspace);
-        String javaPath = Optional.ofNullable(instance.launcher.javaPath).orElse(App.settings.javaPath);
         String javaArguments = Optional.ofNullable(instance.launcher.javaArguments).orElse(App.settings.javaParameters);
+        String javaPath = instance.getJavaPath();
 
-        if (instance instanceof Instance) {
-            // are we using Mojangs provided runtime?
-            if (instance.javaVersion != null && App.settings.useJavaProvidedByMinecraft) {
-                Path runtimeDirectory = FileSystem.MINECRAFT_RUNTIMES.resolve(instance.javaVersion.component)
-                        .resolve(JavaRuntimes.getSystem()).resolve(instance.javaVersion.component);
-
-                if (OS.isMac()) {
-                    runtimeDirectory = runtimeDirectory.resolve("jre.bundle/Contents/Home");
-                }
-
-                if (Files.isDirectory(runtimeDirectory)) {
-                    javaPath = runtimeDirectory.toAbsolutePath().toString();
-                    LogManager.debug(String.format("Using Java runtime %s (major version %n) at path %s",
-                            instance.javaVersion.component, instance.javaVersion.majorVersion, javaPath));
-                }
-            }
-
-            // add minecraft client jar
-            cpb.append(instance.getMinecraftJar().getAbsolutePath());
+        if (instance.isUsingJavaRuntime()) {
+            LogManager.debug(String.format("Using Java runtime %s (major version %d) at path %s",
+                    instance.javaVersion.component, instance.javaVersion.majorVersion, javaPath));
         }
 
         File jarMods = instance.getJarModsDirectory();
@@ -119,8 +179,8 @@ public class MCLauncher {
         if (jarMods.exists() && jarModFiles != null && jarModFiles.length != 0) {
             for (File file : jarModFiles) {
                 hasCustomJarMods = true;
-                cpb.append(File.pathSeparator);
                 cpb.append(file.getAbsolutePath());
+                cpb.append(File.pathSeparator);
             }
         }
 
@@ -128,27 +188,59 @@ public class MCLauncher {
                 library -> library.shouldInstall() && library.downloads.artifact != null && !library.hasNativeForOS())
                 .filter(library -> library.downloads.artifact != null && library.downloads.artifact.path != null)
                 .forEach(library -> {
-                    cpb.append(File.pathSeparator);
-                    cpb.append(
-                            FileSystem.LIBRARIES.resolve(library.downloads.artifact.path).toFile().getAbsolutePath());
+                    String path = FileSystem.LIBRARIES.resolve(library.downloads.artifact.path).toFile()
+                            .getAbsolutePath();
+
+                    if (cpb.indexOf(path) == -1) {
+                        cpb.append(path);
+                        cpb.append(File.pathSeparator);
+                    }
                 });
 
         instance.libraries.stream().filter(Library::hasNativeForOS).forEach(library -> {
             com.atlauncher.data.minecraft.Download download = library.getNativeDownloadForOS();
 
-            cpb.append(File.pathSeparator);
             cpb.append(FileSystem.LIBRARIES.resolve(download.path).toFile().getAbsolutePath());
+            cpb.append(File.pathSeparator);
         });
 
         File binFolder = instance.getBinDirectory();
         File[] libraryFiles = binFolder.listFiles();
         if (binFolder.exists() && libraryFiles != null && libraryFiles.length != 0) {
             for (File file : libraryFiles) {
-                LogManager.info("Added in custom library " + file.getName());
+                if (!file.getName().equalsIgnoreCase("minecraft.jar")
+                        && !file.getName().equalsIgnoreCase("modpack.jar")) {
+                    LogManager.info("Added in custom library " + file.getName());
 
-                cpb.append(File.pathSeparator);
-                cpb.append(file);
+                    cpb.append(file);
+                    cpb.append(File.pathSeparator);
+                }
             }
+        }
+
+        // add minecraft client jar last
+        if (instance.usesCustomMinecraftJar()) {
+            cpb.append(instance.getCustomMinecraftJar().getAbsolutePath());
+        } else {
+            cpb.append(instance.getMinecraftJar().getAbsolutePath());
+        }
+
+        if (instance.usesLegacyLaunch()) {
+            cpb.append(File.pathSeparator);
+
+            File thisFile = new File(MCLauncher.class.getProtectionDomain().getCodeSource().getLocation().getPath());
+            String pathh = null;
+            try {
+                pathh = thisFile.getCanonicalPath();
+                pathh = URLDecoder.decode(pathh, "UTF-8");
+            } catch (UnsupportedEncodingException e) {
+                pathh = System.getProperty("java.class.path");
+                LogManager.logStackTrace(e);
+            } catch (IOException e) {
+                pathh = System.getProperty("java.class.path");
+                LogManager.logStackTrace(e);
+            }
+            cpb.append(pathh);
         }
 
         List<String> arguments = new ArrayList<>();
@@ -179,13 +271,13 @@ public class MCLauncher {
 
         if (OS.getMaximumRam() != 0 && permGen < instance.getPermGen()
                 && (OS.getMaximumRam() / 8) < instance.getPermGen()) {
-            if (Java.useMetaspace()) {
+            if (Java.useMetaspace(javaPath)) {
                 arguments.add("-XX:MetaspaceSize=" + instance.getPermGen() + "M");
             } else {
                 arguments.add("-XX:PermSize=" + instance.getPermGen() + "M");
             }
         } else {
-            if (Java.useMetaspace()) {
+            if (Java.useMetaspace(javaPath)) {
                 arguments.add("-XX:MetaspaceSize=" + permGen + "M");
             } else {
                 arguments.add("-XX:PermSize=" + permGen + "M");
@@ -203,6 +295,16 @@ public class MCLauncher {
         }
 
         arguments.add("-Dfml.log.level=" + App.settings.forgeLoggingLevel);
+
+        if (instance.logging != null && instance.logging.client != null) {
+            LoggingClient loggingClient = instance.logging.client;
+
+            Path loggingClientPath = FileSystem.RESOURCES_LOG_CONFIGS.resolve(loggingClient.file.id);
+
+            if (Files.exists(loggingClientPath)) {
+                arguments.add(loggingClient.getCompiledArgument());
+            }
+        }
 
         if (OS.isMac()) {
             arguments.add("-Dapple.laf.useScreenMenuBar=true");
@@ -227,13 +329,14 @@ public class MCLauncher {
             }
         }
 
-        for (String argument : instance.arguments.jvmAsStringList().stream().distinct().collect(Collectors.toList())) {
-            argument = replaceArgument(argument, instance, account, props, nativesDir);
+        String classpath = cpb.toString();
 
-            if (!argument.equalsIgnoreCase("-cp") && !argument.equalsIgnoreCase("${classpath}")
-                    && !arguments.contains(argument)) {
-                arguments.add(argument);
+        for (String argument : instance.arguments.jvmAsStringList()) {
+            if (IGNORED_ARGUMENTS.contains(argument)) {
+                continue;
             }
+
+            arguments.add(replaceArgument(argument, instance, account, props, nativesDir, classpath, username));
         }
 
         if (OS.isWindows() && !arguments
@@ -241,35 +344,61 @@ public class MCLauncher {
             arguments.add("-XX:HeapDumpPath=MojangTricksIntelDriversForPerformance_javaw.exe_minecraft.exe.heapdump");
         }
 
-        arguments.add("-Djava.library.path=" + nativesDir);
-        arguments.add("-cp");
-        arguments.add(cpb.toString());
-        arguments.add(instance.getMainClass());
-
-        for (String argument : instance.arguments.gameAsStringList().stream().distinct().collect(Collectors.toList())) {
-            argument = replaceArgument(argument, instance, account, props, nativesDir);
-
-            if (!argument.equalsIgnoreCase("-cp") && !argument.equalsIgnoreCase("${classpath}")) {
-                arguments.add(argument);
-            }
+        // if there's no -Djava.library.path already, then add it (for older versions)
+        if (!arguments.stream().anyMatch(arg -> arg.startsWith("-Djava.library.path="))) {
+            arguments.add("-Djava.library.path=" + nativesDir);
         }
 
-        if (App.settings.maximiseMinecraft) {
-            arguments.add("--width=" + OS.getMaximumWindowWidth());
-            arguments.add("--height=" + OS.getMaximumWindowHeight());
+        // if there's no classpath already, then add it (for older versions)
+        if (!arguments.contains("-cp")) {
+            arguments.add("-cp");
+            arguments.add(cpb.toString());
+        }
+
+        if (instance.usesLegacyLaunch()) {
+            arguments.add(LegacyMCLauncher.class.getCanonicalName());
+            // Start or passed in arguments
+            arguments.add(instance.getRootDirectory().getAbsolutePath()); // Path
+            arguments.add(username); // Username
+            arguments.add(account.getSessionToken()); // Session
+            arguments.add(instance.getName()); // Instance Name
+            arguments.add(App.settings.windowWidth + ""); // Window Width
+            arguments.add(App.settings.windowHeight + ""); // Window Height
+            if (App.settings.maximiseMinecraft) {
+                arguments.add("true"); // Maximised
+            } else {
+                arguments.add("false"); // Not Maximised
+            }
         } else {
-            arguments.add("--width=" + App.settings.windowWidth);
-            arguments.add("--height=" + App.settings.windowHeight);
+            arguments.add(instance.getMainClass());
+        }
+
+        if (!instance.usesLegacyLaunch()) {
+            for (String argument : instance.arguments.gameAsStringList()) {
+                if (IGNORED_ARGUMENTS.contains(argument)) {
+                    continue;
+                }
+
+                arguments.add(replaceArgument(argument, instance, account, props, nativesDir, classpath, username));
+            }
+
+            if (App.settings.maximiseMinecraft) {
+                arguments.add("--width=" + OS.getMaximumWindowWidth());
+                arguments.add("--height=" + OS.getMaximumWindowHeight());
+            } else {
+                arguments.add("--width=" + App.settings.windowWidth);
+                arguments.add("--height=" + App.settings.windowHeight);
+            }
         }
 
         return arguments;
     }
 
     private static String replaceArgument(String incomingArgument, Instance instance, AbstractAccount account,
-            String props, String nativesDir) {
+            String props, String nativesDir, String classpath, String username) {
         String argument = incomingArgument;
 
-        argument = argument.replace("${auth_player_name}", account.minecraftUsername);
+        argument = argument.replace("${auth_player_name}", username);
         argument = argument.replace("${profile_name}", instance.getName());
         argument = argument.replace("${user_properties}", Optional.ofNullable(props).orElse("[]"));
         argument = argument.replace("${version_name}", instance.getMinecraftVersion());
@@ -284,13 +413,17 @@ public class MCLauncher {
         argument = argument.replace("${launcher_name}", Constants.LAUNCHER_NAME);
         argument = argument.replace("${launcher_version}", Constants.VERSION.toStringForLogging());
         argument = argument.replace("${natives_directory}", nativesDir);
-        argument = argument.replace("${user_type}", account.type);
+        argument = argument.replace("${user_type}", account.getUserType());
         argument = argument.replace("${auth_session}", account.getSessionToken());
+        argument = argument.replace("${library_directory}", FileSystem.LIBRARIES.toAbsolutePath().toString());
+        argument = argument.replace("${classpath}", classpath);
+        argument = argument.replace("${classpath_separator}", File.pathSeparator);
 
         return argument;
     }
 
-    private static String censorArguments(List<String> arguments, AbstractAccount account, String props) {
+    private static String censorArguments(List<String> arguments, AbstractAccount account, String props,
+            String username) {
         String argsString = arguments.toString();
 
         if (!LogManager.showDebug) {
@@ -298,7 +431,7 @@ public class MCLauncher {
                 argsString = argsString.replace(FileSystem.BASE_DIR.toAbsolutePath().toString(), "USERSDIR");
             }
 
-            argsString = argsString.replace(account.minecraftUsername, "REDACTED");
+            argsString = argsString.replace(username, "REDACTED");
             argsString = argsString.replace(account.uuid, "REDACTED");
         }
 

@@ -24,11 +24,11 @@ import java.awt.FlowLayout;
 import java.awt.Toolkit;
 import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.StringSelection;
-import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.ArrayList;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
@@ -60,11 +60,11 @@ import com.atlauncher.gui.dialogs.InstanceExportDialog;
 import com.atlauncher.gui.dialogs.InstanceSettingsDialog;
 import com.atlauncher.gui.dialogs.ProgressDialog;
 import com.atlauncher.managers.AccountManager;
+import com.atlauncher.managers.ConfigManager;
 import com.atlauncher.managers.DialogManager;
 import com.atlauncher.managers.InstanceManager;
 import com.atlauncher.managers.LogManager;
 import com.atlauncher.network.Analytics;
-import com.atlauncher.utils.Java;
 import com.atlauncher.utils.OS;
 import com.atlauncher.utils.Utils;
 import com.google.gson.reflect.TypeToken;
@@ -80,10 +80,7 @@ public class InstanceCard extends CollapsiblePanel implements RelocalizationList
     private final Instance instance;
     private final JTextArea descArea = new JTextArea();
     private final ImagePanel image;
-    private final JButton playButton = new JButton(GetText.tr("Play"));
-    private final JButton reinstallButton = new JButton(GetText.tr("Reinstall"));
     private final JButton updateButton = new JButton(GetText.tr("Update"));
-    private final JButton renameButton = new JButton(GetText.tr("Rename"));
     private final JButton deleteButton = new JButton(GetText.tr("Delete"));
     private final JButton exportButton = new JButton(GetText.tr("Export"));
     private final JButton addButton = new JButton(GetText.tr("Add Mods"));
@@ -92,6 +89,17 @@ public class InstanceCard extends CollapsiblePanel implements RelocalizationList
     private final JButton openWebsite = new JButton(GetText.tr("Open Website"));
     private final JButton openButton = new JButton(GetText.tr("Open Folder"));
     private final JButton settingsButton = new JButton(GetText.tr("Settings"));
+
+    private final JPopupMenu playPopupMenu = new JPopupMenu();
+    private final JMenuItem playOnlinePlayMenuItem = new JMenuItem(GetText.tr("Play Online"));
+    private final JMenuItem playOfflinePlayMenuItem = new JMenuItem(GetText.tr("Play Offline"));
+    private final DropDownButton playButton = new DropDownButton(GetText.tr("Play"), playPopupMenu, true,
+            new MouseAdapter() {
+                @Override
+                public void mousePressed(MouseEvent e) {
+                    play(false);
+                }
+            });
 
     private final JPopupMenu backupPopupMenu = new JPopupMenu();
     private final JMenuItem normalBackupMenuItem = new JMenuItem(GetText.tr("Normal Backup"));
@@ -111,9 +119,14 @@ public class InstanceCard extends CollapsiblePanel implements RelocalizationList
     private final JMenuItem changeDescriptionMenuItem = new JMenuItem(GetText.tr("Change Description"));
     private final JMenuItem changeImageMenuItem = new JMenuItem(GetText.tr("Change Image"));
     private final JMenuItem addFabricMenuItem = new JMenuItem(GetText.tr("Add Fabric"));
+    private final JMenuItem changeFabricVersionMenuItem = new JMenuItem(GetText.tr("Change Fabric Version"));
     private final JMenuItem removeFabricMenuItem = new JMenuItem(GetText.tr("Remove Fabric"));
     private final JMenuItem addForgeMenuItem = new JMenuItem(GetText.tr("Add Forge"));
+    private final JMenuItem changeForgeVersionMenuItem = new JMenuItem(GetText.tr("Change Forge Version"));
     private final JMenuItem removeForgeMenuItem = new JMenuItem(GetText.tr("Remove Forge"));
+    private final JMenuItem addQuiltMenuItem = new JMenuItem(GetText.tr("Add Quilt"));
+    private final JMenuItem changeQuiltVersionMenuItem = new JMenuItem(GetText.tr("Change Quilt Version"));
+    private final JMenuItem removeQuiltMenuItem = new JMenuItem(GetText.tr("Remove Quilt"));
     private final DropDownButton editInstanceButton = new DropDownButton(GetText.tr("Edit Instance"),
             editInstancePopupMenu);
 
@@ -157,10 +170,8 @@ public class InstanceCard extends CollapsiblePanel implements RelocalizationList
         as.setBorder(BorderFactory.createEmptyBorder(5, 0, 5, 0));
 
         top.add(this.playButton);
-        top.add(this.reinstallButton);
         top.add(this.updateButton);
         top.add(this.editInstanceButton);
-        top.add(this.renameButton);
         top.add(this.backupButton);
         top.add(this.settingsButton);
 
@@ -168,16 +179,11 @@ public class InstanceCard extends CollapsiblePanel implements RelocalizationList
         bottom.add(this.exportButton);
         bottom.add(this.getHelpButton);
 
+        setupPlayPopupMenus();
         setupButtonPopupMenus();
 
         // check it can be exported
         this.exportButton.setVisible(instance.canBeExported());
-
-        // vanilla instances do some things different
-        this.editInstanceButton.setVisible(instance.launcher.vanillaInstance);
-        this.renameButton.setVisible(!instance.launcher.vanillaInstance);
-        this.reinstallButton.setVisible(!instance.launcher.vanillaInstance);
-        this.updateButton.setVisible(!instance.launcher.vanillaInstance);
 
         // if not an ATLauncher pack, a system pack or has no urls, don't show the links
         // button
@@ -187,7 +193,6 @@ public class InstanceCard extends CollapsiblePanel implements RelocalizationList
         }
 
         if (!instance.isUpdatable()) {
-            this.reinstallButton.setVisible(instance.isUpdatable());
             this.updateButton.setVisible(instance.isUpdatable());
         }
 
@@ -200,9 +205,13 @@ public class InstanceCard extends CollapsiblePanel implements RelocalizationList
         }
 
         this.openWebsite.setVisible(instance.isCurseForgePack()
-                || (instance.isModpacksChPack() && instance.launcher.modpacksChPackManifest.hasTag("FTB")));
+                || (instance.isModpacksChPack() && instance.launcher.modpacksChPackManifest.hasTag("FTB"))
+                || instance.isTechnicPack());
 
-        if (instance.launcher.enableCurseForgeIntegration) {
+        if (instance.launcher.enableCurseForgeIntegration
+                && (ConfigManager.getConfigItem("platforms.curseforge.modsEnabled", true) == true
+                        || (ConfigManager.getConfigItem("platforms.modrinth.modsEnabled", true) == true
+                                && this.instance.launcher.loaderVersion != null))) {
             bottom.add(this.addButton);
         }
 
@@ -231,7 +240,18 @@ public class InstanceCard extends CollapsiblePanel implements RelocalizationList
 
         this.addActionListeners();
         this.addMouseListeners();
-        this.validatePlayable();
+    }
+
+    private void setupPlayPopupMenus() {
+        playOnlinePlayMenuItem.addActionListener(e -> {
+            play(false);
+        });
+        playPopupMenu.add(playOnlinePlayMenuItem);
+
+        playOfflinePlayMenuItem.addActionListener(e -> {
+            play(true);
+        });
+        playPopupMenu.add(playOfflinePlayMenuItem);
     }
 
     private void setupButtonPopupMenus() {
@@ -261,9 +281,7 @@ public class InstanceCard extends CollapsiblePanel implements RelocalizationList
         fullBackupMenuItem.addActionListener(e -> instance.backup(BackupMode.FULL));
         backupPopupMenu.add(fullBackupMenuItem);
 
-        if (instance.launcher.vanillaInstance) {
-            setupEditInstanceButton();
-        }
+        setupEditInstanceButton();
     }
 
     private void setupEditInstanceButton() {
@@ -272,10 +290,30 @@ public class InstanceCard extends CollapsiblePanel implements RelocalizationList
         editInstancePopupMenu.add(changeDescriptionMenuItem);
         editInstancePopupMenu.add(changeImageMenuItem);
         editInstancePopupMenu.addSeparator();
-        editInstancePopupMenu.add(addFabricMenuItem);
+
+        if (ConfigManager.getConfigItem("loaders.fabric.enabled", true) == true
+                && !ConfigManager.getConfigItem("loaders.fabric.disabledMinecraftVersions", new ArrayList<String>())
+                        .contains(instance.id)) {
+            editInstancePopupMenu.add(addFabricMenuItem);
+            editInstancePopupMenu.add(changeFabricVersionMenuItem);
+        }
         editInstancePopupMenu.add(removeFabricMenuItem);
-        editInstancePopupMenu.add(addForgeMenuItem);
+
+        if (ConfigManager.getConfigItem("loaders.forge.enabled", true) == true
+                && !ConfigManager.getConfigItem("loaders.forge.disabledMinecraftVersions", new ArrayList<String>())
+                        .contains(instance.id)) {
+            editInstancePopupMenu.add(addForgeMenuItem);
+            editInstancePopupMenu.add(changeForgeVersionMenuItem);
+        }
         editInstancePopupMenu.add(removeForgeMenuItem);
+
+        if (ConfigManager.getConfigItem("loaders.quilt.enabled", false) == true
+                && !ConfigManager.getConfigItem("loaders.quilt.disabledMinecraftVersions", new ArrayList<String>())
+                        .contains(instance.id)) {
+            editInstancePopupMenu.add(addQuiltMenuItem);
+            editInstancePopupMenu.add(changeQuiltVersionMenuItem);
+        }
+        editInstancePopupMenu.add(removeQuiltMenuItem);
 
         setEditInstanceMenuItemVisbility();
 
@@ -299,6 +337,24 @@ public class InstanceCard extends CollapsiblePanel implements RelocalizationList
             instance.addLoader(LoaderType.FORGE);
             setEditInstanceMenuItemVisbility();
         });
+        addQuiltMenuItem.addActionListener(e -> {
+            instance.addLoader(LoaderType.QUILT);
+            setEditInstanceMenuItemVisbility();
+        });
+
+        changeFabricVersionMenuItem.addActionListener(e -> {
+            instance.changeLoaderVersion();
+            setEditInstanceMenuItemVisbility();
+        });
+        changeForgeVersionMenuItem.addActionListener(e -> {
+            instance.changeLoaderVersion();
+            setEditInstanceMenuItemVisbility();
+        });
+        changeQuiltVersionMenuItem.addActionListener(e -> {
+            instance.changeLoaderVersion();
+            setEditInstanceMenuItemVisbility();
+        });
+
         removeFabricMenuItem.addActionListener(e -> {
             instance.removeLoader();
             setEditInstanceMenuItemVisbility();
@@ -307,90 +363,33 @@ public class InstanceCard extends CollapsiblePanel implements RelocalizationList
             instance.removeLoader();
             setEditInstanceMenuItemVisbility();
         });
+        removeQuiltMenuItem.addActionListener(e -> {
+            instance.removeLoader();
+            setEditInstanceMenuItemVisbility();
+        });
     }
 
     private void setEditInstanceMenuItemVisbility() {
-        addFabricMenuItem
-                .setVisible(instance.launcher.loaderVersion == null || !instance.launcher.loaderVersion.isFabric());
-        addForgeMenuItem
-                .setVisible(instance.launcher.loaderVersion == null || !instance.launcher.loaderVersion.isForge());
+        addFabricMenuItem.setVisible(instance.launcher.loaderVersion == null);
+        addForgeMenuItem.setVisible(instance.launcher.loaderVersion == null);
+        addQuiltMenuItem.setVisible(instance.launcher.loaderVersion == null);
+
+        changeFabricVersionMenuItem
+                .setVisible(instance.launcher.loaderVersion != null && instance.launcher.loaderVersion.isFabric());
+        changeForgeVersionMenuItem
+                .setVisible(instance.launcher.loaderVersion != null && instance.launcher.loaderVersion.isForge());
+        changeQuiltVersionMenuItem
+                .setVisible(instance.launcher.loaderVersion != null && instance.launcher.loaderVersion.isQuilt());
+
         removeFabricMenuItem
                 .setVisible(instance.launcher.loaderVersion != null && instance.launcher.loaderVersion.isFabric());
         removeForgeMenuItem
                 .setVisible(instance.launcher.loaderVersion != null && instance.launcher.loaderVersion.isForge());
-    }
-
-    private void validatePlayable() {
-        if (!instance.launcher.isPlayable) {
-            for (ActionListener al : playButton.getActionListeners()) {
-                playButton.removeActionListener(al);
-            }
-            playButton.addActionListener(e -> DialogManager.okDialog().setTitle(GetText.tr("Instance Corrupt"))
-                    .setContent(GetText
-                            .tr("Cannot play instance as it's corrupted. Please reinstall, update or delete it."))
-                    .setType(DialogManager.ERROR).show());
-            for (ActionListener al : backupButton.getActionListeners()) {
-                backupButton.removeActionListener(al);
-            }
-            backupButton.addActionListener(e -> DialogManager.okDialog().setTitle(GetText.tr("Instance Corrupt"))
-                    .setContent(GetText
-                            .tr("Cannot backup instance as it's corrupted. Please reinstall, update or delete it."))
-                    .setType(DialogManager.ERROR).show());
-        }
+        removeQuiltMenuItem
+                .setVisible(instance.launcher.loaderVersion != null && instance.launcher.loaderVersion.isQuilt());
     }
 
     private void addActionListeners() {
-        this.playButton.addActionListener(e -> {
-            if (!App.settings.ignoreJavaOnInstanceLaunch && instance.launcher.java != null
-                    && !Java.getMinecraftJavaVersion().equalsIgnoreCase("Unknown")
-                    && !instance.launcher.java.conforms()) {
-                DialogManager.okDialog().setTitle(GetText.tr("Cannot launch instance due to your Java version"))
-                        .setContent(new HTMLBuilder().center().text(GetText.tr(
-                                "There was an issue launching this instance.<br/><br/>This version of the pack requires a Java version which you are not using.<br/><br/>Please install that version of Java and try again.<br/><br/>Java version needed: {0}",
-                                "<br/><br/>", instance.launcher.java.getVersionString())).build())
-                        .setType(DialogManager.ERROR).show();
-                return;
-            }
-
-            if (instance.hasUpdate() && !instance.hasLatestUpdateBeenIgnored()) {
-                int ret = DialogManager.yesNoDialog().setTitle(GetText.tr("Update Available"))
-                        .setContent(new HTMLBuilder().center().text(GetText
-                                .tr("An update is available for this instance.<br/><br/>Do you want to update now?"))
-                                .build())
-                        .addOption(GetText.tr("Don't Remind Me Again")).setType(DialogManager.INFO).show();
-
-                if (ret == 0) {
-                    if (AccountManager.getSelectedAccount() == null) {
-                        DialogManager.okDialog().setTitle(GetText.tr("No Account Selected"))
-                                .setContent(GetText.tr("Cannot update pack as you have no account selected."))
-                                .setType(DialogManager.ERROR).show();
-                    } else {
-                        Analytics.sendEvent(instance.launcher.pack + " - " + instance.launcher.version,
-                                "UpdateFromPlay", instance.getAnalyticsCategory());
-                        instance.update();
-                    }
-                } else if (ret == 1 || ret == DialogManager.CLOSED_OPTION || ret == 2) {
-                    if (ret == 2) {
-                        instance.ignoreUpdate();
-                    }
-
-                    if (!App.launcher.minecraftLaunched) {
-                        if (instance.launch()) {
-                            App.launcher.setMinecraftLaunched(true);
-                        }
-                    }
-                }
-            } else {
-                if (!App.launcher.minecraftLaunched) {
-                    if (instance.launch()) {
-                        App.launcher.setMinecraftLaunched(true);
-                    }
-                }
-            }
-        });
-        this.reinstallButton.addActionListener(e -> {
-            instance.startReinstall();
-        });
         this.updateButton.addActionListener(e -> {
             if (AccountManager.getSelectedAccount() == null) {
                 DialogManager.okDialog().setTitle(GetText.tr("No Account Selected"))
@@ -402,9 +401,6 @@ public class InstanceCard extends CollapsiblePanel implements RelocalizationList
             Analytics.sendEvent(instance.launcher.pack + " - " + instance.launcher.version, "Update",
                     instance.getAnalyticsCategory());
             instance.update();
-        });
-        this.renameButton.addActionListener(e -> {
-            instance.startRename();
         });
         this.addButton.addActionListener(e -> {
             Analytics.sendEvent(instance.launcher.pack + " - " + instance.launcher.version, "AddMods",
@@ -423,7 +419,8 @@ public class InstanceCard extends CollapsiblePanel implements RelocalizationList
                         Constants.SERVERS_LIST_PACK, instance.getSafePackName())));
         this.openWebsite.addActionListener(
                 e -> OS.openWebBrowser(instance.isCurseForgePack() ? instance.launcher.curseForgeProject.websiteUrl
-                        : instance.launcher.modpacksChPackManifest.getWebsiteUrl()));
+                        : (instance.isModpacksChPack() ? instance.launcher.modpacksChPackManifest.getWebsiteUrl()
+                                : instance.launcher.technicModpack.platformUrl)));
         this.openButton.addActionListener(e -> OS.openFileExplorer(instance.getRoot()));
         this.settingsButton.addActionListener(e -> {
             Analytics.sendEvent(instance.launcher.pack + " - " + instance.launcher.version, "Settings",
@@ -455,49 +452,68 @@ public class InstanceCard extends CollapsiblePanel implements RelocalizationList
         });
     }
 
+    private void play(boolean offline) {
+        if (!instance.launcher.isPlayable) {
+            DialogManager.okDialog().setTitle(GetText.tr("Instance Corrupt"))
+                    .setContent(GetText
+                            .tr("Cannot play instance as it's corrupted. Please reinstall, update or delete it."))
+                    .setType(DialogManager.ERROR).show();
+            return;
+        }
+
+        if (!App.settings.ignoreJavaOnInstanceLaunch && instance.shouldShowWrongJavaWarning()) {
+            DialogManager.okDialog().setTitle(GetText.tr("Cannot launch instance due to your Java version"))
+                    .setContent(new HTMLBuilder().center().text(GetText.tr(
+                            "There was an issue launching this instance.<br/><br/>This version of the pack requires a Java version which you are not using.<br/><br/>Please install that version of Java and try again.<br/><br/>Java version needed: {0}",
+                            instance.launcher.java.getVersionString())).build())
+                    .setType(DialogManager.ERROR).show();
+            return;
+        }
+
+        if (instance.hasUpdate() && !instance.hasLatestUpdateBeenIgnored()) {
+            int ret = DialogManager.yesNoDialog().setTitle(GetText.tr("Update Available"))
+                    .setContent(new HTMLBuilder().center()
+                            .text(GetText.tr(
+                                    "An update is available for this instance.<br/><br/>Do you want to update now?"))
+                            .build())
+                    .addOption(GetText.tr("Don't Remind Me Again")).setType(DialogManager.INFO).show();
+
+            if (ret == 0) {
+                if (AccountManager.getSelectedAccount() == null) {
+                    DialogManager.okDialog().setTitle(GetText.tr("No Account Selected"))
+                            .setContent(GetText.tr("Cannot update pack as you have no account selected."))
+                            .setType(DialogManager.ERROR).show();
+                } else {
+                    Analytics.sendEvent(instance.launcher.pack + " - " + instance.launcher.version, "UpdateFromPlay",
+                            instance.getAnalyticsCategory());
+                    instance.update();
+                }
+            } else if (ret == 1 || ret == DialogManager.CLOSED_OPTION || ret == 2) {
+                if (ret == 2) {
+                    instance.ignoreUpdate();
+                }
+
+                if (!App.launcher.minecraftLaunched) {
+                    if (instance.launch()) {
+                        App.launcher.setMinecraftLaunched(true);
+                    }
+                }
+            }
+        } else {
+            if (!App.launcher.minecraftLaunched) {
+                if (instance.launch(offline)) {
+                    App.launcher.setMinecraftLaunched(true);
+                }
+            }
+        }
+    }
+
     private void addMouseListeners() {
         this.image.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
                 if (e.getButton() == MouseEvent.BUTTON1 && e.getClickCount() >= 2) {
-                    if (instance.hasUpdate() && !instance.hasLatestUpdateBeenIgnored()) {
-                        int ret = DialogManager.yesNoDialog().setTitle(GetText.tr("Update Available"))
-                                .setContent(new HTMLBuilder().center().text(GetText.tr(
-                                        "An update is available for this instance.<br/><br/>Do you want to update now?"))
-                                        .build())
-                                .addOption(GetText.tr("Don't Remind Me Again")).setType(DialogManager.INFO).show();
-
-                        if (ret == 0) {
-                            if (AccountManager.getSelectedAccount() == null) {
-                                DialogManager.okDialog().setTitle(GetText.tr("No Account Selected"))
-                                        .setContent(GetText.tr("Cannot update pack as you have no account selected."))
-                                        .setType(DialogManager.ERROR).show();
-                            } else {
-                                Analytics.sendEvent(instance.launcher.pack + " - " + instance.launcher.version,
-                                        "UpdateFromPlay", instance.getAnalyticsCategory());
-                                instance.update();
-                            }
-                        } else if (ret == 1 || ret == DialogManager.CLOSED_OPTION) {
-                            if (!App.launcher.minecraftLaunched) {
-                                if (instance.launch()) {
-                                    App.launcher.setMinecraftLaunched(true);
-                                }
-                            }
-                        } else if (ret == 2) {
-                            instance.ignoreUpdate();
-                            if (!App.launcher.minecraftLaunched) {
-                                if (instance.launch()) {
-                                    App.launcher.setMinecraftLaunched(true);
-                                }
-                            }
-                        }
-                    } else {
-                        if (!App.launcher.minecraftLaunched) {
-                            if (instance.launch()) {
-                                App.launcher.setMinecraftLaunched(true);
-                            }
-                        }
-                    }
+                    play(false);
                 } else if (e.getButton() == MouseEvent.BUTTON3) {
                     JPopupMenu rightClickMenu = new JPopupMenu();
 
@@ -679,9 +695,7 @@ public class InstanceCard extends CollapsiblePanel implements RelocalizationList
     @Override
     public void onRelocalization() {
         this.playButton.setText(GetText.tr("Play"));
-        this.reinstallButton.setText(GetText.tr("Reinstall"));
         this.updateButton.setText(GetText.tr("Update"));
-        this.renameButton.setText(GetText.tr("Rename"));
         this.backupButton.setText(GetText.tr("Backup"));
         this.deleteButton.setText(GetText.tr("Delete"));
         this.addButton.setText(GetText.tr("Add Mods"));

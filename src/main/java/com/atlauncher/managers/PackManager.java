@@ -123,8 +123,6 @@ public class PackManager {
                 AccountManager.getSelectedAccount().collapsedPacks.remove(pack.getName());
             }
             AccountManager.saveAccounts();
-            App.launcher.reloadFeaturedPacksPanel();
-            App.launcher.reloadPacksPanel();
         }
     }
 
@@ -232,7 +230,7 @@ public class PackManager {
                     App.settings.addedPacks.add(packCode);
                     App.settings.save();
                     App.launcher.refreshFeaturedPacksPanel();
-                    App.launcher.refreshPacksPanel();
+                    App.launcher.refreshPacksBrowserPanel();
                     return true;
                 }
             }
@@ -246,7 +244,7 @@ public class PackManager {
                 App.settings.addedPacks.remove(packCode);
                 App.settings.save();
                 App.launcher.refreshFeaturedPacksPanel();
-                App.launcher.refreshPacksPanel();
+                App.launcher.refreshPacksBrowserPanel();
             }
         }
     }
