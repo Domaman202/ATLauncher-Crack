@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -448,7 +448,7 @@ public final class Download {
             }
         }
         try (FileChannel fc = FileChannel.open(this.to, Utils.WRITE);
-                ReadableByteChannel rbc = Channels.newChannel(this.response.body().byteStream())) {
+             ReadableByteChannel rbc = Channels.newChannel(this.response.body().byteStream())) {
             fc.transferFrom(rbc, 0, Long.MAX_VALUE);
         } catch (Exception e) {
             LogManager.logStackTrace("Failed to download file " + this.to, e, false);
@@ -516,8 +516,8 @@ public final class Download {
         // size and log a warning
         if (this.ignoreFailures && this.to.toFile().length() != 0) {
             LogManager
-                    .warn(String.format("%s (of size %d) hash didn't match, but we're ignoring failures, so continuing",
-                            this.to.getFileName(), this.to.toFile().length()));
+                .warn(String.format("%s (of size %d) hash didn't match, but we're ignoring failures, so continuing",
+                    this.to.getFileName(), this.to.toFile().length()));
             return true;
         }
 
@@ -614,7 +614,7 @@ public final class Download {
         }
 
         if ((this.ignoreFailures && this.to.toFile().length() != 0)
-                || (expected != null && expected.equals(Hashing.HashCode.EMPTY))) {
+            || (expected != null && expected.equals(Hashing.HashCode.EMPTY))) {
             if (this.response.isSuccessful()) {
                 this.downloadDirect();
             }
@@ -624,7 +624,7 @@ public final class Download {
             if (!downloaded) {
                 if (this.response != null && this.response.header("content-type").contains("text/html")) {
                     LogManager.error(
-                            "The response from this request was a HTML response. This is usually caused by an antivirus or firewall software intercepting and rewriting the response. The response is below.");
+                        "The response from this request was a HTML response. This is usually caused by an antivirus or firewall software intercepting and rewriting the response. The response is below.");
 
                     LogManager.error(new String(Files.readAllBytes(this.to)));
                 }
@@ -632,17 +632,17 @@ public final class Download {
                 FileUtils.copyFile(this.to, FileSystem.FAILED_DOWNLOADS);
                 if (fingerprint != null) {
                     LogManager.error("Error downloading " + this.to.getFileName() + " from " + this.url + ". Expected"
-                            + " fingerprint of " + fingerprint.toString() + " (with size of " + this.size + ") but got "
-                            + Hashing.murmur(this.to) + " (with size of "
-                            + (Files.exists(this.to) ? Files.size(this.to) : 0)
-                            + ") instead. Copied to FailedDownloads folder & cancelling install!");
+                        + " fingerprint of " + fingerprint.toString() + " (with size of " + this.size + ") but got "
+                        + Hashing.murmur(this.to) + " (with size of "
+                        + (Files.exists(this.to) ? Files.size(this.to) : 0)
+                        + ") instead. Copied to FailedDownloads folder & cancelling install!");
                 } else {
                     LogManager.error("Error downloading " + this.to.getFileName() + " from " + this.url + ". Expected"
-                            + " hash of " + expected.toString() + " (with size of " + this.size + ") but got "
-                            + (this.md5() ? Hashing.md5(this.to)
-                                    : (this.sha512() ? Hashing.sha512(this.to) : Hashing.sha1(this.to)))
-                            + " (with size of " + (Files.exists(this.to) ? Files.size(this.to) : 0)
-                            + ") instead. Copied to FailedDownloads folder & cancelling install!");
+                        + " hash of " + expected.toString() + " (with size of " + this.size + ") but got "
+                        + (this.md5() ? Hashing.md5(this.to)
+                        : (this.sha512() ? Hashing.sha512(this.to) : Hashing.sha1(this.to)))
+                        + " (with size of " + (Files.exists(this.to) ? Files.size(this.to) : 0)
+                        + ") instead. Copied to FailedDownloads folder & cancelling install!");
                 }
                 if (this.instanceInstaller != null) {
                     this.instanceInstaller.cancel(true);
