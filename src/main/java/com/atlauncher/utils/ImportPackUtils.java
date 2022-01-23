@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -58,7 +58,7 @@ public class ImportPackUtils {
         }
 
         Pattern pattern = Pattern.compile(
-                "https:\\/\\/www\\.curseforge\\.com\\/minecraft\\/modpacks\\/([a-zA-Z0-9-]+)\\/?(?:download|files)?\\/?([0-9]+)?");
+            "https:\\/\\/www\\.curseforge\\.com\\/minecraft\\/modpacks\\/([a-zA-Z0-9-]+)\\/?(?:download|files)?\\/?([0-9]+)?");
         Matcher matcher = pattern.matcher(url);
 
         if (!matcher.find() || matcher.groupCount() < 2) {
@@ -79,10 +79,10 @@ public class ImportPackUtils {
         LogManager.debug("Found pack with slug " + packSlug + " and file id of " + fileId);
 
         SlugResponse modInfo = new Download()
-                .post(RequestBody.create(MediaType.parse("application/json; charset=utf-8"),
-                        "{\"query\":\"{\\n  addons(gameId: 432, section: \\\"Modpacks\\\", slug: \\\"" + packSlug
-                                + "\\\") {\\n    id\\n    defaultFileId\\n  }\\n}\"}"))
-                .setUrl("https://curse.nikky.moe/graphql").asClass(SlugResponse.class);
+            .post(RequestBody.create(MediaType.parse("application/json; charset=utf-8"),
+                "{\"query\":\"{\\n  addons(gameId: 432, section: \\\"Modpacks\\\", slug: \\\"" + packSlug
+                    + "\\\") {\\n    id\\n    defaultFileId\\n  }\\n}\"}"))
+            .setUrl("https://curse.nikky.moe/graphql").asClass(SlugResponse.class);
 
         projectId = modInfo.data.addons.get(0).id;
 
@@ -92,7 +92,7 @@ public class ImportPackUtils {
 
         if (projectId == null || fileId == null) {
             LogManager.error(
-                    "Cannot install as the id's couldn't be found. Try using a specific files install link instead.");
+                "Cannot install as the id's couldn't be found. Try using a specific files install link instead.");
             return false;
         }
 
@@ -103,7 +103,7 @@ public class ImportPackUtils {
 
         try {
             new Download().setUrl(curseFile.downloadUrl).downloadTo(tempZip).size(curseFile.fileLength)
-                    .fingerprint(curseFile.packageFingerprint).downloadFile();
+                .fingerprint(curseFile.packageFingerprint).downloadFile();
         } catch (IOException e) {
             LogManager.error("Failed to download modpack file from Curse");
             return false;
@@ -129,7 +129,7 @@ public class ImportPackUtils {
                 return loadCurseForgeFormat(file, null, null);
             }
 
-            if (ArchiveUtils.archiveContainsFile(file.toPath(), "index.json")) {
+            if (ArchiveUtils.archiveContainsFile(file.toPath(), "modrinth.index.json")) {
                 return loadModrinthFormat(file);
             }
 
@@ -138,7 +138,7 @@ public class ImportPackUtils {
             ArchiveUtils.extract(file.toPath(), tmpDir);
 
             if (tmpDir.toFile().list().length == 1
-                    && ArchiveUtils.archiveContainsFile(file.toPath(), tmpDir.toFile().list()[0] + "/mmc-pack.json")) {
+                && ArchiveUtils.archiveContainsFile(file.toPath(), tmpDir.toFile().list()[0] + "/mmc-pack.json")) {
                 return loadMultiMCFormat(tmpDir.resolve(tmpDir.toFile().list()[0]));
             }
 
@@ -162,7 +162,7 @@ public class ImportPackUtils {
 
         try {
             CurseForgeManifest manifest = Gsons.MINECRAFT.fromJson(ArchiveUtils.getFile(file.toPath(), "manifest.json"),
-                    CurseForgeManifest.class);
+                CurseForgeManifest.class);
 
             if (projectId != null) {
                 manifest.projectID = projectId;
@@ -194,8 +194,8 @@ public class ImportPackUtils {
     }
 
     public static boolean loadModrinthFormat(File file) {
-        if (!file.getName().endsWith(".zip")) {
-            LogManager.error("Cannot install as the file was not a zip file");
+        if (!file.getName().endsWith(".mrpack")) {
+            LogManager.error("Cannot install as the file was not a mrpack file");
             return false;
         }
 
@@ -203,11 +203,11 @@ public class ImportPackUtils {
 
         try {
             ModrinthModpackManifest manifest = Gsons.MINECRAFT
-                    .fromJson(ArchiveUtils.getFile(file.toPath(), "index.json"), ModrinthModpackManifest.class);
+                .fromJson(ArchiveUtils.getFile(file.toPath(), "modrinth.index.json"), ModrinthModpackManifest.class);
 
             if (!manifest.game.equals("minecraft")) {
                 LogManager.error(
-                        "Cannot install as the manifest is for game " + manifest.game + " and not for Minecraft");
+                    "Cannot install as the manifest is for game " + manifest.game + " and not for Minecraft");
                 return false;
             }
 
@@ -216,7 +216,7 @@ public class ImportPackUtils {
                 return false;
             }
 
-            if (Integer.parseInt(manifest.formatVersion, 10) != 1) {
+            if (manifest.formatVersion != 1) {
                 LogManager.warn("Manifest is version " + manifest.formatVersion + " which may be an issue!");
             }
 
@@ -234,7 +234,7 @@ public class ImportPackUtils {
 
     public static boolean loadMultiMCFormat(Path extractedPath) {
         try (FileReader fileReader = new FileReader(extractedPath.resolve("mmc-pack.json").toFile());
-                InputStream instanceCfgStream = new FileInputStream(extractedPath.resolve("instance.cfg").toFile())) {
+             InputStream instanceCfgStream = new FileInputStream(extractedPath.resolve("instance.cfg").toFile())) {
             MultiMCManifest manifest = Gsons.MINECRAFT.fromJson(fileReader, MultiMCManifest.class);
 
             Properties props = new Properties();
@@ -243,7 +243,7 @@ public class ImportPackUtils {
 
             if (manifest.formatVersion != 1) {
                 LogManager.error("Cannot install as the format is version " + manifest.formatVersion
-                        + " which I cannot install");
+                    + " which I cannot install");
                 return false;
             }
 
