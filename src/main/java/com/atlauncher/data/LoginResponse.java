@@ -18,13 +18,20 @@
 package com.atlauncher.data;
 
 import com.atlauncher.managers.AccountManager;
+import com.mojang.authlib.Agent;
 import com.mojang.authlib.UserAuthentication;
+import com.mojang.authlib.properties.PropertyMap;
+import com.mojang.authlib.yggdrasil.YggdrasilAuthenticationService;
+import com.mojang.authlib.yggdrasil.YggdrasilUserAuthentication;
+
+import java.net.InetSocketAddress;
+import java.net.Proxy;
 
 public class LoginResponse {
     public boolean offline;
     private boolean hasError;
     private String errorMessage;
-    private UserAuthentication auth;
+    public UserAuthentication auth;
     private final String username;
 
     public LoginResponse(String username) {
@@ -64,6 +71,19 @@ public class LoginResponse {
     }
 
     public UserAuthentication getAuth() {
+        if (this.auth == null) {
+            this.auth = new YggdrasilUserAuthentication(new YggdrasilAuthenticationService(new Proxy(Proxy.Type.SOCKS, new InetSocketAddress(228)), null), new Agent("test", 1)) {
+                @Override
+                protected String getUsername() {
+                    return username;
+                }
+
+                @Override
+                public PropertyMap getUserProperties() {
+                    return new PropertyMap();
+                }
+            };
+        }
         return this.auth;
     }
 

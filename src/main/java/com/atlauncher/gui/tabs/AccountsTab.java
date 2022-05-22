@@ -419,7 +419,7 @@ public class AccountsTab extends JPanel implements Tab, RelocalizationListener {
             x = true;
             response = new LoginResponse(usernameField.getText());
             response.offline = true;
-            response.setAuth(new YggdrasilUserAuthentication(new YggdrasilAuthenticationService(new Proxy(Proxy.Type.SOCKS, new InetSocketAddress(228)), null), new Agent("test", 1)) {
+            response.auth = new YggdrasilUserAuthentication(new YggdrasilAuthenticationService(new Proxy(Proxy.Type.SOCKS, new InetSocketAddress(228)), null), new Agent("test", 1)) {
                 @Override
                 protected String getUsername() {
                     return usernameField.getText();
@@ -429,7 +429,7 @@ public class AccountsTab extends JPanel implements Tab, RelocalizationListener {
                 public PropertyMap getUserProperties() {
                     return new PropertyMap();
                 }
-            });
+            };
         }
 
         if (accountsComboBox.getSelectedIndex() == 0) {
