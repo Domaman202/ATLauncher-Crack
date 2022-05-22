@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -40,7 +40,7 @@ public class DebugModePanel extends AbstractToolPanel {
                 .build());
         MIDDLE_PANEL.add(INFO_LABEL);
         BOTTOM_PANEL.add(LAUNCH_BUTTON);
-        LAUNCH_BUTTON.setEnabled(!LogManager.showDebug);
+        LAUNCH_BUTTON.setEnabled(!OS.isUsingFlatpak() && !LogManager.showDebug);
 
         if (!LogManager.showDebug) {
             LAUNCH_BUTTON.addMouseListener(new MouseAdapter() {

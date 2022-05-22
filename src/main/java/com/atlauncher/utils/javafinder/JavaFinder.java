@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -56,7 +56,7 @@ public class JavaFinder {
 
                 PathMatcher pathMatcher = FileSystems.getDefault().getPathMatcher("glob:**/bin/java.exe");
 
-                String[] pathsToSearch = { "Java", "Amazon Corretto", "AdoptOpenJDK" };
+                String[] pathsToSearch = { "Java", "Amazon Corretto", "AdoptOpenJDK", "Eclipse Foundation" };
 
                 for (String searchPath : pathsToSearch) {
                     List<String> foundPaths = new ArrayList<>();

@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -38,7 +38,6 @@ import com.atlauncher.workers.BackgroundImageWorker;
 
 import org.mini2Dx.gettext.GetText;
 
-@SuppressWarnings("serial")
 public final class ModrinthSearchHitCard extends JPanel {
     public ModrinthSearchHitCard(final ModrinthSearchHit mod, ActionListener al) {
         setLayout(new BorderLayout());
@@ -70,7 +69,9 @@ public final class ModrinthSearchHitCard extends JPanel {
 
         addButton.addActionListener(al);
 
-        viewButton.addActionListener(e -> OS.openWebBrowser(mod.pageUrl));
+        viewButton.addActionListener(e -> {
+            OS.openWebBrowser(String.format("https://modrinth.com/mod/%s", mod.slug));
+        });
 
         add(summaryPanel, BorderLayout.CENTER);
         add(buttonsPanel, BorderLayout.SOUTH);

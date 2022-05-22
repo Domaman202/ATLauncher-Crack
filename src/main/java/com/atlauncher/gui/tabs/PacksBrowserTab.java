@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,6 +25,7 @@ import java.awt.event.AdjustmentEvent;
 import java.awt.event.AdjustmentListener;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
+import java.util.List;
 import java.util.Map;
 
 import javax.swing.BorderFactory;
@@ -39,9 +40,14 @@ import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 
+import com.atlauncher.App;
 import com.atlauncher.builders.HTMLBuilder;
+import com.atlauncher.data.minecraft.VersionManifestVersion;
 import com.atlauncher.evnt.listener.RelocalizationListener;
+import com.atlauncher.evnt.listener.ThemeListener;
 import com.atlauncher.evnt.manager.RelocalizationManager;
+import com.atlauncher.evnt.manager.ThemeManager;
+import com.atlauncher.gui.panels.packbrowser.ATLauncherFeaturedPacksPanel;
 import com.atlauncher.gui.panels.packbrowser.ATLauncherPacksPanel;
 import com.atlauncher.gui.panels.packbrowser.CurseForgePacksPanel;
 import com.atlauncher.gui.panels.packbrowser.FTBPacksPanel;
@@ -50,30 +56,44 @@ import com.atlauncher.gui.panels.packbrowser.PackBrowserPlatformPanel;
 import com.atlauncher.gui.panels.packbrowser.PacksBrowserTabTitlePanel;
 import com.atlauncher.gui.panels.packbrowser.TechnicPacksPanel;
 import com.atlauncher.managers.ConfigManager;
+import com.atlauncher.managers.DialogManager;
+import com.atlauncher.managers.MinecraftManager;
 import com.atlauncher.network.Analytics;
 import com.atlauncher.utils.ComboItem;
+import com.atlauncher.utils.Utils;
+import com.formdev.flatlaf.icons.FlatSearchIcon;
 
 import org.mini2Dx.gettext.GetText;
 
 @SuppressWarnings("serial")
-public final class PacksBrowserTab extends JPanel implements Tab, RelocalizationListener {
+public final class PacksBrowserTab extends JPanel implements Tab, RelocalizationListener, ThemeListener {
     private final JPanel actionsPanel = new JPanel();
+
+    private final JPanel minecraftVersionPanel = new JPanel();
+    private final JLabel minecraftVersionLabel = new JLabel(GetText.tr("Minecraft:"));
+    private final JComboBox<ComboItem<String>> minecraftVersionComboBox = new JComboBox<>();
+
     private final JPanel categoriesPanel = new JPanel();
     private final JLabel categoriesLabel = new JLabel(GetText.tr("Category:"));
-    private final JComboBox<ComboItem<Integer>> categoriesComboBox = new JComboBox<>();
+    private final JComboBox<ComboItem<String>> categoriesComboBox = new JComboBox<>();
+
     private final JPanel sortPanel = new JPanel();
     private final JLabel sortLabel = new JLabel(GetText.tr("Sort:"));
     private final JComboBox<ComboItem<String>> sortComboBox = new JComboBox<>();
+    private boolean sortDescending = true;
+    private final JButton ascendingSortButton = new JButton(Utils.getIconImage(App.THEME.getIconPath("ascending")));
+    private final JButton descendingSortButton = new JButton(Utils.getIconImage(App.THEME.getIconPath("descending")));
+
     private final JPanel spacer = new JPanel();
     private final JTextField searchField = new JTextField(16);
-    private final JButton searchButton = new JButton(GetText.tr("Search"));
-    private final JButton clearButton = new JButton(GetText.tr("Clear"));
+    private final JButton addManuallyButton = new JButton(GetText.tr("Add Manually"));
 
     private final JPanel platformMessageJPanel = new JPanel(new BorderLayout());
     private final JLabel platformMessageJLabel = new JLabel();
 
     private final JTabbedPane platformTabbedPane = new JTabbedPane();
     private final PackBrowserPlatformPanel atlauncherPacksPanel = new ATLauncherPacksPanel();
+    private final PackBrowserPlatformPanel atlauncherFeaturedPacksPanel = new ATLauncherFeaturedPacksPanel();
     private final PackBrowserPlatformPanel curseForgePacksPanel = new CurseForgePacksPanel();
     private final PackBrowserPlatformPanel ftbPacksPanel = new FTBPacksPanel();
     private final PackBrowserPlatformPanel modrinthPacksPanel = new ModrinthPacksPanel();
@@ -89,6 +109,7 @@ public final class PacksBrowserTab extends JPanel implements Tab, Relocalization
         super(new BorderLayout());
         setName("packsBrowserPanel");
         RelocalizationManager.addListener(this);
+        ThemeManager.addListener(this);
 
         initComponents();
     }
@@ -97,6 +118,23 @@ public final class PacksBrowserTab extends JPanel implements Tab, Relocalization
         actionsPanel.setLayout(new FlowLayout(FlowLayout.RIGHT));
         actionsPanel
                 .setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, UIManager.getColor("Component.borderColor")));
+
+        minecraftVersionPanel.setLayout(new FlowLayout(FlowLayout.CENTER, 4, 0));
+        minecraftVersionPanel.add(minecraftVersionLabel);
+        minecraftVersionPanel.add(minecraftVersionComboBox);
+        actionsPanel.add(minecraftVersionPanel);
+
+        minecraftVersionComboBox.addActionListener(e -> {
+            if (!loading) {
+                loading = true;
+                page = 1;
+
+                // disable the tabs
+                platformTabbedPane.setEnabled(false);
+
+                load(true);
+            }
+        });
 
         categoriesPanel.setLayout(new FlowLayout(FlowLayout.CENTER, 4, 0));
         categoriesPanel.add(categoriesLabel);
@@ -118,6 +156,9 @@ public final class PacksBrowserTab extends JPanel implements Tab, Relocalization
         sortPanel.setLayout(new FlowLayout(FlowLayout.CENTER, 4, 0));
         sortPanel.add(sortLabel);
         sortPanel.add(sortComboBox);
+        sortPanel.add(ascendingSortButton);
+        sortPanel.add(descendingSortButton);
+        ascendingSortButton.setVisible(false);
         actionsPanel.add(sortPanel);
 
         sortComboBox.addActionListener(e -> {
@@ -128,6 +169,28 @@ public final class PacksBrowserTab extends JPanel implements Tab, Relocalization
                 // disable the tabs
                 platformTabbedPane.setEnabled(false);
 
+                String newSort = ((ComboItem<String>) sortComboBox.getSelectedItem()).getValue();
+
+                PackBrowserPlatformPanel selectedPanel = (PackBrowserPlatformPanel) platformTabbedPane
+                        .getSelectedComponent();
+                setSortOrder(selectedPanel.getSortFieldsDefaultOrder().getOrDefault(newSort, true) == true);
+
+                load(true);
+            }
+        });
+
+        ascendingSortButton.addActionListener(e -> {
+            if (!loading) {
+                loading = true;
+                setSortOrder(true);
+                load(true);
+            }
+        });
+
+        descendingSortButton.addActionListener(e -> {
+            if (!loading) {
+                loading = true;
+                setSortOrder(false);
                 load(true);
             }
         });
@@ -141,18 +204,27 @@ public final class PacksBrowserTab extends JPanel implements Tab, Relocalization
                 }
             }
         });
-        actionsPanel.add(searchField);
-
-        searchButton.addActionListener(e -> {
-            executeSearch();
-        });
-        actionsPanel.add(searchButton);
-
-        clearButton.addActionListener(e -> {
+        searchField.putClientProperty("JTextField.placeholderText", GetText.tr("Search"));
+        searchField.putClientProperty("JTextField.leadingIcon", new FlatSearchIcon());
+        searchField.putClientProperty("JTextField.showClearButton", true);
+        searchField.putClientProperty("JTextField.clearCallback", (Runnable) () -> {
             searchField.setText("");
             executeSearch();
         });
-        actionsPanel.add(clearButton);
+        actionsPanel.add(searchField);
+
+        addManuallyButton.addActionListener(e -> {
+            PackBrowserPlatformPanel selectedPanel = (PackBrowserPlatformPanel) platformTabbedPane
+                    .getSelectedComponent();
+
+            String id = DialogManager.okDialog().setTitle(GetText.tr("Add Pack By ID/Slug/URL"))
+                    .setContent(GetText.tr("Enter an ID/slug/url for a pack to add manually:")).showInput();
+
+            if (id != null && !id.isEmpty()) {
+                selectedPanel.addById(id);
+            }
+        });
+        actionsPanel.add(addManuallyButton);
 
         add(actionsPanel, BorderLayout.NORTH);
 
@@ -172,7 +244,10 @@ public final class PacksBrowserTab extends JPanel implements Tab, Relocalization
         scrollPane.getVerticalScrollBar().addAdjustmentListener(new AdjustmentListener() {
             @Override
             public void adjustmentValueChanged(AdjustmentEvent e) {
-                if (!loading) {
+                PackBrowserPlatformPanel selectedPanel = (PackBrowserPlatformPanel) platformTabbedPane
+                        .getSelectedComponent();
+
+                if (!loading && selectedPanel.hasPagination() && selectedPanel.hasMorePages()) {
                     int maxValue = scrollPane.getVerticalScrollBar().getMaximum()
                             - scrollPane.getVerticalScrollBar().getVisibleAmount();
                     int currentValue = scrollPane.getVerticalScrollBar().getValue();
@@ -192,6 +267,10 @@ public final class PacksBrowserTab extends JPanel implements Tab, Relocalization
 
         platformTabbedPane.add(atlauncherPacksPanel);
         platformTabbedPane.setTabComponentAt(index++, new PacksBrowserTabTitlePanel("ATLauncher"));
+
+        platformTabbedPane.add(atlauncherFeaturedPacksPanel);
+        platformTabbedPane.setTabComponentAt(index++,
+                new PacksBrowserTabTitlePanel("ATLauncher Featured", "atlauncher"));
 
         if (ConfigManager.getConfigItem("platforms.curseforge.modpacksEnabled", true) == true) {
             platformTabbedPane.add(curseForgePacksPanel);
@@ -245,16 +324,33 @@ public final class PacksBrowserTab extends JPanel implements Tab, Relocalization
         // disable the tabs
         platformTabbedPane.setEnabled(false);
 
-        // remove category and sort values
+        // remove minecraft version, category and sort values
+        minecraftVersionComboBox.removeAllItems();
         categoriesComboBox.removeAllItems();
         sortComboBox.removeAllItems();
+
+        // add in minecraft versions combo box items if the platform supports it
+        if (selectedPanel.supportsMinecraftVersionFiltering()) {
+            minecraftVersionComboBox.addItem(new ComboItem<String>(null, GetText.tr("All Versions")));
+
+            List<VersionManifestVersion> versionsToShow = selectedPanel
+                    .getSupportedMinecraftVersionsForFiltering().size() != 0
+                            ? selectedPanel.getSupportedMinecraftVersionsForFiltering()
+                            : MinecraftManager
+                                    .getFilteredMinecraftVersions(
+                                            selectedPanel.getSupportedMinecraftVersionTypesForFiltering());
+
+            for (VersionManifestVersion mv : versionsToShow) {
+                minecraftVersionComboBox.addItem(new ComboItem<String>(mv.id, mv.id));
+            }
+        }
 
         // add in categories combo box items if the platform supports it
         if (selectedPanel.hasCategories()) {
             new Thread(() -> {
-                categoriesComboBox.addItem(new ComboItem<Integer>(null, GetText.tr("All Categories")));
-                for (Map.Entry<Integer, String> entry : selectedPanel.getCategoryFields().entrySet()) {
-                    categoriesComboBox.addItem(new ComboItem<Integer>(entry.getKey(), entry.getValue()));
+                categoriesComboBox.addItem(new ComboItem<String>(null, GetText.tr("All Categories")));
+                for (Map.Entry<String, String> entry : selectedPanel.getCategoryFields().entrySet()) {
+                    categoriesComboBox.addItem(new ComboItem<String>(entry.getKey(), entry.getValue()));
                 }
             }).start();
         }
@@ -266,9 +362,22 @@ public final class PacksBrowserTab extends JPanel implements Tab, Relocalization
             }
         }
 
-        // hide sort/category if not needed
+        if (selectedPanel.supportsSortOrder()) {
+            String newSort = ((ComboItem<String>) sortComboBox.getSelectedItem()).getValue();
+
+            setSortOrder(selectedPanel.getSortFieldsDefaultOrder().getOrDefault(newSort, true) == true);
+        } else {
+            setSortOrder(true);
+        }
+
+        // hide minecraft version/sort/category if not needed
+        searchField.setVisible(selectedPanel.supportsSearch());
+        minecraftVersionPanel.setVisible(selectedPanel.supportsMinecraftVersionFiltering());
         categoriesPanel.setVisible(selectedPanel.hasCategories());
         sortPanel.setVisible(selectedPanel.hasSort());
+        ascendingSortButton.setVisible(selectedPanel.supportsSortOrder() && !sortDescending);
+        descendingSortButton.setVisible(selectedPanel.supportsSortOrder() && sortDescending);
+        addManuallyButton.setVisible(selectedPanel.supportsManualAdding());
 
         String platformMessage = selectedPanel.getPlatformMessage();
         platformMessageJPanel.setVisible(platformMessage != null);
@@ -276,6 +385,12 @@ public final class PacksBrowserTab extends JPanel implements Tab, Relocalization
 
         // load in the content for the platform
         load(true);
+    }
+
+    private void setSortOrder(boolean sortDescending) {
+        this.sortDescending = sortDescending;
+        ascendingSortButton.setVisible(!sortDescending);
+        descendingSortButton.setVisible(sortDescending);
     }
 
     private void loadMorePacks() {
@@ -290,9 +405,14 @@ public final class PacksBrowserTab extends JPanel implements Tab, Relocalization
 
             // load in the content for the platform
             new Thread(() -> {
-                Integer category = null;
+                String minecraftVersion = null;
                 if (selectedPanel.hasCategories()) {
-                    category = ((ComboItem<Integer>) categoriesComboBox.getSelectedItem()).getValue();
+                    minecraftVersion = ((ComboItem<String>) minecraftVersionComboBox.getSelectedItem()).getValue();
+                }
+
+                String category = null;
+                if (selectedPanel.hasCategories()) {
+                    category = ((ComboItem<String>) categoriesComboBox.getSelectedItem()).getValue();
                 }
 
                 String sort = null;
@@ -301,7 +421,8 @@ public final class PacksBrowserTab extends JPanel implements Tab, Relocalization
                 }
 
                 // load in the content for the platform
-                selectedPanel.loadMorePacks(contentPanel, category, sort, searchField.getText(), page);
+                selectedPanel.loadMorePacks(contentPanel, minecraftVersion, category, sort, sortDescending,
+                        searchField.getText(), page);
 
                 SwingUtilities.invokeLater(new Runnable() {
                     @Override
@@ -338,18 +459,25 @@ public final class PacksBrowserTab extends JPanel implements Tab, Relocalization
         PackBrowserPlatformPanel selectedPanel = (PackBrowserPlatformPanel) platformTabbedPane.getSelectedComponent();
 
         new Thread(() -> {
-            Integer category = null;
-            if (selectedPanel.hasCategories()) {
-                category = ((ComboItem<Integer>) categoriesComboBox.getSelectedItem()).getValue();
+            String minecraftVersion = null;
+            if (selectedPanel.supportsMinecraftVersionFiltering()
+                    && minecraftVersionComboBox.getSelectedItem() != null) {
+                minecraftVersion = ((ComboItem<String>) minecraftVersionComboBox.getSelectedItem()).getValue();
+            }
+
+            String category = null;
+            if (selectedPanel.hasCategories() && categoriesComboBox.getSelectedItem() != null) {
+                category = ((ComboItem<String>) categoriesComboBox.getSelectedItem()).getValue();
             }
 
             String sort = null;
-            if (selectedPanel.hasSort()) {
+            if (selectedPanel.hasSort() && sortComboBox.getSelectedItem() != null) {
                 sort = ((ComboItem<String>) sortComboBox.getSelectedItem()).getValue();
             }
 
             // load in the content for the platform
-            selectedPanel.load(contentPanel, category, sort, searchField.getText(), page);
+            selectedPanel.load(contentPanel, minecraftVersion, category, sort, sortDescending, searchField.getText(),
+                    page);
 
             SwingUtilities.invokeLater(new Runnable() {
                 @Override
@@ -388,9 +516,15 @@ public final class PacksBrowserTab extends JPanel implements Tab, Relocalization
 
     @Override
     public void onRelocalization() {
-        searchButton.setText(GetText.tr("Search"));
-        clearButton.setText(GetText.tr("Clear"));
         categoriesLabel.setText(GetText.tr("Category:"));
         sortLabel.setText(GetText.tr("Sort:"));
+
+        searchField.putClientProperty("JTextField.placeholderText", GetText.tr("Search"));
+    }
+
+    @Override
+    public void onThemeChange() {
+        ascendingSortButton.setIcon(Utils.getIconImage(App.THEME.getIconPath("ascending")));
+        descendingSortButton.setIcon(Utils.getIconImage(App.THEME.getIconPath("descending")));
     }
 }

@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -41,6 +41,7 @@ import com.atlauncher.gui.components.JLabelWithHover;
 import com.atlauncher.utils.ComboItem;
 import com.atlauncher.utils.OS;
 import com.atlauncher.utils.Utils;
+import com.atlauncher.utils.sort.InstanceSortingStrategies;
 
 import org.mini2Dx.gettext.GetText;
 
@@ -51,7 +52,7 @@ public class GeneralSettingsTab extends AbstractSettingsTab {
     private final JComboBox<ComboItem<String>> dateFormat;
     private final JComboBox<ComboItem<String>> instanceTitleFormat;
     private final JComboBox<ComboItem<Integer>> selectedTabOnStartup;
-    private final JCheckBox sortPacksAlphabetically;
+    private final JComboBox<InstanceSortingStrategies> defaultInstanceSorting;
     private final JCheckBox keepLauncherOpen;
     private final JCheckBox enableConsole;
     private final JCheckBox enableTrayIcon;
@@ -60,6 +61,7 @@ public class GeneralSettingsTab extends AbstractSettingsTab {
     private final JCheckBox disableCustomFonts;
     private final JCheckBox rememberWindowSizePosition;
     private final JCheckBox useNativeFilePicker;
+    private final JCheckBox useRecycleBin;
 
     public GeneralSettingsTab() {
         // Language
@@ -206,13 +208,12 @@ public class GeneralSettingsTab extends AbstractSettingsTab {
         selectedTabOnStartup = new JComboBox<>();
         selectedTabOnStartup.addItem(new ComboItem<>(0, GetText.tr("News")));
         selectedTabOnStartup.addItem(new ComboItem<>(1, GetText.tr("Vanilla Packs")));
-        selectedTabOnStartup.addItem(new ComboItem<>(2, GetText.tr("Featured Packs")));
-        selectedTabOnStartup.addItem(new ComboItem<>(3, GetText.tr("Packs")));
-        selectedTabOnStartup.addItem(new ComboItem<>(4, GetText.tr("Instances")));
-        selectedTabOnStartup.addItem(new ComboItem<>(5, GetText.tr("Servers")));
-        selectedTabOnStartup.addItem(new ComboItem<>(6, GetText.tr("Accounts")));
-        selectedTabOnStartup.addItem(new ComboItem<>(7, GetText.tr("Tools")));
-        selectedTabOnStartup.addItem(new ComboItem<>(8, GetText.tr("Settings")));
+        selectedTabOnStartup.addItem(new ComboItem<>(2, GetText.tr("Packs")));
+        selectedTabOnStartup.addItem(new ComboItem<>(3, GetText.tr("Instances")));
+        selectedTabOnStartup.addItem(new ComboItem<>(4, GetText.tr("Servers")));
+        selectedTabOnStartup.addItem(new ComboItem<>(5, GetText.tr("Accounts")));
+        selectedTabOnStartup.addItem(new ComboItem<>(6, GetText.tr("Tools")));
+        selectedTabOnStartup.addItem(new ComboItem<>(7, GetText.tr("Settings")));
         selectedTabOnStartup.setSelectedItem(App.settings.selectedTabOnStartup);
 
         for (int i = 0; i < selectedTabOnStartup.getItemCount(); i++) {
@@ -226,25 +227,25 @@ public class GeneralSettingsTab extends AbstractSettingsTab {
 
         add(selectedTabOnStartup, gbc);
 
-        // Sort Packs Alphabetically
+        // Default instance sorting
 
         gbc.gridx = 0;
         gbc.gridy++;
         gbc.insets = UIConstants.LABEL_INSETS;
         gbc.anchor = GridBagConstraints.BASELINE_TRAILING;
-        JLabelWithHover sortPacksAlphabeticallyLabel = new JLabelWithHover(
-                GetText.tr("Sort Packs Alphabetically") + "?", HELP_ICON,
-                GetText.tr("If you want to sort the packs in the packs panel alphabetically by default or not."));
-        add(sortPacksAlphabeticallyLabel, gbc);
+
+        JLabelWithHover defaultInstanceSortingLabel = new JLabelWithHover(GetText.tr("Default Tab") + ":", HELP_ICON,
+                GetText.tr("Which tab to have selected by default when opening the launcher."));
+
+        add(defaultInstanceSortingLabel, gbc);
 
         gbc.gridx++;
-        gbc.insets = UIConstants.CHECKBOX_FIELD_INSETS;
+        gbc.insets = UIConstants.FIELD_INSETS;
         gbc.anchor = GridBagConstraints.BASELINE_LEADING;
-        sortPacksAlphabetically = new JCheckBox();
-        if (App.settings.sortPacksAlphabetically) {
-            sortPacksAlphabetically.setSelected(true);
-        }
-        add(sortPacksAlphabetically, gbc);
+        defaultInstanceSorting = new JComboBox<>(InstanceSortingStrategies.values());
+        defaultInstanceSorting.setSelectedItem(App.settings.defaultInstanceSorting);
+
+        add(defaultInstanceSorting, gbc);
 
         // Keep Launcher Open
 
@@ -415,6 +416,26 @@ public class GeneralSettingsTab extends AbstractSettingsTab {
         useNativeFilePicker = new JCheckBox();
         useNativeFilePicker.setSelected(App.settings.useNativeFilePicker);
         add(useNativeFilePicker, gbc);
+
+        // Use recycle bin
+
+        gbc.gridx = 0;
+        gbc.gridy++;
+        gbc.insets = UIConstants.LABEL_INSETS;
+        gbc.anchor = GridBagConstraints.BASELINE_TRAILING;
+        JLabelWithHover useRecycleBinLabel = new JLabelWithHover(GetText.tr("Use Recycle Bin/Trash?"), HELP_ICON,
+                new HTMLBuilder().center().split(100)
+                        .text(GetText
+                                .tr("This will use your operating systems recycle bin/trash where possible when deleting files/instances/servers instead of just deleting them entirely, allowing you to recover files if you make a mistake or want to get them back."))
+                        .build());
+        add(useRecycleBinLabel, gbc);
+
+        gbc.gridx++;
+        gbc.insets = UIConstants.CHECKBOX_FIELD_INSETS;
+        gbc.anchor = GridBagConstraints.BASELINE_LEADING;
+        useRecycleBin = new JCheckBox();
+        useRecycleBin.setSelected(App.settings.useRecycleBin);
+        add(useRecycleBin, gbc);
     }
 
     @SuppressWarnings("unchecked")
@@ -427,10 +448,6 @@ public class GeneralSettingsTab extends AbstractSettingsTab {
     @SuppressWarnings("unchecked")
     public boolean themeChanged() {
         return !((ComboItem<String>) theme.getSelectedItem()).getValue().equalsIgnoreCase(App.settings.theme);
-    }
-
-    public boolean needToReloadPacksPanel() {
-        return sortPacksAlphabetically.isSelected() != App.settings.sortPacksAlphabetically;
     }
 
     public boolean needToReloadInstancesPanel() {
@@ -450,7 +467,7 @@ public class GeneralSettingsTab extends AbstractSettingsTab {
         App.settings.dateFormat = ((ComboItem<String>) dateFormat.getSelectedItem()).getValue();
         App.settings.instanceTitleFormat = ((ComboItem<String>) instanceTitleFormat.getSelectedItem()).getValue();
         App.settings.selectedTabOnStartup = ((ComboItem<Integer>) selectedTabOnStartup.getSelectedItem()).getValue();
-        App.settings.sortPacksAlphabetically = sortPacksAlphabetically.isSelected();
+        App.settings.defaultInstanceSorting = (InstanceSortingStrategies) defaultInstanceSorting.getSelectedItem();
         App.settings.keepLauncherOpen = keepLauncherOpen.isSelected();
         App.settings.enableConsole = enableConsole.isSelected();
         App.settings.enableTrayMenu = enableTrayIcon.isSelected();
@@ -474,6 +491,7 @@ public class GeneralSettingsTab extends AbstractSettingsTab {
         }
 
         App.settings.useNativeFilePicker = useNativeFilePicker.isSelected();
+        App.settings.useRecycleBin = useRecycleBin.isSelected();
     }
 
     @Override

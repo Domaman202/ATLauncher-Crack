@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,12 +21,15 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.URL;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+
+import javax.annotation.Nullable;
 
 import com.atlauncher.managers.LogManager;
 
@@ -70,29 +73,57 @@ public class ArchiveUtils {
         return found;
     }
 
+    /**
+     * Creates an input stream from the provided path.
+     * This will handle if the path is a URI.
+     *
+     * @param archivePath Path to create an input stream for.
+     * @return Input stream if successful, null otherwise
+     */
+    public static @Nullable InputStream createStream(Path archivePath) {
+        InputStream is = null;
+
+        try {
+            if (archivePath.toString().startsWith("file:")) {
+                is = new URL(archivePath.toString()).openStream();
+            } else {
+                is = Files.newInputStream(archivePath);
+            }
+        } catch (Exception e) {
+            LogManager.logStackTrace(e);
+        }
+
+        return is;
+    }
+
     public static String getFile(Path archivePath, String file) {
         try {
-            return new String(ZipUtil.unpackEntry(archivePath.toFile(), file));
+            return new String(ZipUtil.unpackEntry(createStream(archivePath), file));
         } catch (Throwable t) {
             // allow this to fail as we can fallback to Apache Commons library
-            LogManager.warn(
+            LogManager.debug(
                     "Failed to get contents of file in " + archivePath.toAbsolutePath() + ". Trying fallback method");
         }
 
         String contents = null;
 
-        try (InputStream is = Files.newInputStream(archivePath);
-                ArchiveInputStream ais = new ArchiveStreamFactory().createArchiveInputStream("ZIP", is)) {
-            ArchiveEntry entry = null;
-            while ((entry = ais.getNextEntry()) != null) {
-                if (!ais.canReadEntryData(entry)) {
-                    continue;
-                }
+        try {
+            InputStream is = createStream(archivePath);
+            try (
+                    ArchiveInputStream ais = new ArchiveStreamFactory().createArchiveInputStream("ZIP", is)) {
+                ArchiveEntry entry = null;
+                while ((entry = ais.getNextEntry()) != null) {
+                    if (!ais.canReadEntryData(entry)) {
+                        continue;
+                    }
 
-                if (entry.getName().equals(file)) {
-                    contents = new String(IOUtils.toByteArray(ais));
-                    break;
+                    if (entry.getName().equals(file)) {
+                        contents = new String(IOUtils.toByteArray(ais));
+                        break;
+                    }
                 }
+            } catch (Exception e) {
+                LogManager.logStackTrace(e);
             }
         } catch (Exception e) {
             LogManager.logStackTrace(e);

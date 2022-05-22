@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,6 +26,7 @@ import com.atlauncher.App;
 import com.atlauncher.builders.HTMLBuilder;
 import com.atlauncher.constants.UIConstants;
 import com.atlauncher.data.AddModRestriction;
+import com.atlauncher.data.InstanceExportFormat;
 import com.atlauncher.data.ModPlatform;
 import com.atlauncher.gui.components.JLabelWithHover;
 import com.atlauncher.utils.ComboItem;
@@ -38,6 +39,7 @@ public class ModsSettingsTab extends AbstractSettingsTab {
     private final JComboBox<ComboItem<AddModRestriction>> addModRestriction;
     private final JCheckBox enableAddedModsByDefault;
     private final JCheckBox dontCheckModsOnCurseForge;
+    private final JComboBox<ComboItem<InstanceExportFormat>> defaultExportFormat;
 
     public ModsSettingsTab() {
         // Default mod platform
@@ -131,7 +133,7 @@ public class ModsSettingsTab extends AbstractSettingsTab {
         JLabelWithHover dontCheckModsOnCurseForgeLabel = new JLabelWithHover(
                 GetText.tr("Don't Check Mods On CurseForge?"), HELP_ICON,
                 new HTMLBuilder().center().split(100).text(GetText.tr(
-                        "When installing packs or adding mods manually to instances, we check for the file on CurseForge to show more information about the mod as well as make updating easier. Disbaling this will mean you won't be able to update manually added mods from within the launcher but may solve some issues installing packs due to running out of memory."))
+                        "When installing packs or adding mods manually to instances, we check for the file on CurseForge to show more information about the mod as well as make updating easier. Disabling this will mean you won't be able to update manually added mods from within the launcher but may solve some issues installing packs due to running out of memory."))
                         .build());
         add(dontCheckModsOnCurseForgeLabel, gbc);
 
@@ -141,6 +143,38 @@ public class ModsSettingsTab extends AbstractSettingsTab {
         dontCheckModsOnCurseForge = new JCheckBox();
         dontCheckModsOnCurseForge.setSelected(App.settings.dontCheckModsOnCurseForge);
         add(dontCheckModsOnCurseForge, gbc);
+
+        // Default export format
+
+        gbc.gridx = 0;
+        gbc.gridy++;
+        gbc.insets = UIConstants.LABEL_INSETS;
+        gbc.anchor = GridBagConstraints.BASELINE_TRAILING;
+
+        JLabelWithHover defaultExportFormatLabel = new JLabelWithHover(GetText.tr("Default Export Format") + ":",
+                HELP_ICON, GetText.tr(
+                        "The default format to export instances to. Can also be changed at time of export."));
+
+        add(defaultExportFormatLabel, gbc);
+
+        gbc.gridx++;
+        gbc.insets = UIConstants.FIELD_INSETS;
+        gbc.anchor = GridBagConstraints.BASELINE_LEADING;
+        defaultExportFormat = new JComboBox<>();
+        defaultExportFormat.addItem(new ComboItem<>(InstanceExportFormat.CURSEFORGE, "CurseForge"));
+        defaultExportFormat.addItem(new ComboItem<>(InstanceExportFormat.MODRINTH, "Modrinth"));
+        defaultExportFormat.addItem(new ComboItem<>(InstanceExportFormat.MULTIMC, "MultiMC"));
+
+        for (int i = 0; i < defaultExportFormat.getItemCount(); i++) {
+            ComboItem<InstanceExportFormat> item = defaultExportFormat.getItemAt(i);
+
+            if (item.getValue() == App.settings.defaultExportFormat) {
+                defaultExportFormat.setSelectedIndex(i);
+                break;
+            }
+        }
+
+        add(defaultExportFormat, gbc);
     }
 
     @SuppressWarnings("unchecked")
@@ -150,6 +184,8 @@ public class ModsSettingsTab extends AbstractSettingsTab {
                 .getValue();
         App.settings.enableAddedModsByDefault = enableAddedModsByDefault.isSelected();
         App.settings.dontCheckModsOnCurseForge = dontCheckModsOnCurseForge.isSelected();
+        App.settings.defaultExportFormat = ((ComboItem<InstanceExportFormat>) defaultExportFormat.getSelectedItem())
+                .getValue();
     }
 
     @Override

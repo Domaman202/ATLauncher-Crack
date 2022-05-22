@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -43,10 +43,12 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import com.atlauncher.App;
 import com.atlauncher.FileSystem;
+import com.atlauncher.Update;
 import com.atlauncher.constants.Constants;
 import com.atlauncher.managers.LogManager;
 import com.atlauncher.managers.PerformanceManager;
@@ -56,13 +58,27 @@ import com.atlauncher.utils.javafinder.JavaInfo;
 import oshi.SystemInfo;
 import oshi.hardware.GlobalMemory;
 import oshi.hardware.HardwareAbstractionLayer;
+import oshi.software.os.OSProcess;
 import oshi.software.os.OperatingSystem;
+import oshi.software.os.OperatingSystem.ProcessSorting;
 
 public enum OS {
     LINUX, WINDOWS, OSX;
 
     private static int memory = 0;
     private static SystemInfo systemInfo = null;
+    private static List<OSProcess> antivirusProcesses = null;
+
+    private static final List<String> WINDOWS_ANTIVIRUS_PROCESS_NAMES = Arrays.asList("AvastSvc", "AvastUI", "AVGSvc",
+            "AVGUI", "Avira.VpnService", "avgnt", "mbam", "avpui");
+    private static final List<String> WINDOWS_ANTIVIRUS_PROCESS_PATHS = Arrays.asList(
+            "C:\\Program Files\\Avast Software\\Avast\\AvastUI.exe", "C:\\Program Files\\AVG\\Antivirus\\AVGUI.exe",
+            "C:\\Program Files (x86)\\Avira\\Antivirus\\avgnt.exe",
+            "C:\\Program Files\\Malwarebytes\\Anti-Malware\\mbam.exe",
+            "C:\\Program Files (x86)\\Kaspersky Lab\\Kaspersky 21.5\\avpui.exe");
+    public static final Predicate<OSProcess> WINDOWS_ANTIVIRUS_PROCESS_FILTER = (
+            process) -> WINDOWS_ANTIVIRUS_PROCESS_NAMES.contains(process.getName())
+                    || WINDOWS_ANTIVIRUS_PROCESS_PATHS.contains(process.getPath());
 
     public static OS getOS() {
         String osName = System.getProperty("os.name").toLowerCase();
@@ -101,13 +117,13 @@ public enum OS {
      */
     public static Path storagePath() {
         switch (getOS()) {
-        case WINDOWS:
-            return Paths.get(System.getenv("APPDATA")).resolve("." + Constants.LAUNCHER_NAME.toLowerCase());
-        case OSX:
-            return Paths.get(System.getProperty("user.home")).resolve("Library").resolve("Application Support")
-                    .resolve("." + Constants.LAUNCHER_NAME.toLowerCase());
-        default:
-            return Paths.get(System.getProperty("user.home")).resolve("." + Constants.LAUNCHER_NAME.toLowerCase());
+            case WINDOWS:
+                return Paths.get(System.getenv("APPDATA")).resolve("." + Constants.LAUNCHER_NAME.toLowerCase());
+            case OSX:
+                return Paths.get(System.getProperty("user.home")).resolve("Library").resolve("Application Support")
+                        .resolve("." + Constants.LAUNCHER_NAME.toLowerCase());
+            default:
+                return Paths.get(System.getProperty("user.home")).resolve("." + Constants.LAUNCHER_NAME.toLowerCase());
         }
     }
 
@@ -119,11 +135,17 @@ public enum OS {
     }
 
     /**
+     * This checks to see if the user is using the Flatpak application.
+     */
+    public static boolean isUsingFlatpak() {
+        return OS.isLinux() && new File("/.flatpak-info").exists();
+    }
+
+    /**
      * This opens the users default browser to the given url.
      */
     public static void openWebBrowser(String url) {
         try {
-            Analytics.sendOutboundLink(url);
             OS.openWebBrowser(new URI(url));
         } catch (Exception e) {
             LogManager.logStackTrace("Error opening web browser!", e);
@@ -145,6 +167,7 @@ public enum OS {
      * This opens the users default browser to the given uri.
      */
     public static void openWebBrowser(URI uri) {
+        Analytics.sendOutboundLink(uri.toString());
         try {
             if (getOS() == LINUX && Utils.executableInPath("xdg-open")) {
                 Runtime.getRuntime().exec("xdg-open " + uri);
@@ -293,7 +316,12 @@ public enum OS {
      * Checks if using Arm.
      */
     public static boolean isArm() {
-        return System.getProperty("os.arch").startsWith("arm");
+        return System.getProperty("os.arch").startsWith("arm")
+                || System.getProperty("os.arch").equalsIgnoreCase("aarch64");
+    }
+
+    public static boolean isMacArm() {
+        return OS.isMac() && OS.isArm();
     }
 
     /**
@@ -460,7 +488,7 @@ public enum OS {
      * @param args a List of arguments to pass when starting the launcher
      */
     public static void restartLauncher(List<String> args) {
-        File thisFile = new File(App.class.getProtectionDomain().getCodeSource().getLocation().getPath());
+        File thisFile = new File(Update.class.getProtectionDomain().getCodeSource().getLocation().getPath());
         String path = null;
         try {
             path = thisFile.getCanonicalPath();
@@ -533,29 +561,56 @@ public enum OS {
         String arch = "";
 
         switch (getOS()) {
-        case WINDOWS: {
-            name = "Windows NT " + getVersion();
+            case WINDOWS: {
+                name = "Windows NT " + getVersion();
 
-            if (OS.is64Bit()) {
-                arch = "; Win64; x64";
+                if (OS.is64Bit()) {
+                    arch = "; Win64; x64";
+                }
+                break;
             }
-            break;
-        }
-        case OSX: {
-            // M1 machines still show Intel
-            name = String.format("Macintosh; Intel %s %s", getName(), getVersion().replaceAll(".", "_"));
-            break;
-        }
-        case LINUX: {
-            name = String.format("%s; Linux", getName());
+            case OSX: {
+                // M1 machines still show Intel
+                name = String.format("Macintosh; Intel %s %s", getName(), getVersion().replaceAll(".", "_"));
+                break;
+            }
+            case LINUX: {
+                name = String.format("%s; Linux", getName());
 
-            if (OS.is64Bit()) {
-                arch = "x86_64";
+                if (OS.is64Bit()) {
+                    arch = "x86_64";
+                }
+                break;
             }
-            break;
-        }
         }
 
         return String.format("%s%s", name, arch);
+    }
+
+    public static List<OSProcess> getAntivirusProcesses() {
+        if (isWindows()) {
+            if (antivirusProcesses == null) {
+                try {
+                    SystemInfo systemInfo = OS.getSystemInfo();
+                    OperatingSystem os = systemInfo.getOperatingSystem();
+
+                    antivirusProcesses = os.getProcesses(OS.WINDOWS_ANTIVIRUS_PROCESS_FILTER,
+                            ProcessSorting.PID_ASC, 0);
+                } catch (Throwable ignored) {
+                }
+            }
+
+            return antivirusProcesses;
+        }
+
+        return new ArrayList<>();
+    }
+
+    public static boolean isUsingAntivirus() {
+        if (isWindows()) {
+            return getAntivirusProcesses().size() != 0;
+        }
+
+        return false;
     }
 }

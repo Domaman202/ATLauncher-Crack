@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -88,6 +88,7 @@ import oshi.hardware.CentralProcessor;
 import oshi.hardware.GraphicsCard;
 import oshi.hardware.HardwareAbstractionLayer;
 import oshi.software.os.OSFileStore;
+import oshi.software.os.OSProcess;
 import oshi.software.os.OperatingSystem;
 
 /**
@@ -111,9 +112,16 @@ public class App {
      * The tray menu shown in the notification area or whatever it's called in non
      * Windows OS.
      */
-    public static TrayMenu TRAY_MENU = new TrayMenu();
+    public static TrayMenu TRAY_MENU;
 
     public static LauncherConsole console;
+
+    /**
+     * If the launcher was just updated and this is it's first time loading after
+     * the update. This is used to check for when there are possible issues in which
+     * the user may have to download the update manually.
+     */
+    public static boolean wasUpdated = false;
 
     public static boolean discordInitialized = false;
 
@@ -326,7 +334,7 @@ public class App {
                 // Try to enable the tray icon.
                 trySystemTrayIntegration();
             } catch (Exception e) {
-                LogManager.logStackTrace(e);
+                LogManager.logStackTrace(e, false);
             }
         }
 
@@ -430,6 +438,10 @@ public class App {
             LogManager.info("Using Mac App? " + (OS.isUsingMacApp() ? "Yes" : "No"));
         }
 
+        if (OS.isUsingFlatpak()) {
+            LogManager.info("Using Flatpak!");
+        }
+
         try {
             SystemInfo systemInfo = OS.getSystemInfo();
             HardwareAbstractionLayer hal = systemInfo.getHardware();
@@ -456,6 +468,16 @@ public class App {
             for (OSFileStore fileStore : os.getFileSystem().getFileStores(true)) {
                 LogManager.info(
                         "Disk: " + fileStore.getLabel() + " (" + fileStore.getFreeSpace() / 1048576 + " MB Free)");
+            }
+
+            if (OS.isWindows() && OS.isUsingAntivirus()) {
+                LogManager.warn(
+                        "A running antivirus process was found on your system. If you notice any issues running Minecraft or downloading files, please whitelist ATLauncher and it's folder in your antivirus program/s listed below.");
+
+                for (OSProcess process : OS.getAntivirusProcesses()) {
+                    LogManager.info(String.format("Process %s (running at %s)", process.getName(),
+                            process.getPath()));
+                }
             }
         } catch (Throwable t) {
             LogManager.logStackTrace(t);
@@ -625,7 +647,7 @@ public class App {
                 Method getApplication = util.getMethod("getApplication");
                 Object application = getApplication.invoke(util);
                 Method setDockIconImage = util.getMethod("setDockIconImage", Image.class);
-                setDockIconImage.invoke(application, Utils.getImage("/assets/image/icon.png"));
+                setDockIconImage.invoke(application, Utils.getImage("/assets/image/icon-osx.png"));
             } catch (Exception ex) {
                 LogManager.logStackTrace("Failed to set dock icon", ex);
             }
@@ -651,8 +673,9 @@ public class App {
             setLAF(theme);
             modifyLAF();
 
-            // now the theme is loaded, we can intialize the toaster
+            // now the theme is loaded, we can intialize the toaster/tray menu
             TOASTER = Toaster.instance();
+            TRAY_MENU = new TrayMenu();
         } catch (Exception ex) {
             throw new RuntimeException(ex);
         }
@@ -861,6 +884,10 @@ public class App {
             }
 
             System.exit(0);
+        }
+
+        if (options.has("updated")) {
+            wasUpdated = true;
         }
 
         if (options.has("debug")) {

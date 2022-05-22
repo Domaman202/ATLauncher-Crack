@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@
  */
 package com.atlauncher.workers;
 
-import java.awt.Image;
+import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -48,7 +48,7 @@ public class BackgroundImageWorker extends SwingWorker<ImageIcon, Object> {
     protected ImageIcon doInBackground() throws Exception {
         Path path = FileSystem.REMOTE_IMAGE_CACHE.resolve(this.url.replaceAll("[^A-Za-z0-9]", ""));
 
-        Download download = Download.build().setUrl(this.url).downloadTo(path);
+        Download download = Download.build().setUrl(this.url).ignoreFailures().downloadTo(path);
 
         if (!Files.exists(path)) {
             try {
@@ -59,7 +59,14 @@ public class BackgroundImageWorker extends SwingWorker<ImageIcon, Object> {
 
         if (Files.exists(path)) {
             BufferedImage image = ImageIO.read(path.toFile());
-            label.setIcon(new ImageIcon(image.getScaledInstance(width, height, Image.SCALE_SMOOTH)));
+
+            BufferedImage thumbnail = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D g = thumbnail.createGraphics();
+            g.drawImage(image, 0, 0, width, height, null);
+            g.dispose();
+
+            label.setIcon(new ImageIcon(thumbnail));
+            thumbnail.flush();
         }
 
         label.setVisible(true);

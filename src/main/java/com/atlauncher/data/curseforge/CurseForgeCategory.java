@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,14 +17,25 @@
  */
 package com.atlauncher.data.curseforge;
 
+import com.google.gson.annotations.SerializedName;
+
 public class CurseForgeCategory {
-    public int categoryId;
     public String name;
+    public String slug;
     public String url;
-    public String avatarUrl;
-    public int parentId;
-    public int rootId;
-    public int projectId;
-    public int avatarId;
+    public String dateModified;
     public int gameId;
+    public boolean isClass = false;
+    
+    @SerializedName(value = "id", alternate = { "categoryId" })
+    public int id;
+
+    @SerializedName(value = "iconUrl", alternate = { "avatarUrl" })
+    public String avatarUrl;
+
+    @SerializedName(value = "parentCategoryId", alternate = { "parentId" })
+    public int parentCategoryId;
+
+    @SerializedName(value = "classId", alternate = { "rootId" })
+    public int classId;
 }

@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,9 +27,10 @@ import javax.swing.JToolTip;
 
 import com.atlauncher.builders.HTMLBuilder;
 import com.atlauncher.data.DisableableMod;
+import com.atlauncher.data.ModPlatform;
 import com.atlauncher.data.json.Mod;
 import com.atlauncher.data.modrinth.ModrinthDonationUrl;
-import com.atlauncher.data.modrinth.ModrinthMod;
+import com.atlauncher.data.modrinth.ModrinthProject;
 import com.atlauncher.gui.HoverLineBorder;
 import com.atlauncher.gui.dialogs.EditModsDialog;
 import com.atlauncher.gui.dialogs.ModsChooser;
@@ -137,14 +138,14 @@ public class ModsJCheckBox extends JCheckBox {
         if (getDisableableMod().hasFullCurseForgeInformation()) {
             JMenuItem openOnCurseForge = new JMenuItem(GetText.tr("Open On CurseForge"));
             openOnCurseForge
-                    .addActionListener(e -> OS.openWebBrowser(getDisableableMod().curseForgeProject.websiteUrl));
+                    .addActionListener(e -> OS.openWebBrowser(getDisableableMod().curseForgeProject.getWebsiteUrl()));
             contextMenu.add(openOnCurseForge);
 
             contextMenu.add(new JPopupMenu.Separator());
         }
 
         if (getDisableableMod().isFromModrinth()) {
-            ModrinthMod modrinthMod = getDisableableMod().modrinthMod;
+            ModrinthProject modrinthMod = getDisableableMod().modrinthProject;
 
             JMenuItem openOnModrinth = new JMenuItem(GetText.tr("Open On Modrinth"));
             openOnModrinth.addActionListener(
@@ -226,7 +227,57 @@ public class ModsJCheckBox extends JCheckBox {
         });
         contextMenu.add(remove);
 
-        if (getDisableableMod().isFromCurseForge() || getDisableableMod().isFromModrinth()) {
+        if (getDisableableMod().isFromCurseForge() && getDisableableMod().isFromModrinth()) {
+            contextMenu.add(new JPopupMenu.Separator());
+
+            JMenuItem reinstallFromCurseForge = new JMenuItem(GetText.tr("Reinstall From CurseForge"));
+            reinstallFromCurseForge.addActionListener(e -> {
+                getDisableableMod().reinstall(dialog, dialog.instance, ModPlatform.CURSEFORGE);
+
+                dialog.reloadPanels();
+            });
+            contextMenu.add(reinstallFromCurseForge);
+
+            JMenuItem reinstallFromModrinth = new JMenuItem(GetText.tr("Reinstall From Modrinth"));
+            reinstallFromModrinth.addActionListener(e -> {
+                getDisableableMod().reinstall(dialog, dialog.instance, ModPlatform.MODRINTH);
+
+                dialog.reloadPanels();
+            });
+            contextMenu.add(reinstallFromModrinth);
+
+            contextMenu.add(new JPopupMenu.Separator());
+
+            JMenuItem checkForUpdatesOnCurseForge = new JMenuItem(GetText.tr("Check For Updates On CurseForge"));
+            checkForUpdatesOnCurseForge.addActionListener(e -> {
+                boolean updated = false;
+
+                updated = getDisableableMod().checkForUpdate(dialog, dialog.instance, ModPlatform.CURSEFORGE);
+
+                if (!updated) {
+                    DialogManager.okDialog().setTitle(GetText.tr("No Updates Found"))
+                            .setContent(GetText.tr("No updates were found.")).show();
+                }
+
+                dialog.reloadPanels();
+            });
+            contextMenu.add(checkForUpdatesOnCurseForge);
+
+            JMenuItem checkForUpdatesOnModrinth = new JMenuItem(GetText.tr("Check For Updates On Modrinth"));
+            checkForUpdatesOnModrinth.addActionListener(e -> {
+                boolean updated = false;
+
+                updated = getDisableableMod().checkForUpdate(dialog, dialog.instance, ModPlatform.MODRINTH);
+
+                if (!updated) {
+                    DialogManager.okDialog().setTitle(GetText.tr("No Updates Found"))
+                            .setContent(GetText.tr("No updates were found.")).show();
+                }
+
+                dialog.reloadPanels();
+            });
+            contextMenu.add(checkForUpdatesOnModrinth);
+        } else if (getDisableableMod().isFromCurseForge() || getDisableableMod().isFromModrinth()) {
             contextMenu.add(new JPopupMenu.Separator());
 
             JMenuItem reinstall = new JMenuItem(GetText.tr("Reinstall"));

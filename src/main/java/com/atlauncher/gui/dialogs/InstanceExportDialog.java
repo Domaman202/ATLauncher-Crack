@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -139,7 +139,8 @@ public class InstanceExportDialog extends JDialog {
         gbc.insets = UIConstants.LABEL_INSETS;
         gbc.anchor = GridBagConstraints.BASELINE_LEADING;
         final JTextField author = new JTextField(30);
-        author.setText(AccountManager.getSelectedAccount().minecraftUsername);
+        author.setText(AccountManager.getSelectedAccount() == null ? ""
+                : AccountManager.getSelectedAccount().minecraftUsername);
         topPanel.add(author, gbc);
 
         // Format
@@ -160,6 +161,15 @@ public class InstanceExportDialog extends JDialog {
         format.addItem(new ComboItem<>(InstanceExportFormat.MODRINTH, "Modrinth"));
         format.addItem(new ComboItem<>(InstanceExportFormat.MULTIMC, "MultiMC"));
         topPanel.add(format, gbc);
+
+        for (int i = 0; i < format.getItemCount(); i++) {
+            ComboItem<InstanceExportFormat> item = format.getItemAt(i);
+
+            if (item.getValue() == App.settings.defaultExportFormat) {
+                format.setSelectedIndex(i);
+                break;
+            }
+        }
 
         // Export File
         gbc.gridx = 0;
@@ -265,11 +275,17 @@ public class InstanceExportDialog extends JDialog {
                     GetText.tr("Exporting Instance. Please wait..."), null, this);
 
             dialog.addThread(new Thread(() -> {
+                InstanceExportFormat exportFormat = ((ComboItem<InstanceExportFormat>) format.getSelectedItem())
+                        .getValue();
+
                 if (instance.export(name.getText(), version.getText(), author.getText(),
-                        ((ComboItem<InstanceExportFormat>) format.getSelectedItem()).getValue(), saveTo.getText(),
-                        overrides)) {
+                        exportFormat, saveTo.getText(), overrides)) {
                     App.TOASTER.pop(GetText.tr("Exported Instance Successfully"));
-                    OS.openFileExplorer(Paths.get(saveTo.getText()).resolve(name.getText() + ".zip"), true);
+                    OS.openFileExplorer(
+                            Paths.get(saveTo.getText())
+                                    .resolve(name.getText()
+                                            + (exportFormat == InstanceExportFormat.MODRINTH ? ".mrpack" : ".zip")),
+                            true);
                 } else {
                     App.TOASTER.popError(GetText.tr("Failed to export instance. Check the console for details"));
                 }

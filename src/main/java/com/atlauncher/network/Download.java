@@ -37,6 +37,7 @@ import com.atlauncher.utils.FileUtils;
 import com.atlauncher.utils.Hashing;
 import com.atlauncher.utils.Utils;
 import com.atlauncher.workers.InstanceInstaller;
+import com.google.common.hash.HashCode;
 import com.google.gson.Gson;
 
 import okhttp3.CacheControl;
@@ -422,11 +423,11 @@ public final class Download {
                     LogManager.error("Error getting murmur hash");
                     return false;
                 }
-            } else if (this.md5() && Hashing.md5(this.to).equals(Hashing.HashCode.fromString(this.getHash()))) {
+            } else if (this.md5() && Hashing.md5(this.to).equals(Hashing.toHashCode(this.getHash()))) {
                 return false;
-            } else if (this.sha512() && Hashing.sha512(this.to).equals(Hashing.HashCode.fromString(this.getHash()))) {
+            } else if (this.sha512() && Hashing.sha512(this.to).equals(Hashing.toHashCode(this.getHash()))) {
                 return false;
-            } else if (Hashing.sha1(this.to).equals(Hashing.HashCode.fromString(this.getHash()))) {
+            } else if (Hashing.sha1(this.to).equals(Hashing.toHashCode(this.getHash()))) {
                 return false;
             }
 
@@ -448,7 +449,7 @@ public final class Download {
             }
         }
         try (FileChannel fc = FileChannel.open(this.to, Utils.WRITE);
-             ReadableByteChannel rbc = Channels.newChannel(this.response.body().byteStream())) {
+                ReadableByteChannel rbc = Channels.newChannel(this.response.body().byteStream())) {
             fc.transferFrom(rbc, 0, Long.MAX_VALUE);
         } catch (Exception e) {
             LogManager.logStackTrace("Failed to download file " + this.to, e, false);
@@ -465,11 +466,11 @@ public final class Download {
                     return false;
                 }
             } else if (this.md5()) {
-                return Hashing.md5(this.to).equals(Hashing.HashCode.fromString(this.getHash()));
+                return Hashing.md5(this.to).equals(Hashing.toHashCode(this.getHash()));
             } else if (this.sha512()) {
-                return Hashing.sha512(this.to).equals(Hashing.HashCode.fromString(this.getHash()));
+                return Hashing.sha512(this.to).equals(Hashing.toHashCode(this.getHash()));
             } else {
-                return Hashing.sha1(this.to).equals(Hashing.HashCode.fromString(this.getHash()));
+                return Hashing.sha1(this.to).equals(Hashing.toHashCode(this.getHash()));
             }
         }
 
@@ -516,8 +517,8 @@ public final class Download {
         // size and log a warning
         if (this.ignoreFailures && this.to.toFile().length() != 0) {
             LogManager
-                .warn(String.format("%s (of size %d) hash didn't match, but we're ignoring failures, so continuing",
-                    this.to.getFileName(), this.to.toFile().length()));
+                    .warn(String.format("%s (of size %d) hash didn't match, but we're ignoring failures, so continuing",
+                            this.to.getFileName(), this.to.toFile().length()));
             return true;
         }
 
@@ -559,7 +560,7 @@ public final class Download {
                     } catch (IOException ignored) {
                     }
                 } else {
-                    Hashing.HashCode fileHash = Hashing.HashCode.EMPTY;
+                    HashCode fileHash = Hashing.EMPTY_HASH_CODE;
                     if (Files.exists(this.copyTo)) {
                         if (this.md5()) {
                             fileHash = Hashing.md5(this.copyTo);
@@ -570,7 +571,7 @@ public final class Download {
                         }
                     }
 
-                    if (!fileHash.equals(Hashing.HashCode.fromString(this.getHash()))) {
+                    if (!fileHash.equals(Hashing.toHashCode(this.getHash()))) {
                         this.copy();
                     }
                 }
@@ -607,14 +608,14 @@ public final class Download {
             FileUtils.createDirectory(this.to.getParent());
         }
 
-        Hashing.HashCode expected = null;
+        HashCode expected = null;
 
         if (this.fingerprint == null) {
-            expected = Hashing.HashCode.fromString(this.getHash());
+            expected = Hashing.toHashCode(this.getHash());
         }
 
         if ((this.ignoreFailures && this.to.toFile().length() != 0)
-            || (expected != null && expected.equals(Hashing.HashCode.EMPTY))) {
+                || (expected != null && expected.equals(Hashing.EMPTY_HASH_CODE))) {
             if (this.response.isSuccessful()) {
                 this.downloadDirect();
             }
@@ -624,7 +625,7 @@ public final class Download {
             if (!downloaded) {
                 if (this.response != null && this.response.header("content-type").contains("text/html")) {
                     LogManager.error(
-                        "The response from this request was a HTML response. This is usually caused by an antivirus or firewall software intercepting and rewriting the response. The response is below.");
+                            "The response from this request was a HTML response. This is usually caused by an antivirus or firewall software intercepting and rewriting the response. The response is below.");
 
                     LogManager.error(new String(Files.readAllBytes(this.to)));
                 }
@@ -632,17 +633,17 @@ public final class Download {
                 FileUtils.copyFile(this.to, FileSystem.FAILED_DOWNLOADS);
                 if (fingerprint != null) {
                     LogManager.error("Error downloading " + this.to.getFileName() + " from " + this.url + ". Expected"
-                        + " fingerprint of " + fingerprint.toString() + " (with size of " + this.size + ") but got "
-                        + Hashing.murmur(this.to) + " (with size of "
-                        + (Files.exists(this.to) ? Files.size(this.to) : 0)
-                        + ") instead. Copied to FailedDownloads folder & cancelling install!");
+                            + " fingerprint of " + fingerprint.toString() + " (with size of " + this.size + ") but got "
+                            + Hashing.murmur(this.to) + " (with size of "
+                            + (Files.exists(this.to) ? Files.size(this.to) : 0)
+                            + ") instead. Copied to FailedDownloads folder & cancelling install!");
                 } else {
                     LogManager.error("Error downloading " + this.to.getFileName() + " from " + this.url + ". Expected"
-                        + " hash of " + expected.toString() + " (with size of " + this.size + ") but got "
-                        + (this.md5() ? Hashing.md5(this.to)
-                        : (this.sha512() ? Hashing.sha512(this.to) : Hashing.sha1(this.to)))
-                        + " (with size of " + (Files.exists(this.to) ? Files.size(this.to) : 0)
-                        + ") instead. Copied to FailedDownloads folder & cancelling install!");
+                            + " hash of " + expected.toString() + " (with size of " + this.size + ") but got "
+                            + (this.md5() ? Hashing.md5(this.to)
+                                    : (this.sha512() ? Hashing.sha512(this.to) : Hashing.sha1(this.to)))
+                            + " (with size of " + (Files.exists(this.to) ? Files.size(this.to) : 0)
+                            + ") instead. Copied to FailedDownloads folder & cancelling install!");
                 }
                 if (this.instanceInstaller != null) {
                     this.instanceInstaller.cancel(true);
@@ -658,7 +659,7 @@ public final class Download {
                     } catch (IOException ignored) {
                     }
                 } else {
-                    Hashing.HashCode fileHash2 = Hashing.HashCode.EMPTY;
+                    HashCode fileHash2 = Hashing.EMPTY_HASH_CODE;
                     if (Files.exists(this.copyTo)) {
                         if (this.md5()) {
                             fileHash2 = Hashing.md5(this.copyTo);

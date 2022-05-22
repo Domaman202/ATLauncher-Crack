@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,6 +18,8 @@
 package com.atlauncher.gui.panels.packbrowser;
 
 import java.awt.GridBagConstraints;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -27,24 +29,33 @@ import java.util.stream.Collectors;
 
 import javax.swing.JPanel;
 
-import com.atlauncher.App;
 import com.atlauncher.constants.UIConstants;
 import com.atlauncher.data.Pack;
+import com.atlauncher.data.minecraft.VersionManifestVersion;
+import com.atlauncher.data.minecraft.VersionManifestVersionType;
 import com.atlauncher.gui.card.NilCard;
 import com.atlauncher.gui.card.packbrowser.ATLauncherPackCard;
 import com.atlauncher.managers.PackManager;
 
+import org.joda.time.format.ISODateTimeFormat;
 import org.mini2Dx.gettext.GetText;
 
 public class ATLauncherPacksPanel extends PackBrowserPlatformPanel {
     private final List<Pack> packs = new LinkedList<>();
     private final List<ATLauncherPackCard> cards = new LinkedList<>();
 
-    private void loadPacksToShow(String searchText) {
-        List<Pack> packs = App.settings.sortPacksAlphabetically ? PackManager.getPacksSortedAlphabetically(false)
-                : PackManager.getPacksSortedPositionally(false);
+    private void loadPacksToShow(String minecraftVersion, String sort, boolean sortDescending, String searchText) {
+        List<Pack> packs = sort.equalsIgnoreCase("name") ? PackManager.getPacksSortedAlphabetically(false,
+                sortDescending)
+                : PackManager.getPacksSortedPositionally(false, sortDescending);
 
         this.packs.addAll(packs.stream().filter(Pack::canInstall).filter(pack -> {
+            if (minecraftVersion != null) {
+                return pack.versions.stream().anyMatch(pv -> pv.minecraftVersion.id.equals(minecraftVersion));
+            }
+
+            return true;
+        }).filter(pack -> {
             if (!searchText.isEmpty()) {
                 return (pack.getDescription() != null
                         && Pattern.compile(Pattern.quote(searchText), Pattern.CASE_INSENSITIVE)
@@ -58,17 +69,20 @@ public class ATLauncherPacksPanel extends PackBrowserPlatformPanel {
     }
 
     @Override
-    protected void loadPacks(JPanel contentPanel, Integer category, String sort, String search, int page) {
+    protected void loadPacks(JPanel contentPanel, String minecraftVersion, String category, String sort,
+            boolean sortDescending, String search, int page) {
         contentPanel.removeAll();
         this.packs.clear();
         this.cards.clear();
-        loadPacksToShow(search);
+        loadPacksToShow(minecraftVersion, sort, sortDescending, search);
 
-        loadMorePacks(contentPanel, category, sort, search, page);
+        loadMorePacks(contentPanel, minecraftVersion, category, sort, sortDescending, search, page);
     }
 
     @Override
-    public void loadMorePacks(JPanel contentPanel, Integer category, String sort, String search, int page) {
+    public void loadMorePacks(JPanel contentPanel, String minecraftVersion, String category, String sort,
+            boolean sortDescending, String search,
+            int page) {
         this.packs.stream().skip(this.cards.size()).limit(10)
                 .forEach(pack -> this.cards.add(new ATLauncherPackCard(pack)));
 
@@ -105,27 +119,91 @@ public class ATLauncherPacksPanel extends PackBrowserPlatformPanel {
     }
 
     @Override
+    public boolean supportsSearch() {
+        return true;
+    }
+
+    @Override
     public boolean hasCategories() {
         return false;
     }
 
     @Override
-    public Map<Integer, String> getCategoryFields() {
+    public Map<String, String> getCategoryFields() {
         return new LinkedHashMap<>();
     }
 
     @Override
     public boolean hasSort() {
-        return false;
+        return true;
     }
 
     @Override
     public Map<String, String> getSortFields() {
-        return new LinkedHashMap<>();
+        Map<String, String> sortFields = new LinkedHashMap<>();
+
+        sortFields.put("popular", GetText.tr("Popularity"));
+        sortFields.put("name", GetText.tr("Name"));
+
+        return sortFields;
+    }
+
+    @Override
+    public Map<String, Boolean> getSortFieldsDefaultOrder() {
+        // Sort field / if in descending order
+        Map<String, Boolean> sortFieldsOrder = new LinkedHashMap<>();
+
+        sortFieldsOrder.put("popular", false);
+        sortFieldsOrder.put("name", false);
+
+        return sortFieldsOrder;
+    }
+
+    @Override
+    public boolean supportsSortOrder() {
+        return true;
+    }
+
+    @Override
+    public boolean supportsMinecraftVersionFiltering() {
+        return true;
+    }
+
+    @Override
+    public List<VersionManifestVersionType> getSupportedMinecraftVersionTypesForFiltering() {
+        List<VersionManifestVersionType> supportedTypes = new ArrayList<>();
+
+        return supportedTypes;
+    }
+
+    @Override
+    public List<VersionManifestVersion> getSupportedMinecraftVersionsForFiltering() {
+        List<VersionManifestVersion> minecraftVersions = new ArrayList<>();
+
+        PackManager.getPacks().stream().forEach(p -> {
+            minecraftVersions
+                    .addAll(p.versions.stream().map(v -> v.minecraftVersion).distinct().collect(Collectors.toList()));
+        });
+
+        return minecraftVersions.stream().distinct().sorted(Comparator.comparingLong((VersionManifestVersion mv) -> {
+            return ISODateTimeFormat.dateTimeParser().parseDateTime(mv.releaseTime).getMillis() / 1000;
+        }).reversed()).collect(Collectors.toList());
+    }
+
+    public boolean supportsManualAdding() {
+        return false;
+    }
+
+    public void addById(String id) {
     }
 
     @Override
     public boolean hasPagination() {
+        return true;
+    }
+
+    @Override
+    public boolean hasMorePages() {
         // already loaded in all the cards possible, so don't navigate
         if (this.packs.size() != 0 && this.cards.size() != 0 && this.packs.size() == this.cards.size()) {
             return false;

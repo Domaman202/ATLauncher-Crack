@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,6 +24,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Date;
@@ -37,6 +38,8 @@ import com.atlauncher.FileSystem;
 import com.atlauncher.Gsons;
 import com.atlauncher.annot.Json;
 import com.atlauncher.builders.HTMLBuilder;
+import com.atlauncher.data.minecraft.JavaRuntimes;
+import com.atlauncher.data.minecraft.JavaVersion;
 import com.atlauncher.exceptions.InvalidPack;
 import com.atlauncher.gui.dialogs.ProgressDialog;
 import com.atlauncher.managers.DialogManager;
@@ -58,6 +61,8 @@ public class Server {
     public String version;
     public String hash;
     public boolean isPatchedForLog4Shell = false;
+
+    public JavaVersion javaVersion;
 
     public boolean isDev;
     public List<DisableableMod> mods = new ArrayList<>();
@@ -106,14 +111,24 @@ public class Server {
 
         if (OS.isWindows()) {
             serverScript += ".bat";
-        } else if (OS.isLinux() || (OS.isMac() && usesRunSh)) {
+        } else if (OS.isLinux() || OS.isMac()) {
             serverScript += ".sh";
-        } else if (OS.isMac()) {
-            serverScript += ".command";
         }
 
         LogManager.info("Starting server " + name);
         List<String> arguments = new ArrayList<>();
+
+        String javaPath = null;
+        if (!usesRunSh && javaVersion != null && App.settings.useJavaProvidedByMinecraft) {
+            Path runtimeDirectory = FileSystem.MINECRAFT_RUNTIMES.resolve(javaVersion.component)
+                    .resolve(JavaRuntimes.getSystem()).resolve(javaVersion.component);
+
+            if (Files.isDirectory(runtimeDirectory)) {
+                javaPath = runtimeDirectory.toAbsolutePath().toString();
+                LogManager.debug(String.format("Using Java runtime %s (major version %d) at path %s",
+                        javaVersion.component, javaVersion.majorVersion, javaPath));
+            }
+        }
 
         try {
             if (OS.isWindows()) {
@@ -121,22 +136,40 @@ public class Server {
                 arguments.add("/K");
                 arguments.add("start");
                 arguments.add("\"" + name + "\"");
-                arguments.add(getRoot().resolve(serverScript).toString());
-                arguments.add(args);
+                arguments.add("/D");
+                arguments.add("\"" + getRoot().toString() + "\"");
+                arguments.add(serverScript);
+
+                if (javaPath != null) {
+                    arguments.add("ATLcustomjava");
+                    arguments.add("\"" + javaPath + "\\bin\\java.exe" + "\"");
+                }
+
+                if (!args.isEmpty()) {
+                    arguments.add(args);
+                }
             } else if (OS.isLinux()) {
                 // use some best guesses for some terminal programs if in path
                 if (Utils.executableInPath("x-terminal-emulator")) {
                     arguments.add("x-terminal-emulator");
                     arguments.add("-e");
 
-                    arguments.add(getRoot().resolve(serverScript).toString() + " " + args);
+                    arguments.add(getRoot().resolve(serverScript).toString()
+                            + (!usesRunSh && javaPath != null ? String.format(" ATLcustomjava %s",
+                                    javaPath + "/bin/java ") : " ")
+                            + args);
                 } else if (Utils.executableInPath("exo-open")) {
                     arguments.add("exo-open");
                     arguments.add("--launch");
                     arguments.add("TerminalEmulator");
                     arguments.add("--working-directory");
                     arguments.add(getRoot().toAbsolutePath().toString());
-                    arguments.add(String.format("./%s %s", serverScript, args));
+                    arguments.add(String.format(
+                            "./%s %s%s", serverScript, (!usesRunSh && javaPath != null
+                                    ? String.format(" ATLcustomjava %s",
+                                            javaPath + "/bin/java ")
+                                    : ""),
+                            args));
                 } else {
                     DialogManager.okDialog().setTitle(GetText.tr("Failed To Launch Server"))
                             .setContent(new HTMLBuilder().center().text(GetText.tr(
@@ -147,12 +180,39 @@ public class Server {
                     return;
                 }
             } else if (OS.isMac()) {
-                // unfortunately OSX doesn't allow us to pass arguments with open and Terminal
-                // :(
+                String launchCommand = serverScript;
+
+                if (!usesRunSh) {
+                    // unfortunately OSX doesn't allow us to pass arguments with open and Terminal
+                    // so create a temporary script, run it and then delete after
+                    List<String> launchScript = new ArrayList<>();
+
+                    launchScript.add("cd \"`dirname \"$0\"`\" ; ./LaunchServer.sh");
+
+                    if (javaPath != null) {
+                        launchScript.add("ATLcustomjava");
+                        launchScript.add(javaPath + "/jre.bundle/Contents/Home/bin/java");
+                    }
+
+                    launchScript.add(args);
+                    launchScript.add("; rm -f ./.launcherrun.sh");
+
+                    Path tempLaunchFile = getRoot().resolve(".launcherrun.sh");
+                    Files.write(tempLaunchFile, String.join(" ", launchScript).toString().getBytes(),
+                            StandardOpenOption.CREATE,
+                            StandardOpenOption.TRUNCATE_EXISTING);
+                    tempLaunchFile.toFile().setExecutable(true);
+
+                    LogManager.info(String.format("Running \"%s\" from \".launcherrun.sh\"",
+                            String.join(" ", launchScript)));
+
+                    launchCommand = "./.launcherrun.sh";
+                }
+
                 arguments.add("open");
                 arguments.add("-a");
                 arguments.add("Terminal");
-                arguments.add(getRoot().resolve(serverScript).toString());
+                arguments.add(launchCommand);
             }
 
             LogManager.info("Launching server with the following arguments: " + arguments.toString());

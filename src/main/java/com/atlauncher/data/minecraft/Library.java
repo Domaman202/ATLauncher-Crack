@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -77,6 +77,14 @@ public class Library {
         }
 
         if (OS.isMac() && this.natives != null && this.natives.containsKey("osx")) {
+            // if on ARM based Mac and there is a classifier for it, use it
+            if (this.downloads.classifiers.containsKey(this.natives.get("osx") + "-arm64") && OS.isMacArm()
+                    && OS.is64Bit()) {
+                return this.downloads.classifiers
+                        .get(this.natives.get("osx").replace("${arch}", OS.is64Bit() ? "64" : "32") + "-arm64");
+            }
+
+            // else fall back to the standard natives, ARM based Macs can run in Rosetta
             return this.downloads.classifiers
                     .get(this.natives.get("osx").replace("${arch}", OS.is64Bit() ? "64" : "32"));
         }
@@ -90,6 +98,17 @@ public class Library {
         }
 
         final String[] libraryParts = name.split(":");
+        final String[] versionParts = libraryParts[2].split("\\.");
+
+        // if using newer than 2.16 version, use the Mojang provided library
+        try {
+            if (Integer.parseInt(versionParts[0]) > 2
+                    || (Integer.parseInt(versionParts[0]) == 2
+                            && Integer.parseInt(versionParts[1]) >= 16)) {
+                return;
+            }
+        } catch (NumberFormatException ignored) {
+        }
 
         if (libraryParts[1].equals("log4j-api")) {
             if (libraryParts[2].startsWith("2.0-beta9")) {

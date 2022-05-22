@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -39,6 +39,7 @@ import com.atlauncher.managers.LogManager;
 import com.atlauncher.utils.OS;
 import com.atlauncher.utils.Timestamper;
 import com.atlauncher.utils.Utils;
+import com.atlauncher.utils.sort.InstanceSortingStrategies;
 
 public class Settings {
     // Launcher things
@@ -49,6 +50,7 @@ public class Settings {
     public boolean ignoreOneDriveWarning = false;
     public boolean ignoreProgramFilesWarning = false;
     public boolean ignoreJavaOptionsWarning = false;
+    public boolean seenCurseForgeProjectDistributionDialog = false;
 
     // Window settings
     public boolean rememberWindowSizePosition = false;
@@ -62,8 +64,8 @@ public class Settings {
     public String theme = Constants.DEFAULT_THEME_CLASS;
     public String dateFormat = Constants.DATE_FORMATS[0];
     public String instanceTitleFormat = Constants.INSTANCE_TITLE_FORMATS[0];
+    public InstanceSortingStrategies defaultInstanceSorting = InstanceSortingStrategies.BY_NAME;
     public int selectedTabOnStartup = 0;
-    public boolean sortPacksAlphabetically = false;
     public Boolean showPackNameAndVersion = null;
     public boolean keepLauncherOpen = true;
     public boolean enableConsole = true;
@@ -73,12 +75,14 @@ public class Settings {
     private boolean disableAddModRestrictions = false;
     public boolean disableCustomFonts = false;
     public boolean useNativeFilePicker = OS.isMac();
+    public boolean useRecycleBin = true;
 
     // Mods
     public ModPlatform defaultModPlatform = ModPlatform.CURSEFORGE;
     public AddModRestriction addModRestriction = AddModRestriction.STRICT;
     public boolean enableAddedModsByDefault = true;
     public boolean dontCheckModsOnCurseForge = false;
+    public InstanceExportFormat defaultExportFormat = InstanceExportFormat.CURSEFORGE;
 
     // Java/Minecraft
     public int initialMemory = 512;
@@ -112,10 +116,6 @@ public class Settings {
     public String analyticsClientId = UUID.randomUUID().toString();
     public boolean enableOpenEyeReporting = true;
 
-    // Tools
-    public boolean enableServerChecker = false;
-    public int serverCheckerWait = 5;
-
     // Backups
     public boolean enableAutomaticBackupAfterLaunch = false;
     public BackupMode backupMode = BackupMode.NORMAL;
@@ -125,6 +125,9 @@ public class Settings {
     public String preLaunchCommand = null;
     public String postExitCommand = null;
     public String wrapperCommand = null;
+
+    // "migrations"
+    public boolean hasFixedSelectedTabOnStartup_3_4_13_5 = false;
 
     public void convert(Properties properties) {
         String importedDateFormat = properties.getProperty("dateformat");
@@ -243,11 +246,6 @@ public class Settings {
             ignoreJavaOnInstanceLaunch = Boolean.parseBoolean(importedIgnoreJavaOnInstanceLaunch);
         }
 
-        String importedSortPacksAlphabetically = properties.getProperty("sortpacksalphabetically");
-        if (importedSortPacksAlphabetically != null) {
-            sortPacksAlphabetically = Boolean.parseBoolean(importedSortPacksAlphabetically);
-        }
-
         String importedKeepLauncherOpen = properties.getProperty("keeplauncheropen");
         if (importedKeepLauncherOpen != null) {
             keepLauncherOpen = Boolean.parseBoolean(importedKeepLauncherOpen);
@@ -263,19 +261,9 @@ public class Settings {
             enableAnalytics = Boolean.parseBoolean(importedEnableAnalytics);
         }
 
-        String importedEnableServerChecker = properties.getProperty("enableserverchecker");
-        if (importedEnableServerChecker != null) {
-            enableServerChecker = Boolean.parseBoolean(importedEnableServerChecker);
-        }
-
         String importedEnableOpenEyeReporting = properties.getProperty("enableopeneyereporting");
         if (importedEnableOpenEyeReporting != null) {
             enableOpenEyeReporting = Boolean.parseBoolean(importedEnableOpenEyeReporting);
-        }
-
-        String importedServerCheckerWait = properties.getProperty("servercheckerwait");
-        if (importedServerCheckerWait != null) {
-            serverCheckerWait = Integer.parseInt(importedServerCheckerWait);
         }
 
         String importedLastAccount = properties.getProperty("lastaccount");
@@ -305,6 +293,8 @@ public class Settings {
 
         validateWindowSettings();
 
+        validateSelectedTabOnStartup();
+
         validateDisableAddModRestrictions();
         validateDefaultModPlatform();
 
@@ -314,8 +304,6 @@ public class Settings {
         validateWindowSize();
 
         validateProxy();
-
-        validateServerCheckerWait();
 
         validateConcurrentConnections();
 
@@ -359,6 +347,18 @@ public class Settings {
         if (consolePosition != null
                 && !OS.getScreenVirtualBounds().contains(new Rectangle(consolePosition, consoleSize))) {
             consolePosition = null;
+        }
+    }
+
+    private void validateSelectedTabOnStartup() {
+        if (!hasFixedSelectedTabOnStartup_3_4_13_5) {
+            hasFixedSelectedTabOnStartup_3_4_13_5 = true;
+
+            if (selectedTabOnStartup > 2) {
+                selectedTabOnStartup = selectedTabOnStartup - 1;
+            }
+
+            save();
         }
     }
 
@@ -474,14 +474,6 @@ public class Settings {
             proxy = new Proxy(type, new InetSocketAddress(proxyHost, proxyPort));
         } else {
             proxy = Proxy.NO_PROXY;
-        }
-    }
-
-    private void validateServerCheckerWait() {
-        if (serverCheckerWait < 1 || serverCheckerWait > 30) {
-            LogManager.warn("Tried to set server checker wait to " + serverCheckerWait + " which is not "
-                    + "valid! Must be between 1 and 30. Setting back to default of 5!");
-            serverCheckerWait = 5;
         }
     }
 

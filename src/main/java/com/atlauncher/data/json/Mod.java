@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -28,6 +28,8 @@ import com.atlauncher.builders.HTMLBuilder;
 import com.atlauncher.constants.Constants;
 import com.atlauncher.data.curseforge.CurseForgeFile;
 import com.atlauncher.data.curseforge.CurseForgeProject;
+import com.atlauncher.data.modrinth.ModrinthProject;
+import com.atlauncher.data.modrinth.ModrinthVersion;
 import com.atlauncher.managers.DialogManager;
 import com.atlauncher.managers.LogManager;
 import com.atlauncher.utils.Hashing;
@@ -87,6 +89,8 @@ public class Mod {
     public String description;
     public CurseForgeProject curseForgeProject;
     public CurseForgeFile curseForgeFile;
+    public ModrinthProject modrinthProject;
+    public ModrinthVersion modrinthVersion;
     public boolean ignoreFailures = false;
 
     @SerializedName(value = "curseforge_project_id", alternate = { "curse_id" })
@@ -380,7 +384,7 @@ public class Mod {
                 Utils.delete(fileLocation); // File exists but is corrupt, delete it
             } else if (this.download != DownloadType.direct) {
                 if (hasMD5()) {
-                    if (Hashing.md5(fileLocation.toPath()).equals(Hashing.HashCode.fromString(this.md5))) {
+                    if (Hashing.md5(fileLocation.toPath()).equals(Hashing.toHashCode(this.md5))) {
                         return; // File already exists and matches hash, don't download it
                     } else {
                         Utils.delete(fileLocation); // File exists but is corrupt, delete it
@@ -445,7 +449,8 @@ public class Mod {
                                                                 + FileSystem.USER_DOWNLOADS.toFile())))
                                         .build())
                                 .addOption(GetText.tr("Open Folder"), true)
-                                .addOption(GetText.tr("I've Downloaded This File")).setType(DialogManager.INFO).show();
+                                .addOption(GetText.tr("I've Downloaded This File")).setType(DialogManager.INFO)
+                                .showWithFileMonitoring(fileLocation, downloadsFolderFile, filesize, 1);
 
                         if (retValue == DialogManager.CLOSED_OPTION) {
                             installer.cancel(true);
@@ -507,7 +512,7 @@ public class Mod {
             return;
         }
 
-        if (!Hashing.md5(fileLocation.toPath()).equals(Hashing.HashCode.fromString(this.md5))) {
+        if (!Hashing.md5(fileLocation.toPath()).equals(Hashing.toHashCode(this.md5))) {
             if (attempt < 5) {
                 Utils.delete(fileLocation); // MD5 hash doesn't match, delete it
                 downloadClient(installer, ++attempt); // download again
@@ -525,7 +530,7 @@ public class Mod {
                 Utils.delete(fileLocation); // File exists but is corrupt, delete it
             } else if (this.download != DownloadType.direct) {
                 if (this.hasServerMD5()) {
-                    if (Hashing.md5(fileLocation.toPath()).equals(Hashing.HashCode.fromString(this.serverMD5))) {
+                    if (Hashing.md5(fileLocation.toPath()).equals(Hashing.toHashCode(this.serverMD5))) {
                         return; // File already exists and matches hash, don't download it
                     } else {
                         Utils.delete(fileLocation); // File exists but is corrupt, delete it
@@ -636,7 +641,7 @@ public class Mod {
             return;
         }
 
-        if (!Hashing.md5(fileLocation.toPath()).equals(Hashing.HashCode.fromString(this.serverMD5))) {
+        if (!Hashing.md5(fileLocation.toPath()).equals(Hashing.toHashCode(this.serverMD5))) {
             if (attempt < 5) {
                 Utils.delete(fileLocation); // MD5 hash doesn't match, delete it
                 downloadServer(installer, ++attempt); // download again

@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -32,7 +32,8 @@ public final class ErrorReportingInterceptor implements Interceptor {
         Response response = chain.proceed(request);
         long t2 = System.nanoTime();
 
-        ErrorReporting.recordNetworkRequest(request.url().toString(), String.format("%.1fms%n", (t2 - t1) / 1e6d));
+        ErrorReporting.recordNetworkRequest(request.url().toString(), request.method(), response.code(),
+                String.format("%.1fms%n", (t2 - t1) / 1e6d));
 
         return response;
     }

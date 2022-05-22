@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,6 +21,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
@@ -68,7 +69,7 @@ public class PackManager {
      *
      * @return The Packs available in the Launcher sorted alphabetically
      */
-    public static List<Pack> getPacksSortedAlphabetically(boolean isFeatured) {
+    public static List<Pack> getPacksSortedAlphabetically(boolean isFeatured, boolean sortDescending) {
         List<Pack> packs = new LinkedList<>();
 
         for (Pack pack : Data.PACKS) {
@@ -83,7 +84,12 @@ public class PackManager {
             }
         }
 
-        packs.sort(Comparator.comparing(Pack::getName));
+        packs.sort(Comparator.comparing(p -> p.getName().toLowerCase()));
+
+        if (sortDescending) {
+            Collections.reverse(packs);
+        }
+
         return packs;
     }
 
@@ -92,7 +98,7 @@ public class PackManager {
      *
      * @return The Packs available in the Launcher sorted by position
      */
-    public static List<Pack> getPacksSortedPositionally(boolean isFeatured) {
+    public static List<Pack> getPacksSortedPositionally(boolean isFeatured, boolean sortDescending) {
         List<Pack> packs = new LinkedList<>();
 
         for (Pack pack : Data.PACKS) {
@@ -108,6 +114,11 @@ public class PackManager {
         }
 
         packs.sort(Comparator.comparingInt(Pack::getPosition));
+
+        if (sortDescending) {
+            Collections.reverse(packs);
+        }
+
         return packs;
     }
 
@@ -200,7 +211,7 @@ public class PackManager {
     public static boolean semiPublicPackExistsFromCode(String packCode) {
         for (Pack pack : Data.PACKS) {
             if (pack.isSemiPublic()) {
-                if (Hashing.HashCode.fromString(pack.getCode()).equals(Hashing.md5(packCode))) {
+                if (Hashing.toHashCode(pack.getCode()).equals(Hashing.md5(packCode))) {
                     return true;
                 }
             }
@@ -211,7 +222,7 @@ public class PackManager {
     public static Pack getSemiPublicPackByCode(String packCode) {
         for (Pack pack : Data.PACKS) {
             if (pack.isSemiPublic()) {
-                if (Hashing.HashCode.fromString(pack.getCode()).equals(Hashing.md5(packCode))) {
+                if (Hashing.toHashCode(pack.getCode()).equals(Hashing.md5(packCode))) {
                     return pack;
                 }
             }
@@ -223,13 +234,12 @@ public class PackManager {
     public static boolean addPack(String packCode) {
         for (Pack pack : Data.PACKS) {
             if (pack.isSemiPublic() && !canViewSemiPublicPackByCode(Hashing.md5(packCode).toString())) {
-                if (Hashing.HashCode.fromString(pack.getCode()).equals(Hashing.md5(packCode))) {
+                if (Hashing.toHashCode(pack.getCode()).equals(Hashing.md5(packCode))) {
                     if (pack.isTester()) {
                         return false;
                     }
                     App.settings.addedPacks.add(packCode);
                     App.settings.save();
-                    App.launcher.refreshFeaturedPacksPanel();
                     App.launcher.refreshPacksBrowserPanel();
                     return true;
                 }
@@ -240,10 +250,9 @@ public class PackManager {
 
     public static void removePack(String packCode) {
         for (String code : App.settings.addedPacks) {
-            if (Hashing.md5(code).equals(Hashing.HashCode.fromString(packCode))) {
+            if (Hashing.md5(code).equals(Hashing.toHashCode(packCode))) {
                 App.settings.addedPacks.remove(packCode);
                 App.settings.save();
-                App.launcher.refreshFeaturedPacksPanel();
                 App.launcher.refreshPacksBrowserPanel();
             }
         }
@@ -296,7 +305,7 @@ public class PackManager {
 
     public static boolean canViewSemiPublicPackByCode(String packCode) {
         for (String code : App.settings.addedPacks) {
-            if (Hashing.md5(code).equals(Hashing.HashCode.fromString(packCode))) {
+            if (Hashing.md5(code).equals(Hashing.toHashCode(packCode))) {
                 return true;
             }
         }

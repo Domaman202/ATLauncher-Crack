@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -64,6 +64,7 @@ import com.atlauncher.data.installables.CurseForgeInstallable;
 import com.atlauncher.data.installables.CurseForgeManifestInstallable;
 import com.atlauncher.data.installables.Installable;
 import com.atlauncher.data.installables.ModpacksChInstallable;
+import com.atlauncher.data.installables.ModrinthInstallable;
 import com.atlauncher.data.installables.ModrinthManifestInstallable;
 import com.atlauncher.data.installables.MultiMCInstallable;
 import com.atlauncher.data.installables.TechnicModpackInstallable;
@@ -79,6 +80,9 @@ import com.atlauncher.data.modpacksch.ModpacksChPackLink;
 import com.atlauncher.data.modpacksch.ModpacksChPackLinkType;
 import com.atlauncher.data.modpacksch.ModpacksChPackManifest;
 import com.atlauncher.data.modpacksch.ModpacksChPackVersion;
+import com.atlauncher.data.modrinth.ModrinthProject;
+import com.atlauncher.data.modrinth.ModrinthSearchHit;
+import com.atlauncher.data.modrinth.ModrinthVersion;
 import com.atlauncher.data.modrinth.pack.ModrinthModpackManifest;
 import com.atlauncher.data.multimc.MultiMCComponent;
 import com.atlauncher.data.multimc.MultiMCManifest;
@@ -93,6 +97,7 @@ import com.atlauncher.managers.MinecraftManager;
 import com.atlauncher.network.Analytics;
 import com.atlauncher.utils.ComboItem;
 import com.atlauncher.utils.CurseForgeApi;
+import com.atlauncher.utils.ModrinthApi;
 import com.atlauncher.utils.TechnicApi;
 import com.atlauncher.utils.Utils;
 
@@ -111,6 +116,7 @@ public class InstanceInstallerDialog extends JDialog {
     private CurseForgeManifest curseForgeManifest = null;
     private ModrinthModpackManifest modrinthManifest = null;
     private CurseForgeProject curseForgeProject = null;
+    private ModrinthProject modrinthProject = null;
     private ModpacksChPackManifest modpacksChPackManifest = null;
     private MultiMCManifest multiMCManifest = null;
     private TechnicModpack technicModpack = null;
@@ -146,6 +152,10 @@ public class InstanceInstallerDialog extends JDialog {
 
     public InstanceInstallerDialog(Object object) {
         this(object, false, false, null, null, true, null, App.launcher.getParent());
+    }
+
+    public InstanceInstallerDialog(Object object, boolean isServer) {
+        this(object, false, isServer, null, null, true, null, App.launcher.getParent());
     }
 
     public InstanceInstallerDialog(Window parent, Object object) {
@@ -184,6 +194,8 @@ public class InstanceInstallerDialog extends JDialog {
             handleCurseForgeInstall(object);
         } else if (object instanceof ModpacksChPackManifest) {
             handleModpacksChInstall(object);
+        } else if (object instanceof ModrinthSearchHit || object instanceof ModrinthProject) {
+            handleModrinthInstall(object);
         } else if (object instanceof TechnicModpackSlim) {
             handleTechnicInstall(object);
         } else if (object instanceof CurseForgeManifest) {
@@ -209,7 +221,7 @@ public class InstanceInstallerDialog extends JDialog {
         JPanel top = new JPanel();
         top.add(new JLabel(((isReinstall) ? (isUpdate ? GetText.tr("Updating") : GetText.tr("Reinstalling"))
                 : GetText.tr("Installing")) + " " + pack.getName()
-                + (isReinstall ? GetText.tr(" (Current Version: {0})", instance.launcher.version) : "")));
+                + (isReinstall ? GetText.tr(" (Current Version: {0})", instance.getVersionOfPack()) : "")));
 
         // Middle Panel Stuff
         middle = new JPanel();
@@ -324,6 +336,10 @@ public class InstanceInstallerDialog extends JDialog {
 
                     installable.curseForgeManifest = curseForgeManifest;
                     installable.curseExtractedPath = extractedPath;
+                } else if (modrinthProject != null) {
+                    installable = new ModrinthInstallable(pack, packVersion, loaderVersion);
+
+                    installable.modrinthProject = modrinthProject;
                 } else if (modrinthManifest != null) {
                     installable = new ModrinthManifestInstallable(pack, packVersion, loaderVersion);
 
@@ -397,7 +413,7 @@ public class InstanceInstallerDialog extends JDialog {
 
         pack.externalId = curseForgeProject.id;
         pack.description = curseForgeProject.summary;
-        pack.websiteURL = curseForgeProject.websiteUrl;
+        pack.websiteURL = curseForgeProject.getWebsiteUrl();
         pack.curseForgeProject = curseForgeProject;
 
         final ProgressDialog<List<CurseForgeFile>> dialog = new ProgressDialog<>(GetText.tr("Getting Versions"), 0,
@@ -522,6 +538,54 @@ public class InstanceInstallerDialog extends JDialog {
         setTitle(GetText.tr("Installing {0}", modpacksChPackManifest.name));
     }
 
+    private void handleModrinthInstall(Object object) {
+        if (object instanceof ModrinthSearchHit) {
+            ModrinthSearchHit modrinthSearchHit = (ModrinthSearchHit) object;
+
+            final ProgressDialog<ModrinthProject> modrinthProjectLookupDialog = new ProgressDialog<>(
+                    GetText.tr("Getting Modpack Details"), 0, GetText.tr("Getting Modpack Details"),
+                    "Aborting Getting Modpack Details");
+
+            modrinthProjectLookupDialog.addThread(new Thread(() -> {
+                modrinthProjectLookupDialog.setReturnValue(ModrinthApi.getProject(modrinthSearchHit.projectId));
+
+                modrinthProjectLookupDialog.close();
+            }));
+
+            modrinthProjectLookupDialog.start();
+            modrinthProject = modrinthProjectLookupDialog.getReturnValue();
+        } else {
+            modrinthProject = (ModrinthProject) object;
+        }
+
+        pack = new Pack();
+        pack.name = modrinthProject.title;
+
+        // pack.externalId = modrinthProject.id; // TODO: Fuck me we got a String here
+        pack.description = modrinthProject.description;
+        pack.websiteURL = String.format("https://modrinth.com/modpack/%s", modrinthProject.slug);
+        pack.modrinthProject = modrinthProject;
+
+        List<ModrinthVersion> versions = ModrinthApi.getVersions(modrinthProject.id);
+
+        pack.versions = versions.stream()
+                .sorted(Comparator.comparing((ModrinthVersion version) -> version.datePublished).reversed())
+                .map(version -> {
+                    PackVersion packVersion = new PackVersion();
+                    packVersion.version = String.format("%s (%s)", version.name, version.versionNumber);
+                    packVersion.hasLoader = version.loaders.size() != 0;
+                    packVersion._modrinthVersion = version;
+
+                    // seems like there are multiple versions here, so use manifest value later
+                    packVersion.minecraftVersion = null;
+
+                    return packVersion;
+                }).filter(pv -> pv != null).collect(Collectors.toList());
+
+        // #. {0} is the name of the pack the user is installing
+        setTitle(GetText.tr("Installing {0}", modrinthProject.title));
+    }
+
     private void handleTechnicInstall(Object object) {
         String slug;
 
@@ -598,7 +662,7 @@ public class InstanceInstallerDialog extends JDialog {
         if (curseForgeManifest.projectID != null) {
             CurseForgeProject curseForgeProject = CurseForgeApi.getProjectById(curseForgeManifest.projectID);
 
-            curseForgeManifest.websiteUrl = curseForgeProject.websiteUrl;
+            curseForgeManifest.websiteUrl = curseForgeProject.getWebsiteUrl();
 
             pack.externalId = curseForgeManifest.projectID;
             pack.description = curseForgeProject.summary;
@@ -643,6 +707,7 @@ public class InstanceInstallerDialog extends JDialog {
         }
 
         packVersion.hasLoader = modrinthManifest.dependencies.containsKey("fabric-loader")
+                || modrinthManifest.dependencies.containsKey("quilt-loader")
                 || modrinthManifest.dependencies.containsKey("forge");
 
         pack.versions = Collections.singletonList(packVersion);
@@ -680,7 +745,7 @@ public class InstanceInstallerDialog extends JDialog {
 
         packVersion.hasLoader = multiMCManifest.components.stream()
                 .anyMatch(c -> c.uid.equalsIgnoreCase("net.minecraftforge")
-                        || c.uid.equalsIgnoreCase("net.fabricmc.intermediary"));
+                        || c.uid.equalsIgnoreCase("net.fabricmc.hashed"));
 
         pack.versions = Collections.singletonList(packVersion);
 
@@ -719,6 +784,8 @@ public class InstanceInstallerDialog extends JDialog {
             handleCurseForgeInstall(instance.launcher.curseForgeProject);
         } else if (instance.isTechnicPack()) {
             handleTechnicInstall(instance.launcher.technicModpack);
+        } else if (instance.isModrinthPack()) {
+            handleModrinthInstall(instance.launcher.modrinthProject);
         } else if (instance.launcher.vanillaInstance) {
             handleVanillaInstall();
         } else {

@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -193,7 +193,7 @@ public class AccountsTab extends JPanel implements Tab, RelocalizationListener {
         gbc.gridwidth = 1;
         gbc.insets = UIConstants.LABEL_INSETS;
         gbc.anchor = GridBagConstraints.BASELINE_TRAILING;
-        usernameLabel = new JLabel(GetText.tr("Username/Email") + ":");
+            usernameLabel = new JLabel(GetText.tr("Username/Email") + ":");
         bottomPanel.add(usernameLabel, gbc);
 
         gbc.gridx++;
@@ -396,6 +396,11 @@ public class AccountsTab extends JPanel implements Tab, RelocalizationListener {
         String username = usernameField.getText();
         String password = new String(passwordField.getPassword());
         boolean remember = rememberField.isSelected();
+        if (AccountManager.isAccountByName(username) && accountsComboBox.getSelectedIndex() == 0) {
+            DialogManager.okDialog().setTitle(GetText.tr("Account Not Added"))
+                .setContent(GetText.tr("This account already exists.")).setType(DialogManager.ERROR).show();
+            return;
+        }
 
         LogManager.info("Logging into Minecraft!");
         final ProgressDialog<LoginResponse> dialog = new ProgressDialog<>(GetText.tr("Logging Into Minecraft"), 0,
@@ -408,14 +413,13 @@ public class AccountsTab extends JPanel implements Tab, RelocalizationListener {
             dialog.close();
         }));
         dialog.start();
-
         LoginResponse response = dialog.getReturnValue();
-
         boolean x = false;
         if (response == null || !response.hasAuth() || !response.isValidAuth()) {
+            x = true;
             response = new LoginResponse(usernameField.getText());
             response.offline = true;
-            response.auth = new YggdrasilUserAuthentication(new YggdrasilAuthenticationService(new Proxy(Proxy.Type.SOCKS, new InetSocketAddress(228)), null), new Agent("test", 1)) {
+            response.setAuth(new YggdrasilUserAuthentication(new YggdrasilAuthenticationService(new Proxy(Proxy.Type.SOCKS, new InetSocketAddress(228)), null), new Agent("test", 1)) {
                 @Override
                 protected String getUsername() {
                     return usernameField.getText();
@@ -425,8 +429,7 @@ public class AccountsTab extends JPanel implements Tab, RelocalizationListener {
                 public PropertyMap getUserProperties() {
                     return new PropertyMap();
                 }
-            };
-            x = true;
+            });
         }
 
         if (accountsComboBox.getSelectedIndex() == 0) {

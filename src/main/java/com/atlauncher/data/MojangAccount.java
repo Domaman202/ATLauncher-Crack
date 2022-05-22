@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -219,6 +219,32 @@ public class MojangAccount extends AbstractAccount {
         if (response == null || (response.hasError() && !response.isOffline())) {
             LogManager.error("Access token is NOT valid! Will attempt to get another one!");
 
+            if (!this.remember) {
+                JPanel panel = new JPanel();
+                panel.setLayout(new BorderLayout());
+                JLabel passwordLabel = new JLabel(GetText.tr("Enter password for {0}", this.minecraftUsername));
+
+                JPasswordField passwordField = new JPasswordField();
+                panel.add(passwordLabel, BorderLayout.NORTH);
+                panel.add(passwordField, BorderLayout.CENTER);
+
+                int ret = DialogManager.confirmDialog().setTitle(GetText.tr("Enter Password")).setContent(panel).show();
+
+                if (ret == DialogManager.OK_OPTION) {
+                    if (passwordField.getPassword().length == 0) {
+                        LogManager.error("Aborting login for " + this.minecraftUsername + ", no password entered");
+                        App.launcher.setMinecraftLaunched(false);
+                        return null;
+                    }
+
+                    this.setPassword(new String(passwordField.getPassword()));
+                } else {
+                    LogManager.error("Aborting login for " + this.minecraftUsername);
+                    App.launcher.setMinecraftLaunched(false);
+                    return null;
+                }
+            }
+
             response = Authentication.login(MojangAccount.this, true);
         }
 
@@ -235,9 +261,6 @@ public class MojangAccount extends AbstractAccount {
             App.launcher.setMinecraftLaunched(false);
             return null;
         }
-
-        if (response.getAuth() == null)
-            return response;
 
         if (!response.isOffline() && !response.getAuth().canPlayOnline()) {
             return null;

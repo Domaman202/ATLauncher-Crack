@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -129,7 +129,7 @@ public class ServerCard extends CollapsiblePanel implements RelocalizationListen
         this.launchWithGuiAndClose.addActionListener(e -> server.launch(true));
         this.backupButton.addActionListener(e ->  server.backup());
         this.deleteButton.addActionListener(e -> {
-            int ret = DialogManager.yesNoDialog().setTitle(GetText.tr("Delete Server"))
+            int ret = DialogManager.yesNoDialog(false).setTitle(GetText.tr("Delete Server"))
                     .setContent(GetText.tr("Are you sure you want to delete this server?")).setType(DialogManager.ERROR)
                     .show();
 

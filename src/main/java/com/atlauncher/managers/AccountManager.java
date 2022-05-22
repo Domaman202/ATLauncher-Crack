@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -220,7 +220,6 @@ public class AccountManager {
             Data.SELECTED_ACCOUNT = account;
             App.settings.lastAccount = account.username;
         }
-        App.launcher.refreshFeaturedPacksPanel();
         App.launcher.refreshPacksBrowserPanel();
         App.launcher.reloadInstancesPanel();
         App.launcher.reloadServersPanel();

@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -170,7 +170,7 @@ public class CommandExecutor {
         String javaPath = Optional.ofNullable(instance.launcher.javaPath).orElse(App.settings.javaPath);
 
         // are we using Mojangs provided runtime?
-        if (instance.javaVersion != null && App.settings.useJavaProvidedByMinecraft) {
+        if (instance.javaVersion != null && (!OS.isArm() || OS.isMacArm()) && App.settings.useJavaProvidedByMinecraft) {
             Path runtimeDirectory = FileSystem.MINECRAFT_RUNTIMES.resolve(instance.javaVersion.component)
                     .resolve(JavaRuntimes.getSystem()).resolve(instance.javaVersion.component);
 

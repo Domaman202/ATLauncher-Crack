@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,50 +17,91 @@
  */
 package com.atlauncher.data.curseforge;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
+import com.atlauncher.annot.ExcludeFromGsonSerialization;
 import com.atlauncher.constants.Constants;
 import com.atlauncher.data.json.ModType;
+import com.google.gson.annotations.SerializedName;
 
 public class CurseForgeProject {
     public int id;
     public String name;
     public List<CurseForgeAuthor> authors;
-    public List<CurseForgeAttachment> attachments;
-    public String websiteUrl;
     public int gameId;
     public String summary;
-    public int defaultFileId;
+    @ExcludeFromGsonSerialization
     public int downloadCount;
-    public List<CurseForgeProjectLatestFile> latestFiles;
+    @ExcludeFromGsonSerialization
+    public List<CurseForgeFile> latestFiles;
     public List<CurseForgeCategory> categories;
     public int status;
     public int primaryCategoryId;
-    public CurseForgeCategorySection categorySection;
+    public int classId;
     public String slug;
-    public List<CurseForgeGameVersionLatestFiles> gameVersionLatestFiles;
     public boolean isFeatured;
-    public float popularityScore;
-    public int gamePopularityRank;
-    public String primaryLanguage;
-    public String gameSlug;
-    public String gameName;
-    public String portalName;
     public String dateModified;
     public String dateCreated;
     public String dateReleased;
-    public boolean isAvailable;
-    public boolean isExperimental;
+    public Map<String, String> links = new HashMap<>();
+    public CurseForgeAttachment logo = null;
+    public Boolean allowModDistribution;
+
+    @SerializedName(value = "screenshots", alternate = { "attachments" })
+    public List<CurseForgeAttachment> screenshots;
+
+    @SerializedName(value = "latestFilesIndexes", alternate = { "gameVersionLatestFiles" })
+    @ExcludeFromGsonSerialization
+    public List<CurseForgeGameVersionLatestFiles> latestFilesIndexes;
+
+    @SerializedName(value = "mainFileId", alternate = { "defaultFileId" })
+    public int mainFileId;
 
     public ModType getModType() {
-        if (categorySection.gameCategoryId == Constants.CURSEFORGE_RESOURCE_PACKS_SECTION_ID) {
+        if (getRootCategoryId() == Constants.CURSEFORGE_RESOURCE_PACKS_SECTION_ID) {
             return ModType.resourcepack;
         }
 
         return ModType.mods;
     }
 
+    public int getRootCategoryId() {
+        Optional<CurseForgeCategory> primaryCategory = categories.stream().filter(c -> c.id == primaryCategoryId)
+                .findFirst();
+
+        if (primaryCategory.isPresent()) {
+            return primaryCategory.get().classId;
+        }
+
+        return Constants.CURSEFORGE_MODS_SECTION_ID;
+    }
+
+    public Optional<CurseForgeAttachment> getLogo() {
+        return Optional.ofNullable(logo);
+    }
+
     public boolean equals(Object object) {
         return id == ((CurseForgeProject) object).id;
+    }
+
+    public String getWebsiteUrl() {
+        return links.get("websiteUrl");
+    }
+
+    public boolean hasWebsiteUrl() {
+        return links.containsKey("websiteUrl");
+    }
+
+    public String getClassUrlSlug() {
+        if (classId == Constants.CURSEFORGE_RESOURCE_PACKS_SECTION_ID) {
+            return "texture-packs";
+        } else if (classId == Constants.CURSEFORGE_MODPACKS_SECTION_ID) {
+            return "modpacks";
+        }
+
+        return "mc-mods";
     }
 }

@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,16 +18,17 @@
 package com.atlauncher.managers;
 
 import java.util.Comparator;
+import java.util.Map;
 
 import com.atlauncher.App;
 import com.atlauncher.Data;
 import com.atlauncher.data.Instance;
+import com.atlauncher.data.curseforge.CurseForgeFile;
 import com.atlauncher.data.curseforge.CurseForgeProject;
-import com.atlauncher.data.curseforge.CurseForgeProjectLatestFile;
 import com.atlauncher.utils.CurseForgeApi;
 
 public class CurseForgeUpdateManager {
-    public static CurseForgeProjectLatestFile getLatestVersion(Instance instance) {
+    public static CurseForgeFile getLatestVersion(Instance instance) {
         return Data.CURSEFORGE_INSTANCE_LATEST_VERSION.get(instance);
     }
 
@@ -39,40 +40,53 @@ public class CurseForgeUpdateManager {
         PerformanceManager.start();
         LogManager.info("Checking for updates to CurseForge instances");
 
-        boolean refreshInstancesPanel = Data.INSTANCES.parallelStream()
-                .filter(i -> i.isCurseForgePack() && i.hasCurseForgeProjectId()).map(i -> {
-                    boolean wasUpdated = false;
+        int[] projectIdsFound = Data.INSTANCES.parallelStream()
+                .filter(i -> i.isCurseForgePack() && i.hasCurseForgeProjectId())
+                .mapToInt(i -> i.launcher.curseForgeManifest != null
+                        ? i.launcher.curseForgeManifest.projectID
+                        : i.launcher.curseForgeProject.id)
+                .toArray();
 
-                    CurseForgeProject curseForgeMod = CurseForgeApi.getProjectById(
-                            i.launcher.curseForgeManifest != null ? i.launcher.curseForgeManifest.projectID
-                                    : i.launcher.curseForgeProject.id);
+        Map<Integer, CurseForgeProject> foundProjects = CurseForgeApi.getProjectsAsMap(projectIdsFound);
 
-                    if (curseForgeMod == null) {
-                        return false;
-                    }
+        if (foundProjects != null) {
 
-                    CurseForgeProjectLatestFile latestVersion = curseForgeMod.latestFiles.stream()
-                            .sorted(Comparator.comparingInt((CurseForgeProjectLatestFile file) -> file.id).reversed())
-                            .findFirst().orElse(null);
+            boolean refreshInstancesPanel = Data.INSTANCES.parallelStream()
+                    .filter(i -> i.isCurseForgePack() && i.hasCurseForgeProjectId()).map(i -> {
+                        boolean wasUpdated = false;
 
-                    if (latestVersion == null) {
-                        return false;
-                    }
+                        CurseForgeProject curseForgeMod = foundProjects.get(i.launcher.curseForgeManifest != null
+                                ? i.launcher.curseForgeManifest.projectID
+                                : i.launcher.curseForgeProject.id);
 
-                    // if there is a change to the latestversion for an instance (but not a first
-                    // time write), then refresh instances panel
-                    if (Data.CURSEFORGE_INSTANCE_LATEST_VERSION.containsKey(i)
-                            && Data.CURSEFORGE_INSTANCE_LATEST_VERSION.get(i).id != latestVersion.id) {
-                        wasUpdated = true;
-                    }
+                        if (curseForgeMod == null) {
+                            return false;
+                        }
 
-                    Data.CURSEFORGE_INSTANCE_LATEST_VERSION.put(i, latestVersion);
+                        CurseForgeFile latestVersion = curseForgeMod.latestFiles.stream()
+                                .sorted(Comparator.comparingInt((
+                                        CurseForgeFile file) -> file.id).reversed())
+                                .findFirst().orElse(null);
 
-                    return wasUpdated;
-                }).anyMatch(b -> b);
+                        if (latestVersion == null) {
+                            return false;
+                        }
 
-        if (refreshInstancesPanel) {
-            App.launcher.reloadInstancesPanel();
+                        // if there is a change to the latestversion for an instance (but not a first
+                        // time write), then refresh instances panel
+                        if (Data.CURSEFORGE_INSTANCE_LATEST_VERSION.containsKey(i)
+                                && Data.CURSEFORGE_INSTANCE_LATEST_VERSION.get(i).id != latestVersion.id) {
+                            wasUpdated = true;
+                        }
+
+                        Data.CURSEFORGE_INSTANCE_LATEST_VERSION.put(i, latestVersion);
+
+                        return wasUpdated;
+                    }).anyMatch(b -> b);
+
+            if (refreshInstancesPanel) {
+                App.launcher.reloadInstancesPanel();
+            }
         }
 
         PerformanceManager.end();

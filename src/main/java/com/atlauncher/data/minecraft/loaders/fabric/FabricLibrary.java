@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -28,6 +28,7 @@ import com.atlauncher.data.minecraft.Downloads;
 import com.atlauncher.data.minecraft.Library;
 import com.atlauncher.utils.Hashing;
 import com.atlauncher.utils.Utils;
+import com.google.common.hash.HashCode;
 
 @Json
 public class FabricLibrary extends Library {
@@ -45,7 +46,7 @@ public class FabricLibrary extends Library {
         if (Files.exists(localLibraryPath)) {
             artifact.size = localLibraryPath.toFile().length();
 
-            Hashing.HashCode sha1 = Hashing.sha1(localLibraryPath);
+            HashCode sha1 = Hashing.sha1(localLibraryPath);
             if (sha1 != null) {
                 artifact.sha1 = sha1.toString();
             }

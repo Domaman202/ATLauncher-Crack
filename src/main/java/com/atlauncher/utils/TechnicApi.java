@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,6 +17,7 @@
  */
 package com.atlauncher.utils;
 
+import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
 import com.atlauncher.constants.Constants;
@@ -54,6 +55,14 @@ public class TechnicApi {
                         Constants.LAUNCHER_NAME.toLowerCase()))
                 .cached(new CacheControl.Builder().maxStale(10, TimeUnit.MINUTES).build())
                 .asClass(TechnicModpack.class);
+    }
+
+    public static TechnicModpack getModpackBySlugWithThrow(String slug) throws IOException {
+        return Download.build()
+                .setUrl(String.format("%s/modpack/%s?build=%s", Constants.TECHNIC_API_URL, slug,
+                        Constants.LAUNCHER_NAME.toLowerCase()))
+                .cached(new CacheControl.Builder().maxStale(10, TimeUnit.MINUTES).build())
+                .asClassWithThrow(TechnicModpack.class);
     }
 
     private static Object normalizeSolderUrl(String solderUrl) {

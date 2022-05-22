@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -70,8 +70,10 @@ public class Constants {
     public static String DOWNLOAD_HOST = BASE_CDN_DOMAIN;
 
     // CurseForge domains, endpoints, config, etc
-    public static final String CURSEFORGE_API_URL = "https://addons-ecs.forgesvc.net/api/v2";
-    public static final String CURSEFORGE_HOST = "addons-ecs.forgesvc.net";
+    public static final String CURSEFORGE_CORE_API_URL = "https://api.curseforge.com/v1";
+    // if you fork or modify this launcher, you must not use this API key and apply for your own
+    public static final String CURSEFORGE_CORE_API_KEY = "$2a$10$.7CSxLm/lnj5lCBSM5jGQ.3SICSX4j9r661AgoB1Rc4Nw8jCMKcv2";
+    public static final String CURSEFORGE_CORE_API_HOST = "api.curseforge.com";
     public static final int CURSEFORGE_FORGE_MODLOADER_ID = 1;
     public static final int CURSEFORGE_FABRIC_MODLOADER_ID = 4;
     public static final int CURSEFORGE_PAGINATION_SIZE = 20;
@@ -83,9 +85,10 @@ public class Constants {
     public static final int CURSEFORGE_WORLDS_SECTION_ID = 17;
 
     // Modrinth domains, endpoints, config, etc
-    public static final String MODRINTH_API_URL = "https://api.modrinth.com/api/v1";
+    public static final String MODRINTH_API_URL = "https://api.modrinth.com/v2";
     public static final String MODRINTH_HOST = "api.modrinth.com";
     public static final String MODRINTH_FABRIC_MOD_ID = "P7dR8mSH";
+    public static final String MODRINTH_QSL_MOD_ID = "qvIfYCYJ";
     public static final int MODRINTH_PAGINATION_SIZE = 20;
 
     // Modpacks.ch domains, endpoints, config, etc

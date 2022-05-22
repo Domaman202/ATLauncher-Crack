@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -28,8 +28,11 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -51,7 +54,7 @@ import com.atlauncher.builders.HTMLBuilder;
 import com.atlauncher.data.DisableableMod;
 import com.atlauncher.data.Instance;
 import com.atlauncher.data.curseforge.CurseForgeFingerprint;
-import com.atlauncher.data.curseforge.CurseForgeFingerprintedMod;
+import com.atlauncher.data.curseforge.CurseForgeProject;
 import com.atlauncher.data.minecraft.FabricMod;
 import com.atlauncher.data.minecraft.MCMod;
 import com.atlauncher.gui.components.ModsJCheckBox;
@@ -63,6 +66,7 @@ import com.atlauncher.managers.LogManager;
 import com.atlauncher.managers.PerformanceManager;
 import com.atlauncher.network.Analytics;
 import com.atlauncher.utils.CurseForgeApi;
+import com.atlauncher.utils.FileUtils;
 import com.atlauncher.utils.Hashing;
 import com.atlauncher.utils.Utils;
 
@@ -339,66 +343,106 @@ public class EditModsDialog extends JDialog {
             }
         }
 
-        if (!App.settings.dontCheckModsOnCurseForge) {
-            try {
-                long murmurHash = Hashing.murmur(file.toPath());
-
-                LogManager.debug("File " + file.getName() + " has murmur hash of " + murmurHash);
-
-                CurseForgeFingerprint fingerprintResponse = CurseForgeApi.checkFingerprint(murmurHash);
-
-                if (fingerprintResponse != null && fingerprintResponse.exactMatches.size() == 1) {
-                    CurseForgeFingerprintedMod foundMod = fingerprintResponse.exactMatches.get(0);
-
-                    // add CurseForge information
-                    mod.curseForgeProject = CurseForgeApi.getProjectById(foundMod.id);
-                    mod.curseForgeProjectId = foundMod.id;
-                    mod.curseForgeFile = foundMod.file;
-                    mod.curseForgeFileId = foundMod.file.id;
-
-                    mod.name = mod.curseForgeProject.name;
-                    mod.description = mod.curseForgeProject.summary;
-
-                    LogManager.debug("Found matching mod from CurseForge called " + mod.curseForgeProject.name
-                            + " with file named " + mod.curseForgeFile.displayName);
-                }
-            } catch (IOException e1) {
-                LogManager.logStackTrace(e1);
-            }
-        }
-
         return mod;
     }
 
     private void scanMissingMods() {
         PerformanceManager.start("EditModsDialog::scanMissingMods - CheckForAddedMods");
-        // first find the mods that have been added by the user manually
-        try (Stream<Path> stream = Files.list(instance.ROOT.resolve("mods"))) {
-            List<Path> files = stream
-                    .filter(file -> !Files.isDirectory(file) && Utils.isAcceptedModFile(file)).filter(
-                            file -> instance.launcher.mods.stream()
-                                    .noneMatch(mod -> mod.type == com.atlauncher.data.Type.mods
-                                            && mod.file.equals(file.getFileName().toString())))
-                    .collect(Collectors.toList());
 
-            if (files.size() != 0) {
-                final ProgressDialog progressDialog = new ProgressDialog(GetText.tr("Scanning New Mods"), 0,
-                        GetText.tr("Scanning New Mods"), this);
+        // files to scan
+        List<Path> files = new ArrayList<>();
 
-                progressDialog.addThread(new Thread(() -> {
-                    List<DisableableMod> mods = files.parallelStream()
-                            .map(file -> generateMod(file.toFile(), com.atlauncher.data.Type.mods, true))
-                            .collect(Collectors.toList());
-                    mods.forEach(mod -> LogManager.info("Found extra mod with name of " + mod.file));
-                    instance.launcher.mods.addAll(mods);
-                    instance.save();
-                    progressDialog.close();
-                }));
-
-                progressDialog.start();
+        // find the mods that have been added by the user manually
+        for (Path path : Arrays.asList(instance.ROOT.resolve("mods"), instance.ROOT.resolve("disabledmods"))) {
+            try (Stream<Path> stream = Files.list(path)) {
+                files.addAll(stream
+                        .filter(file -> !Files.isDirectory(file) && Utils.isAcceptedModFile(file)).filter(
+                                file -> instance.launcher.mods.stream()
+                                        .noneMatch(mod -> mod.type == com.atlauncher.data.Type.mods
+                                                && mod.file.equals(file.getFileName().toString())))
+                        .collect(Collectors.toList()));
+            } catch (IOException e) {
+                LogManager.logStackTrace("Error scanning missing mods", e);
             }
-        } catch (IOException e) {
-            LogManager.logStackTrace("Error scanning missing mods", e);
+        }
+
+        if (files.size() != 0) {
+            final ProgressDialog progressDialog = new ProgressDialog(GetText.tr("Scanning New Mods"), 0,
+                    GetText.tr("Scanning New Mods"), this);
+
+            progressDialog.addThread(new Thread(() -> {
+                List<DisableableMod> mods = files.parallelStream()
+                        .map(file -> generateMod(file.toFile(), com.atlauncher.data.Type.mods,
+                                file.getParent().equals(instance.ROOT.resolve("mods"))))
+                        .collect(Collectors.toList());
+
+                if (!App.settings.dontCheckModsOnCurseForge) {
+                    Map<Long, DisableableMod> murmurHashes = new HashMap<>();
+
+                    mods.stream()
+                            .filter(dm -> dm.curseForgeProject == null && dm.curseForgeFile == null)
+                            .filter(dm -> dm.getFile(instance.ROOT, instance.id) != null).forEach(dm -> {
+                                try {
+                                    long hash = Hashing
+                                            .murmur(dm.disabled ? dm.getDisabledFile(instance).toPath()
+                                                    : dm
+                                                            .getFile(instance.ROOT, instance.id).toPath());
+                                    murmurHashes.put(hash, dm);
+                                } catch (Throwable t) {
+                                    LogManager.logStackTrace(t);
+                                }
+                            });
+
+                    if (murmurHashes.size() != 0) {
+                        CurseForgeFingerprint fingerprintResponse = CurseForgeApi
+                                .checkFingerprints(murmurHashes.keySet().stream().toArray(Long[]::new));
+
+                        if (fingerprintResponse != null && fingerprintResponse.exactMatches != null) {
+                            int[] projectIdsFound = fingerprintResponse.exactMatches.stream().mapToInt(em -> em.id)
+                                    .toArray();
+
+                            if (projectIdsFound.length != 0) {
+                                Map<Integer, CurseForgeProject> foundProjects = CurseForgeApi
+                                        .getProjectsAsMap(projectIdsFound);
+
+                                if (foundProjects != null) {
+                                    fingerprintResponse.exactMatches.stream()
+                                            .filter(em -> em != null && em.file != null
+                                                    && murmurHashes.containsKey(em.file.packageFingerprint))
+                                            .forEach(foundMod -> {
+                                                DisableableMod dm = murmurHashes
+                                                        .get(foundMod.file.packageFingerprint);
+
+                                                // add CurseForge information
+                                                dm.curseForgeProjectId = foundMod.id;
+                                                dm.curseForgeFile = foundMod.file;
+                                                dm.curseForgeFileId = foundMod.file.id;
+
+                                                CurseForgeProject curseForgeProject = foundProjects
+                                                        .get(foundMod.id);
+
+                                                if (curseForgeProject != null) {
+                                                    dm.curseForgeProject = curseForgeProject;
+                                                    dm.name = curseForgeProject.name;
+                                                    dm.description = curseForgeProject.summary;
+                                                }
+
+                                                LogManager.debug("Found matching mod from CurseForge called "
+                                                        + dm.curseForgeFile.displayName);
+                                            });
+                                }
+                            }
+                        }
+                    }
+                }
+
+                mods.forEach(mod -> LogManager.info("Found extra mod with name of " + mod.file));
+                instance.launcher.mods.addAll(mods);
+                instance.save();
+                progressDialog.close();
+            }));
+
+            progressDialog.start();
         }
         PerformanceManager.end("EditModsDialog::scanMissingMods - CheckForAddedMods");
 
@@ -554,9 +598,11 @@ public class EditModsDialog extends JDialog {
         for (ModsJCheckBox mod : mods) {
             if (mod.isSelected()) {
                 this.instance.launcher.mods.remove(mod.getDisableableMod());
-                Utils.delete(
-                        (mod.getDisableableMod().isDisabled() ? mod.getDisableableMod().getDisabledFile(this.instance)
-                                : mod.getDisableableMod().getFile(this.instance)));
+                FileUtils.delete(
+                        (mod.getDisableableMod().isDisabled()
+                                ? mod.getDisableableMod().getDisabledFile(this.instance)
+                                : mod.getDisableableMod().getFile(this.instance)).toPath(),
+                        true);
                 enabledMods.remove(mod);
             }
         }
@@ -564,9 +610,11 @@ public class EditModsDialog extends JDialog {
         for (ModsJCheckBox mod : mods) {
             if (mod.isSelected()) {
                 this.instance.launcher.mods.remove(mod.getDisableableMod());
-                Utils.delete(
-                        (mod.getDisableableMod().isDisabled() ? mod.getDisableableMod().getDisabledFile(this.instance)
-                                : mod.getDisableableMod().getFile(this.instance)));
+                FileUtils.delete(
+                        (mod.getDisableableMod().isDisabled()
+                                ? mod.getDisableableMod().getDisabledFile(this.instance)
+                                : mod.getDisableableMod().getFile(this.instance)).toPath(),
+                        true);
                 disabledMods.remove(mod);
             }
         }

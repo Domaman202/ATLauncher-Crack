@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,6 +18,7 @@
 package com.atlauncher.gui.panels.packbrowser;
 
 import java.awt.GridBagConstraints;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,7 +26,10 @@ import java.util.stream.Collectors;
 
 import javax.swing.JPanel;
 
+import com.atlauncher.constants.Constants;
 import com.atlauncher.constants.UIConstants;
+import com.atlauncher.data.minecraft.VersionManifestVersion;
+import com.atlauncher.data.minecraft.VersionManifestVersionType;
 import com.atlauncher.data.modpacksch.ModpacksChPackManifest;
 import com.atlauncher.gui.card.NilCard;
 import com.atlauncher.gui.card.packbrowser.FTBPackCard;
@@ -37,8 +41,11 @@ import org.mini2Dx.gettext.GetText;
 public class FTBPacksPanel extends PackBrowserPlatformPanel {
     GridBagConstraints gbc = new GridBagConstraints();
 
+    boolean hasMorePages = true;
+
     @Override
-    protected void loadPacks(JPanel contentPanel, Integer category, String sort, String search, int page) {
+    protected void loadPacks(JPanel contentPanel, String minecraftVersion, String category, String sort,
+            boolean sortDescending, String search, int page) {
         List<ModpacksChPackManifest> packs;
 
         if (search == null || search.isEmpty()) {
@@ -47,7 +54,9 @@ public class FTBPacksPanel extends PackBrowserPlatformPanel {
             packs = ModpacksChApi.searchModPacks(search, page);
         }
 
-        if (packs.size() == 0) {
+        hasMorePages = packs != null && packs.size() == Constants.CURSEFORGE_PAGINATION_SIZE;
+
+        if (packs == null || packs.size() == 0) {
             contentPanel.removeAll();
             contentPanel.add(
                     new NilCard(GetText
@@ -73,7 +82,8 @@ public class FTBPacksPanel extends PackBrowserPlatformPanel {
     }
 
     @Override
-    public void loadMorePacks(JPanel contentPanel, Integer category, String sort, String search, int page) {
+    public void loadMorePacks(JPanel contentPanel, String minecraftVersion, String category, String sort,
+            boolean sortDescending, String search, int page) {
         List<ModpacksChPackManifest> packs;
 
         if (search == null || search.isEmpty()) {
@@ -82,9 +92,13 @@ public class FTBPacksPanel extends PackBrowserPlatformPanel {
             packs = ModpacksChApi.searchModPacks(search, page);
         }
 
-        for (ModpacksChPackManifest pack : packs) {
-            contentPanel.add(new FTBPackCard(pack), gbc);
-            gbc.gridy++;
+        hasMorePages = packs != null && packs.size() == Constants.MODPACKS_CH_PAGINATION_SIZE;
+
+        if (packs != null) {
+            for (ModpacksChPackManifest pack : packs) {
+                contentPanel.add(new FTBPackCard(pack), gbc);
+                gbc.gridy++;
+            }
         }
     }
 
@@ -99,18 +113,28 @@ public class FTBPacksPanel extends PackBrowserPlatformPanel {
     }
 
     @Override
+    public boolean supportsSearch() {
+        return true;
+    }
+
+    @Override
     public boolean hasCategories() {
         return false;
     }
 
     @Override
-    public Map<Integer, String> getCategoryFields() {
+    public Map<String, String> getCategoryFields() {
         return new LinkedHashMap<>();
     }
 
     @Override
     public boolean hasSort() {
         return true;
+    }
+
+    @Override
+    public boolean supportsSortOrder() {
+        return false;
     }
 
     @Override
@@ -126,8 +150,44 @@ public class FTBPacksPanel extends PackBrowserPlatformPanel {
     }
 
     @Override
+    public Map<String, Boolean> getSortFieldsDefaultOrder() {
+        return new LinkedHashMap<>();
+    }
+
+    @Override
+    public boolean supportsMinecraftVersionFiltering() {
+        return false;
+    }
+
+    @Override
+    public List<VersionManifestVersionType> getSupportedMinecraftVersionTypesForFiltering() {
+        List<VersionManifestVersionType> supportedTypes = new ArrayList<>();
+
+        return supportedTypes;
+    }
+
+    @Override
+    public List<VersionManifestVersion> getSupportedMinecraftVersionsForFiltering() {
+        List<VersionManifestVersion> supportedTypes = new ArrayList<>();
+
+        return supportedTypes;
+    }
+
+    @Override
     public boolean hasPagination() {
         return true;
+    }
+
+    @Override
+    public boolean hasMorePages() {
+        return hasMorePages;
+    }
+
+    public boolean supportsManualAdding() {
+        return false;
+    }
+
+    public void addById(String id) {
     }
 
     @Override

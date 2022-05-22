@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,17 +19,19 @@ package com.atlauncher.data.modrinth;
 
 import java.util.List;
 
+import com.atlauncher.annot.ExcludeFromGsonSerialization;
 import com.google.gson.annotations.SerializedName;
 
 public class ModrinthVersion {
     public String id;
 
-    @SerializedName("mod_id")
-    public String modId;
+    @SerializedName("project_id")
+    public String projectId;
 
     @SerializedName("author_id")
     public String authorId;
 
+    @ExcludeFromGsonSerialization
     public boolean featured;
     public String name;
 
@@ -44,14 +46,15 @@ public class ModrinthVersion {
     @SerializedName("date_published")
     public String datePublished;
 
+    @ExcludeFromGsonSerialization
     public int downloads;
 
     @SerializedName("version_type")
-    public String versionType;
+    public ModrinthChannel versionType;
 
     public List<ModrinthFile> files;
 
-    public List<String> dependencies;
+    public List<ModrinthDependency> dependencies;
 
     @SerializedName("game_versions")
     public List<String> gameVersions;
@@ -62,9 +65,15 @@ public class ModrinthVersion {
         return files.stream().filter(f -> f.primary).findFirst().orElse(files.get(0));
     }
 
+    public ModrinthFile getFileBySha1(String sha1Hash) {
+        return files.stream()
+                .filter(f -> f.hashes.containsKey("sha1") && f.hashes.get("sha1").equalsIgnoreCase(sha1Hash))
+                .findFirst().orElse(getPrimaryFile());
+    }
+
     public String toString() {
-        String releaseTypeString = this.versionType.equalsIgnoreCase("release") ? ""
-                : this.versionType.equalsIgnoreCase("beta") ? " (Beta)" : " (Alpha)";
-        return this.name + releaseTypeString;
+        String versionTypeString = this.versionType == ModrinthChannel.ALPHA ? "Alpha"
+                : this.versionType == ModrinthChannel.BETA ? "Beta" : "Release";
+        return String.format("%s (%s)", this.name, versionTypeString);
     }
 }

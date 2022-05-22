@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -108,6 +108,9 @@ public class LoaderVersion {
         if (this.isFabric()) {
             return "fabric-loader";
         }
+        if (this.isQuilt()) {
+            return "quilt-loader";
+        }
 
         return "forge";
     }
@@ -119,6 +122,10 @@ public class LoaderVersion {
 
         if (isFabric()) {
             return 2;
+        }
+
+        if (isQuilt()) {
+            return 4;
         }
 
         return 3;

@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,10 +18,14 @@
 package com.atlauncher.managers;
 
 import java.awt.Window;
+import java.io.File;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import javax.swing.Icon;
+import javax.swing.JDialog;
 import javax.swing.JOptionPane;
 
 import com.atlauncher.App;
@@ -56,7 +60,7 @@ public final class DialogManager {
     public List<String> options = new LinkedList<>();
     public Icon icon = null;
     public int lookAndFeel = DialogManager.DEFAULT_OPTION;
-    public Integer defaultOption = null;
+    public String defaultOption = null;
     public int type = DialogManager.QUESTION;
 
     private DialogManager(int dialogType) {
@@ -89,10 +93,14 @@ public final class DialogManager {
     }
 
     public static DialogManager yesNoDialog() {
+        return yesNoDialog(true);
+    }
+
+    public static DialogManager yesNoDialog(boolean yesDefault) {
         DialogManager dialog = new DialogManager(DialogManager.CONFIRM_TYPE);
 
-        dialog.addOption(GetText.tr("Yes"), true);
-        dialog.addOption(GetText.tr("No"));
+        dialog.addOption(GetText.tr("Yes"), yesDefault);
+        dialog.addOption(GetText.tr("No"), !yesDefault);
 
         return dialog;
     }
@@ -132,7 +140,7 @@ public final class DialogManager {
         return this;
     }
 
-    public DialogManager setDefaultOption(int defaultOption) {
+    public DialogManager setDefaultOption(String defaultOption) {
         this.defaultOption = defaultOption;
         return this;
     }
@@ -146,7 +154,7 @@ public final class DialogManager {
         this.options.add(option);
 
         if (isDefault) {
-            this.defaultOption = this.options.size() - 1;
+            this.defaultOption = option;
         }
 
         return this;
@@ -185,6 +193,67 @@ public final class DialogManager {
         }
 
         return -1;
+    }
+
+    public int showWithFileMonitoring(File firstFile, File secondFile, int size, int returnValue) {
+        try {
+            Object[] options = this.getOptions();
+
+            JOptionPane jop = new JOptionPane(this.content, this.type, this.lookAndFeel, this.icon, options,
+                    this.defaultOption);
+
+            jop.setInitialValue(this.defaultOption);
+            jop.setComponentOrientation(this.getParent().getComponentOrientation());
+
+            JDialog dialog = jop.createDialog(this.getParent(), this.title);
+
+            Timer timer = new Timer();
+            timer.schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    if ((firstFile.exists() && firstFile.length() == size)
+                            || (secondFile.exists() && secondFile.length() == size)) {
+                        timer.cancel();
+                        jop.setValue(options[returnValue]);
+                        dialog.dispose();
+                    }
+                }
+            }, 1000, 1000);
+
+            dialog.setVisible(true);
+
+            Object selectedValue = jop.getValue();
+
+            // make sure this timer gets killed
+            timer.cancel();
+
+            if (selectedValue == null) {
+                return CLOSED_OPTION;
+            }
+
+            if (options == null) {
+                if (selectedValue instanceof Integer) {
+                    return ((Integer) selectedValue).intValue();
+                }
+                return CLOSED_OPTION;
+            }
+
+            for (int counter = 0, maxCounter = options.length; counter < maxCounter; counter++) {
+                if (options[counter].equals(selectedValue)) {
+                    return counter;
+                }
+            }
+
+            return CLOSED_OPTION;
+        } catch (Exception e) {
+            LogManager.logStackTrace(e, false);
+        }
+
+        return -1;
+    }
+
+    public String showInput() {
+        return showInput("");
     }
 
     public String showInput(String defaultValue) {

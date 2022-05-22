@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,18 +24,38 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.SwingConstants;
 
+import com.atlauncher.App;
+import com.atlauncher.evnt.listener.ThemeListener;
+import com.atlauncher.evnt.manager.ThemeManager;
 import com.atlauncher.utils.Utils;
 
-public class PacksBrowserTabTitlePanel extends JPanel {
-    public PacksBrowserTabTitlePanel(String platform) {
+public class PacksBrowserTabTitlePanel extends JPanel implements ThemeListener {
+    private final JLabel label = new JLabel(null, null, SwingConstants.CENTER);
+    private final String icon;
+
+    public PacksBrowserTabTitlePanel(String platform, String icon) {
+        this.icon = icon;
+
         setLayout(new BorderLayout());
         setBackground(new Color(0, 0, 0, 1));
-        add(new JLabel(
-                Utils.getIconImage(String.format("/assets/image/modpack-platform/%s.png", platform.toLowerCase()))),
-                BorderLayout.CENTER);
+
+        label.setIcon(Utils.getIconImage(App.THEME.getResourcePath("image/modpack-platform", icon)));
+
+        add(label, BorderLayout.CENTER);
+
+        ThemeManager.addListener(this);
 
         JLabel title = new JLabel(platform);
         title.setHorizontalAlignment(SwingConstants.CENTER);
         add(title, BorderLayout.SOUTH);
+    }
+
+    public PacksBrowserTabTitlePanel(String platform) {
+        this(platform, platform.toLowerCase());
+    }
+
+    @Override
+    public void onThemeChange() {
+        label.setIcon(Utils.getIconImage(App.THEME.getResourcePath("image/modpack-platform", icon)));
     }
 }

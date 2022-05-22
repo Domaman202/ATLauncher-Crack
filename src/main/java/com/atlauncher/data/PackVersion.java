@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,6 +20,7 @@ package com.atlauncher.data;
 import com.atlauncher.data.curseforge.CurseForgeFile;
 import com.atlauncher.data.minecraft.VersionManifestVersion;
 import com.atlauncher.data.minecraft.VersionManifestVersionType;
+import com.atlauncher.data.modrinth.ModrinthVersion;
 
 public class PackVersion {
     public String version;
@@ -33,6 +34,7 @@ public class PackVersion {
     public String loaderType;
     public transient Integer _modpacksChId = null;
     public transient CurseForgeFile _curseForgeFile = null;
+    public transient ModrinthVersion _modrinthVersion = null;
     public transient boolean _technicRecommended = false;
     public transient boolean _technicLatest = false;
 

@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,8 +17,13 @@
  */
 package com.atlauncher.data.minecraft.loaders.quilt;
 
+import com.google.gson.annotations.SerializedName;
+
 public class QuiltMetaVersion {
     public QuiltMetaLoader loader;
-    public QuiltMetaIntermediary intermediary;
+
+    @SerializedName(value = "hashed", alternate = { "intermediary" })
+    public QuiltMetaHashed hashed;
+
     public QuiltMetaLauncherMeta launcherMeta;
 }

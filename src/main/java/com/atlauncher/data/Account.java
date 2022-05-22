@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,7 +23,6 @@ import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
 
-import com.atlauncher.gui.tabs.FeaturedPacksTab;
 import com.atlauncher.gui.tabs.InstancesTab;
 import com.atlauncher.managers.LogManager;
 import com.atlauncher.utils.Utils;
@@ -81,7 +80,7 @@ public class Account implements Serializable {
     public transient boolean isReal;
 
     /**
-     * The pack names this account has collapsed in the {@link FeaturedPacksTab}, if any.
+     * The pack names this account has collapsed in the, if any.
      */
     public List<String> collapsedPacks;
 

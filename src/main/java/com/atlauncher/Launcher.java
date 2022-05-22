@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -39,13 +39,11 @@ import com.atlauncher.constants.Constants;
 import com.atlauncher.data.DownloadableFile;
 import com.atlauncher.data.LauncherVersion;
 import com.atlauncher.gui.dialogs.ProgressDialog;
-import com.atlauncher.gui.tabs.FeaturedPacksTab;
 import com.atlauncher.gui.tabs.InstancesTab;
 import com.atlauncher.gui.tabs.NewsTab;
 import com.atlauncher.gui.tabs.PacksBrowserTab;
 import com.atlauncher.gui.tabs.ServersTab;
 import com.atlauncher.managers.AccountManager;
-import com.atlauncher.managers.CheckingServersManager;
 import com.atlauncher.managers.ConfigManager;
 import com.atlauncher.managers.CurseForgeUpdateManager;
 import com.atlauncher.managers.DialogManager;
@@ -53,6 +51,7 @@ import com.atlauncher.managers.InstanceManager;
 import com.atlauncher.managers.LogManager;
 import com.atlauncher.managers.MinecraftManager;
 import com.atlauncher.managers.ModpacksChUpdateManager;
+import com.atlauncher.managers.ModrinthModpackUpdateManager;
 import com.atlauncher.managers.NewsManager;
 import com.atlauncher.managers.PackManager;
 import com.atlauncher.managers.PerformanceManager;
@@ -81,7 +80,6 @@ public class Launcher {
     private InstancesTab instancesPanel; // The instances panel
     private ServersTab serversPanel; // The instances panel
     private NewsTab newsPanel; // The news panel
-    private FeaturedPacksTab featuredPacksPanel; // The featured packs panel
     private PacksBrowserTab packsBrowserPanel; // The packs browser panel
 
     // Update thread
@@ -97,7 +95,7 @@ public class Launcher {
             downloadUpdatedFiles(); // Downloads updated files on the server
         }
 
-//        checkForLauncherUpdate();
+        checkForLauncherUpdate();
 
         ConfigManager.loadConfig(); // Load the config
 
@@ -120,8 +118,6 @@ public class Launcher {
 
         AccountManager.loadAccounts(); // Load the saved Accounts
 
-        CheckingServersManager.loadCheckingServers(); // Load the saved servers we're checking with the tool
-
         PackManager.removeUnusedImages(); // remove unused pack images
 
         if (OS.isWindows() && !Java.is64Bit() && OS.is64Bit()) {
@@ -137,10 +133,6 @@ public class Launcher {
                 OS.openWebBrowser("https://atlauncher.com/help/32bit/");
                 System.exit(0);
             }
-        }
-
-        if (App.settings.enableServerChecker) {
-            CheckingServersManager.startCheckingServers();
         }
 
         checkForExternalPackUpdates();
@@ -160,6 +152,85 @@ public class Launcher {
         }
 
         return this.latestLauncherVersion != null && Constants.VERSION.needsUpdate(this.latestLauncherVersion);
+    }
+
+    public void downloadUpdate() {
+        try {
+            File thisFile = new File(Update.class.getProtectionDomain().getCodeSource().getLocation().getPath());
+            String path = thisFile.getCanonicalPath();
+            path = URLDecoder.decode(path, "UTF-8");
+            String toget;
+            String saveAs = thisFile.getName();
+            if (path.contains(".exe")) {
+                toget = "exe";
+            } else {
+                toget = "jar";
+            }
+            File newFile = FileSystem.TEMP.resolve(saveAs).toFile();
+            LogManager.info("Downloading Launcher Update");
+            Analytics.sendEvent("Update", "Launcher");
+
+            ProgressDialog<Boolean> progressDialog = new ProgressDialog<>(GetText.tr("Downloading Launcher Update"), 1,
+                    GetText.tr("Downloading Launcher Update"));
+            progressDialog.addThread(new Thread(() -> {
+                com.atlauncher.network.Download download = com.atlauncher.network.Download.build()
+                        .setUrl(String.format("%s/%s.%s", Constants.DOWNLOAD_SERVER, Constants.LAUNCHER_NAME, toget))
+                        .withHttpClient(Network.createProgressClient(progressDialog)).downloadTo(newFile.toPath());
+
+                progressDialog.setTotalBytes(download.getFilesize());
+
+                try {
+                    download.downloadFile();
+                } catch (IOException e) {
+                    LogManager.logStackTrace("Failed to download update", e);
+                    progressDialog.setReturnValue(false);
+                    progressDialog.close();
+                    return;
+                }
+
+                progressDialog.setReturnValue(true);
+                progressDialog.doneTask();
+                progressDialog.close();
+            }));
+            progressDialog.start();
+
+            if (progressDialog.getReturnValue()) {
+                runUpdate(path, newFile.getAbsolutePath());
+            }
+        } catch (IOException e) {
+            LogManager.logStackTrace(e);
+        }
+    }
+
+    public void runUpdate(String currentPath, String temporaryUpdatePath) {
+        List<String> arguments = new ArrayList<>();
+
+        String path = System.getProperty("java.home") + File.separator + "bin" + File.separator + "java";
+        if (OS.isWindows()) {
+            path += "w";
+        }
+        arguments.add(path);
+        arguments.add("-cp");
+        arguments.add(temporaryUpdatePath);
+        arguments.add("com.atlauncher.Update");
+        arguments.add(currentPath);
+        arguments.add(temporaryUpdatePath);
+
+        // pass in all the original arguments
+        arguments.addAll(Arrays.asList(App.PASSED_ARGS));
+
+        ProcessBuilder processBuilder = new ProcessBuilder();
+        processBuilder.command(arguments);
+
+        LogManager.info("Running launcher update with command " + arguments);
+
+        try {
+            processBuilder.start();
+        } catch (IOException e) {
+            LogManager.logStackTrace(e);
+        }
+
+        System.exit(0);
     }
 
     /**
@@ -250,6 +321,9 @@ public class Launcher {
             if (InstanceManager.getInstances().stream().anyMatch(i -> i.isTechnicPack())) {
                 TechnicModpackUpdateManager.checkForUpdates();
             }
+            if (InstanceManager.getInstances().stream().anyMatch(i -> i.isModrinthPack())) {
+                ModrinthModpackUpdateManager.checkForUpdates();
+            }
         });
         updateThread.start();
     }
@@ -279,14 +353,13 @@ public class Launcher {
             if (hasUpdatedFiles()) {
                 downloadUpdatedFiles(); // Downloads updated files on the server
             }
-//            checkForLauncherUpdate();
+            checkForLauncherUpdate();
             checkForExternalPackUpdates();
 
             ConfigManager.loadConfig(); // Load the config
             NewsManager.loadNews(); // Load the news
             reloadNewsPanel(); // Reload news panel
             PackManager.loadPacks(); // Load the Packs available in the Launcher
-            reloadFeaturedPacksPanel(); // Reload packs panel
             reloadPacksBrowserPanel();// Reload packs browser panel
             PackManager.loadUsers(); // Load the Testers and Allowed Players for the packs
             InstanceManager.loadInstances(); // Load the users installed Instances
@@ -298,7 +371,7 @@ public class Launcher {
         dialog.setVisible(true);
     }
 
-    /*private void checkForLauncherUpdate() {
+    private void checkForLauncherUpdate() {
         PerformanceManager.start();
 
         LogManager.debug("Checking for launcher update");
@@ -316,10 +389,24 @@ public class Launcher {
 
                 return;
             }
+
+            if (!App.wasUpdated) {
+                downloadUpdate(); // Update the Launcher
+            } else {
+                DialogManager.okDialog().setTitle("Update Failed!")
+                        .setContent(new HTMLBuilder().center()
+                                .text(GetText.tr("Update failed. Please click Ok to close "
+                                        + "the launcher and open up the downloads page.<br/><br/>Download "
+                                        + "the update and replace the old " + Constants.LAUNCHER_NAME + " file."))
+                                .build())
+                        .setType(DialogManager.ERROR).show();
+                OS.openWebBrowser("https://atlauncher.com/downloads");
+                System.exit(0);
+            }
         }
         LogManager.debug("Finished checking for launcher update");
         PerformanceManager.end();
-    }*/
+    }
 
     /**
      * Sets the main parent JFrame reference for the Launcher
@@ -332,7 +419,9 @@ public class Launcher {
 
     public void setMinecraftLaunched(boolean launched) {
         this.minecraftLaunched = launched;
-        App.TRAY_MENU.setMinecraftLaunched(launched);
+        if (App.TRAY_MENU != null) {
+            App.TRAY_MENU.setMinecraftLaunched(launched);
+        }
     }
 
     /**
@@ -373,15 +462,6 @@ public class Launcher {
     }
 
     /**
-     * Sets the panel used for Featured Packs
-     *
-     * @param featuredPacksPanel Featured Packs Panel
-     */
-    public void setFeaturedPacksPanel(FeaturedPacksTab featuredPacksPanel) {
-        this.featuredPacksPanel = featuredPacksPanel;
-    }
-
-    /**
      * Sets the panel used for the Packs Browser
      *
      * @param packsBrowserPanel Packs Browser Panel
@@ -407,20 +487,6 @@ public class Launcher {
     }
 
     /**
-     * Reloads the panel used for Featured Packs
-     */
-    public void reloadFeaturedPacksPanel() {
-        this.featuredPacksPanel.reload();
-    }
-
-    /**
-     * Refreshes the panel used for Featured Packs
-     */
-    public void refreshFeaturedPacksPanel() {
-        this.featuredPacksPanel.refresh();
-    }
-
-    /**
      * Reloads the panel used for the Packs browser
      */
     public void reloadPacksBrowserPanel() {
@@ -428,7 +494,7 @@ public class Launcher {
     }
 
     /**
-     * Refreshes the panel used for  thePacks browser
+     * Refreshes the panel used for thePacks browser
      */
     public void refreshPacksBrowserPanel() {
         this.packsBrowserPanel.refresh(); // Refresh the packs browser panel

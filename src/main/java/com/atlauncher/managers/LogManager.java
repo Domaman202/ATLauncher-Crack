@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -108,7 +108,7 @@ public final class LogManager {
             Analytics.sendException(t.getMessage());
 
             if (!(t instanceof LocalException) && sendRemote) {
-                ErrorReporting.reportError(t);
+                ErrorReporting.captureException(t);
             }
 
             t.printStackTrace(new PrintWriter(writer));
@@ -118,14 +118,15 @@ public final class LogManager {
         if (t instanceof DownloadException) {
             DownloadException exception = ((DownloadException) t);
 
-            if (exception.download.response != null && exception.response != null
-                    && (exception.download.response.header("Content-Type").equalsIgnoreCase("application/json")
-                            || exception.download.response.header("Content-Type").equalsIgnoreCase("application/xml")
-                            || exception.download.response.header("Content-Type").startsWith("text/"))) {
-                try {
+            try {
+                if (exception.download.response != null && exception.response != null
+                        && (exception.download.response.header("Content-Type").equalsIgnoreCase("application/json")
+                                || exception.download.response.header("Content-Type")
+                                        .equalsIgnoreCase("application/xml")
+                                || exception.download.response.header("Content-Type").startsWith("text/"))) {
                     debug(exception.response, 5);
-                } catch (Exception e) {
                 }
+            } catch (Exception e) {
             }
         }
     }

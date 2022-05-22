@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -32,6 +32,7 @@ import com.atlauncher.constants.Constants;
 import com.atlauncher.data.curseforge.CurseForgeProject;
 import com.atlauncher.data.json.Version;
 import com.atlauncher.data.modpacksch.ModpacksChPackManifest;
+import com.atlauncher.data.modrinth.ModrinthProject;
 import com.atlauncher.data.technic.TechnicModpack;
 import com.atlauncher.managers.AccountManager;
 import com.atlauncher.managers.LogManager;
@@ -56,6 +57,7 @@ public class Pack {
     public String description;
     public CurseForgeProject curseForgeProject;
     public ModpacksChPackManifest modpacksChPack;
+    public ModrinthProject modrinthProject;
     public TechnicModpack technicModpack;
     public String discordInviteURL = null;
     public String supportURL = null;

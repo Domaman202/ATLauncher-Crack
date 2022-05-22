@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -165,7 +165,7 @@ public class CurseForgeProjectFileSelectorDialog extends JDialog {
                     GetText.tr("Installing {0}", file.displayName), false, this);
             progressDialog.addThread(new Thread(() -> {
                 Analytics.sendEvent(mod.name + " - " + file.displayName, "AddFile", "CurseForgeMod");
-                instance.addFileFromCurse(mod, file, progressDialog);
+                instance.addFileFromCurseForge(mod, file, progressDialog);
 
                 progressDialog.close();
             }));
@@ -174,13 +174,13 @@ public class CurseForgeProjectFileSelectorDialog extends JDialog {
         });
 
         viewModButton.addActionListener(e -> {
-            OS.openWebBrowser(mod.websiteUrl);
+            OS.openWebBrowser(mod.getWebsiteUrl());
         });
 
         viewFileButton.addActionListener(e -> {
             CurseForgeFile file = (CurseForgeFile) filesDropdown.getSelectedItem();
 
-            OS.openWebBrowser(String.format("%s/files/%d", mod.websiteUrl, file.id));
+            OS.openWebBrowser(String.format("%s/files/%d", mod.getWebsiteUrl(), file.id));
         });
 
         filesDropdown.addActionListener(e -> {
@@ -194,7 +194,7 @@ public class CurseForgeProjectFileSelectorDialog extends JDialog {
                 List<CurseForgeFileDependency> dependencies = selectedFile.dependencies.stream()
                         .filter(dependency -> dependency.isRequired() && instance.launcher.mods.stream()
                                 .noneMatch(installedMod -> installedMod.isFromCurseForge()
-                                        && installedMod.getCurseForgeModId() == dependency.addonId))
+                                        && installedMod.getCurseForgeModId() == dependency.modId))
                         .collect(Collectors.toList());
 
                 if (dependencies.size() != 0) {
@@ -242,8 +242,8 @@ public class CurseForgeProjectFileSelectorDialog extends JDialog {
 
             if (App.settings.addModRestriction == AddModRestriction.STRICT) {
                 curseForgeFilesStream = curseForgeFilesStream.filter(
-                        file -> mod.categorySection.gameCategoryId == Constants.CURSEFORGE_RESOURCE_PACKS_SECTION_ID
-                                || file.gameVersion.contains(this.instance.id));
+                        file -> mod.getRootCategoryId() == Constants.CURSEFORGE_RESOURCE_PACKS_SECTION_ID
+                                || file.gameVersions.contains(this.instance.id));
             } else if (App.settings.addModRestriction == AddModRestriction.LAX) {
                 try {
                     List<String> minecraftVersionsToSearch = MinecraftManager
@@ -251,19 +251,23 @@ public class CurseForgeProjectFileSelectorDialog extends JDialog {
                             .collect(Collectors.toList());
 
                     curseForgeFilesStream = curseForgeFilesStream
-                            .filter(v -> v.gameVersion.stream().anyMatch(gv -> minecraftVersionsToSearch.contains(gv)));
+                            .filter(v -> v.gameVersions.stream()
+                                    .anyMatch(gv -> minecraftVersionsToSearch.contains(gv)));
                 } catch (InvalidMinecraftVersion e) {
                     LogManager.logStackTrace(e);
                 }
             }
 
-            // filter out mods that are explicitely for Forge/Fabric and not our loader
+            // filter out mods that are explicitely for Forge/Fabric (but not dual loader)
+            // and not our loader
             curseForgeFilesStream = curseForgeFilesStream.filter(cf -> {
-                if (cf.gameVersion.contains("Forge") && loaderVersion != null && loaderVersion.isFabric()) {
+                if (cf.gameVersions.contains("Forge") && !cf.gameVersions.contains("Fabric") && loaderVersion != null
+                        && (loaderVersion.isFabric() || loaderVersion.isQuilt())) {
                     return false;
                 }
 
-                if (cf.gameVersion.contains("Fabric") && loaderVersion != null && !loaderVersion.isFabric()) {
+                if (cf.gameVersions.contains("Fabric") && !cf.gameVersions.contains("Forge") && loaderVersion != null
+                        && !loaderVersion.isFabric() && !loaderVersion.isQuilt()) {
                     return false;
                 }
 
@@ -278,24 +282,28 @@ public class CurseForgeProjectFileSelectorDialog extends JDialog {
                         getFontMetrics(App.THEME.getNormalFont()).stringWidth(file.displayName) + 100);
             }
 
-            // try to filter out non compatable mods (Forge on Fabric and vice versa)
+            // try to filter out non compatable mods (Forge on Fabric and vice versa) if no
+            // loader gameVersions are set
             if (App.settings.addModRestriction == AddModRestriction.NONE) {
                 files.forEach(version -> filesDropdown.addItem(version));
             } else {
                 files.stream().filter(version -> {
-                    String fileName = version.fileName.toLowerCase();
-                    String displayName = version.displayName.toLowerCase();
+                    if (!version.gameVersions.contains("Forge") && !version.gameVersions.contains("Fabric")) {
+                        String fileName = version.fileName.toLowerCase();
+                        String displayName = version.displayName.toLowerCase();
 
-                    if (loaderVersion != null && loaderVersion.isFabric()) {
-                        return !displayName.contains("-forge-") && !displayName.contains("(forge)")
-                                && !displayName.contains("[forge") && !fileName.contains("forgemod");
-                    }
+                        if (loaderVersion != null && loaderVersion.isFabric()) {
+                            return !displayName.contains("-forge-") && !displayName.contains("(forge)")
+                                    && !displayName.contains("[forge") && !fileName.contains("forgemod");
+                        }
 
-                    if (loaderVersion != null && !loaderVersion.isFabric()) {
-                        // if it's Forge, and the gameVersion has "Fabric" then exclude it
-                        return version.gameVersion.contains("Fabric")
-                                || (!displayName.toLowerCase().contains("-fabric-") && !displayName.contains("(fabric)")
-                                        && !displayName.contains("[fabric") && !fileName.contains("fabricmod"));
+                        if (loaderVersion != null && !loaderVersion.isFabric()) {
+                            // if it's Forge, and the gameVersion has "Fabric" then exclude it
+                            return version.gameVersions.contains("Fabric")
+                                    || (!displayName.toLowerCase().contains("-fabric-")
+                                            && !displayName.contains("(fabric)")
+                                            && !displayName.contains("[fabric") && !fileName.contains("fabricmod"));
+                        }
                     }
 
                     return true;

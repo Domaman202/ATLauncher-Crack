@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -34,4 +34,8 @@ public class UIConstants {
     public static final Insets CHECKBOX_FIELD_INSETS = new Insets(SPACING_LARGE, -SPACING_SMALL, SPACING_LARGE, 0);
     public static final Insets CHECKBOX_FIELD_INSETS_SMALL = new Insets(SPACING_SMALL, -SPACING_SMALL, SPACING_SMALL,
             0);
+
+    // When using FlowLayout with a horizonal margin, we need to negate the first
+    // components margin added from the FlowLayout
+    public static final Insets FLOW_FIELD_INSETS = new Insets(SPACING_LARGE, (-SPACING_LARGE) - 3, SPACING_LARGE, 0);
 }

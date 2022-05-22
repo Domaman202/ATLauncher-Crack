@@ -1,6 +1,6 @@
 /*
  * ATLauncher - https://github.com/ATLauncher/ATLauncher
- * Copyright (C) 2013-2021 ATLauncher
+ * Copyright (C) 2013-2022 ATLauncher
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -76,6 +76,9 @@ import javax.crypto.spec.SecretKeySpec;
 import javax.imageio.ImageIO;
 import javax.net.ssl.HttpsURLConnection;
 import javax.swing.ImageIcon;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.ScrollPaneConstants;
 
 import com.atlauncher.App;
 import com.atlauncher.Gsons;
@@ -88,6 +91,7 @@ import com.atlauncher.data.openmods.OpenEyeReportResponse;
 import com.atlauncher.managers.LogManager;
 import com.google.gson.reflect.TypeToken;
 
+import org.apache.commons.io.IOUtils;
 import org.tukaani.xz.LZMAInputStream;
 import org.tukaani.xz.XZInputStream;
 
@@ -97,6 +101,13 @@ public class Utils {
     public static EnumSet<StandardOpenOption> WRITE = EnumSet.of(StandardOpenOption.CREATE_NEW,
             StandardOpenOption.WRITE);
     public static EnumSet<StandardOpenOption> READ = EnumSet.of(StandardOpenOption.READ);
+
+    public static JScrollPane wrapInVerticalScroller(final JPanel panel, final int scrollUnits) {
+        final JScrollPane scroller = new JScrollPane(panel, ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
+                ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        scroller.getVerticalScrollBar().setUnitIncrement(scrollUnits);
+        return scroller;
+    }
 
     public static String error(Throwable t) {
         StringBuilder builder = new StringBuilder();
@@ -261,15 +272,24 @@ public class Utils {
      */
     @SuppressWarnings("resource")
     public static boolean copyFile(File from, File to, boolean withFilename) {
-        if (!from.isFile()) {
-            LogManager.error("File " + from.getAbsolutePath() + " cannot be copied to " + to.getAbsolutePath() + " as"
-                    + " it isn't a file");
+        // Only check the file if it is not an uri
+        boolean isURI = false;
+        if (!from.toString().startsWith("file:")) {
+            if (!from.isFile()) {
+                LogManager
+                        .error("File " + from.getAbsolutePath() + " cannot be copied to " + to.getAbsolutePath() + " as"
+                                + " it isn't a file");
+            }
+            if (!from.exists()) {
+                LogManager
+                        .error("File " + from.getAbsolutePath() + " cannot be copied to " + to.getAbsolutePath() + " as"
+                                + " it doesn't exist");
+                return false;
+            }
+        } else {
+            isURI = true;
         }
-        if (!from.exists()) {
-            LogManager.error("File " + from.getAbsolutePath() + " cannot be copied to " + to.getAbsolutePath() + " as"
-                    + " it doesn't exist");
-            return false;
-        }
+
         if (!withFilename) {
             to = new File(to, from.getName());
         }
@@ -287,12 +307,21 @@ public class Utils {
         FileChannel source = null;
         FileChannel destination = null;
 
+        InputStream sourceStream = null;
+        OutputStream destinationStream = null;
+
         LogManager.debug("Copying file from " + from.getAbsolutePath() + " to " + to.getAbsolutePath());
 
         try {
-            source = new FileInputStream(from).getChannel();
-            destination = new FileOutputStream(to).getChannel();
-            destination.transferFrom(source, 0, source.size());
+            if (!isURI) {
+                source = new FileInputStream(from).getChannel();
+                destination = new FileOutputStream(to).getChannel();
+                destination.transferFrom(source, 0, source.size());
+            } else {
+                sourceStream = ArchiveUtils.createStream(from.toPath());
+                destinationStream = new FileOutputStream(to);
+                IOUtils.copy(sourceStream, destinationStream);
+            }
         } catch (IOException e) {
             LogManager.logStackTrace(e);
             return false;
@@ -301,8 +330,15 @@ public class Utils {
                 if (source != null) {
                     source.close();
                 }
+                if (sourceStream != null) {
+                    sourceStream.close();
+                }
+
                 if (destination != null) {
                     destination.close();
+                }
+                if (destinationStream != null) {
+                    destinationStream.close();
                 }
             } catch (IOException e) {
                 LogManager.logStackTrace(e);
@@ -1652,6 +1688,7 @@ public class Utils {
 
     public static String runProcess(Path workingDir, String... command) {
         try {
+            LogManager.debug(String.format("Running %s in %s", String.join(" ", command), workingDir.toString()));
             ProcessBuilder processBuilder = new ProcessBuilder(command);
             processBuilder.directory(workingDir.toFile());
             processBuilder.redirectErrorStream(true);
@@ -1688,5 +1725,16 @@ public class Utils {
 
     public static boolean isAcceptedModFile(String filename) {
         return filename.endsWith(".jar") || filename.endsWith(".zip") || filename.endsWith(".litemod");
+    }
+
+    public static boolean isDevelopment() {
+        try {
+            if (Utils.class.getResource("").getProtocol().equals("file")) {
+                return true;
+            }
+        } catch (Exception ignored) {
+        }
+
+        return false;
     }
 }
