@@ -17,22 +17,18 @@
  */
 package com.atlauncher.data.modpacksch;
 
-import java.util.List;
+import com.google.gson.annotations.SerializedName;
 
-public class ModpacksChPackVersionManifest {
-    public List<ModpacksChPackVersionManifestFile> files;
-    public ModpacksChPackVersionSpecs specs;
-    public List<ModpacksChPackVersionManifestTarget> targets;
-    public int installs;
-    public int plays;
-    public int refreshed;
-    public String changelog;
-    public int parent;
-    public String notification;
-    public List<Object> links;
-    public String status;
-    public int id;
-    public String name;
-    public String type;
-    public int updated;
+public enum ModpacksChPackVersionManifestFileType {
+    @SerializedName("config")
+    CONFIG,
+
+    @SerializedName("mod")
+    MOD,
+
+    @SerializedName("resource")
+    RESOURCE,
+
+    @SerializedName("script")
+    SCRIPT
 }

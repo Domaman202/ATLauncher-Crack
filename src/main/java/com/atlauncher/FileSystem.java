@@ -31,7 +31,7 @@ import com.atlauncher.utils.OS;
 import com.atlauncher.utils.Utils;
 
 public final class FileSystem {
-    public static final Path USER_DOWNLOADS = Paths.get(System.getProperty("user.home"), "Downloads");
+    private static Path CACHED_USER_DOWNLOADS = null;
     public static final Path BASE_DIR = FileSystem.getCoreGracefully();
     public static final Path LOGS = BASE_DIR.resolve("logs");
     public static final Path BACKUPS = BASE_DIR.resolve("backups");
@@ -105,6 +105,50 @@ public final class FileSystem {
         if (Files.exists(CONFIGS.resolve("tools"))) {
             FileUtils.delete(CONFIGS.resolve("tools"));
         }
+    }
+
+    public static Path getUserDownloadsPath(boolean useSetting) {
+        if (useSetting && App.settings != null && App.settings.customDownloadsPath != null) {
+            try {
+                return Paths.get(App.settings.customDownloadsPath);
+            } catch (Exception e) {
+                LogManager.logStackTrace(
+                        "Problem when reading custom downloads path, defaulting to user downloads folder.", e);
+            }
+        }
+
+        if (CACHED_USER_DOWNLOADS != null) {
+            return CACHED_USER_DOWNLOADS;
+        }
+
+        try {
+            if (OS.isWindows()) {
+                String output = Utils.runProcess("reg", "query",
+                        "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\User Shell Folders", "/f",
+                        "{374DE290-123F-4565-9164-39C4925E467B}", "/t",
+                        "REG_EXPAND_SZ", "/s");
+
+                for (String line : output.split("\\r?\\n")) {
+                    if (line.contains("REG_EXPAND_SZ")) {
+                        String downloadsFolderPath = line.substring(line.indexOf("REG_EXPAND_SZ") + 13).trim();
+
+                        if (Files.exists(Paths.get(downloadsFolderPath))) {
+                            CACHED_USER_DOWNLOADS = Paths.get(downloadsFolderPath);
+                            return CACHED_USER_DOWNLOADS;
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            LogManager.logStackTrace("Problem when reading in registry", e);
+        }
+
+        CACHED_USER_DOWNLOADS = Paths.get(System.getProperty("user.home"), "Downloads");
+        return CACHED_USER_DOWNLOADS;
+    }
+
+    public static Path getUserDownloadsPath() {
+        return getUserDownloadsPath(true);
     }
 
     private static void cleanTempDirectory() {
@@ -188,10 +232,6 @@ public final class FileSystem {
         FileUtils.createDirectory(DOWNLOADS);
         FileUtils.createDirectory(TECHNIC_DOWNLOADS);
         FileUtils.createDirectory(FAILED_DOWNLOADS);
-    }
-
-    public static Path getDownloads() {
-        return OS.isUsingMacApp() ? USER_DOWNLOADS : DOWNLOADS;
     }
 
     public static Path getCoreGracefully() {

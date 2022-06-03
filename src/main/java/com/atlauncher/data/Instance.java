@@ -99,6 +99,7 @@ import com.atlauncher.data.minecraft.loaders.quilt.QuiltLoader;
 import com.atlauncher.data.modpacksch.ModpacksChPackVersion;
 import com.atlauncher.data.modrinth.ModrinthFile;
 import com.atlauncher.data.modrinth.ModrinthProject;
+import com.atlauncher.data.modrinth.ModrinthSide;
 import com.atlauncher.data.modrinth.ModrinthVersion;
 import com.atlauncher.data.modrinth.pack.ModrinthModpackFile;
 import com.atlauncher.data.modrinth.pack.ModrinthModpackManifest;
@@ -1272,9 +1273,10 @@ public class Instance extends MinecraftVersion {
             }
 
             dialog.setIndeterminate();
+            String filename = file.fileName.replace(" ", "+");
             File fileLocation = downloadLocation.toFile();
             if (!fileLocation.exists()) {
-                File downloadsFolderFile = new File(FileSystem.USER_DOWNLOADS.toFile(), file.fileName);
+                File downloadsFolderFile = new File(FileSystem.getUserDownloadsPath().toFile(), filename);
                 if (downloadsFolderFile.exists()) {
                     Utils.moveFile(downloadsFolderFile, fileLocation, true);
                 }
@@ -1283,25 +1285,29 @@ public class Instance extends MinecraftVersion {
                     int retValue = 1;
                     do {
                         if (retValue == 1) {
-                            OS.openWebBrowser(String.format("https://www.curseforge.com/minecraft/%s/%s/download/%d",
-                                    mod.getClassUrlSlug(), mod.slug, file.id));
+                            OS.openWebBrowser(mod.getBrowserDownloadUrl(file));
                         }
 
                         retValue = DialogManager.optionDialog()
                                 .setTitle(GetText.tr("Downloading") + " "
-                                        + file.fileName)
+                                        + filename)
                                 .setContent(new HTMLBuilder().center().text(GetText.tr(
                                         "Browser opened to download file {0}",
-                                        file.fileName)
+                                        filename)
                                         + "<br/><br/>" + GetText.tr("Please save this file to the following location")
                                         + "<br/><br/>"
-                                        + (OS.isUsingMacApp() ? FileSystem.USER_DOWNLOADS.toFile().getAbsolutePath()
-                                                : FileSystem.DOWNLOADS.toAbsolutePath().toString() + " or<br/>"
-                                                        + FileSystem.USER_DOWNLOADS.toFile()))
+                                        + (OS.isUsingMacApp()
+                                                ? FileSystem.getUserDownloadsPath().toFile().getAbsolutePath()
+                                                : (OS.isUsingFlatpak()
+                                                        ? FileSystem.DOWNLOADS.toAbsolutePath().toString()
+                                                        : FileSystem.DOWNLOADS.toAbsolutePath().toString()
+                                                                + " or<br/>"
+                                                                + FileSystem.getUserDownloadsPath().toFile())))
                                         .build())
                                 .addOption(GetText.tr("Open Folder"), true)
                                 .addOption(GetText.tr("I've Downloaded This File")).setType(DialogManager.INFO)
-                                .showWithFileMonitoring(fileLocation, downloadsFolderFile, file.fileLength, 1);
+                                .showWithFileMonitoring(fileLocation, OS.isUsingFlatpak() ? null : downloadsFolderFile,
+                                        file.fileLength, 1);
 
                         if (retValue == DialogManager.CLOSED_OPTION) {
                             return;
@@ -1320,7 +1326,7 @@ public class Instance extends MinecraftVersion {
                         if (zipAddedFile.exists()) {
                             Utils.moveFile(zipAddedFile, fileLocation, true);
                         } else {
-                            zipAddedFile = new File(FileSystem.USER_DOWNLOADS.toFile(), file.fileName + ".zip");
+                            zipAddedFile = new File(FileSystem.getUserDownloadsPath().toFile(), file.fileName + ".zip");
                             if (zipAddedFile.exists()) {
                                 Utils.moveFile(zipAddedFile, fileLocation, true);
                             }
@@ -1385,7 +1391,7 @@ public class Instance extends MinecraftVersion {
                 mod.getRootCategoryId() == Constants.CURSEFORGE_RESOURCE_PACKS_SECTION_ID ? Type.resourcepack
                         : (mod.getRootCategoryId() == Constants.CURSEFORGE_WORLDS_SECTION_ID ? Type.worlds
                                 : Type.mods),
-                null, mod.summary, false, true, true, mod, file));
+                null, mod.summary, false, true, true, false, mod, file));
 
         this.save();
 
@@ -1448,7 +1454,7 @@ public class Instance extends MinecraftVersion {
 
         // add this mod
         this.launcher.mods.add(new DisableableMod(mod.title, version.name, true, fileToDownload.filename, Type.mods,
-                null, mod.description, false, true, true, mod, version));
+                null, mod.description, false, true, true, false, mod, version));
 
         this.save();
 
@@ -1987,8 +1993,12 @@ public class Instance extends MinecraftVersion {
                     file.hashes.put("sha512", Hashing.sha512(modPath).toString());
 
                     file.env = new HashMap<>();
-                    file.env.put("client", mod.modrinthProject.clientSide.toString());
-                    file.env.put("server", mod.modrinthProject.serverSide.toString());
+                    file.env.put("client",
+                            mod.modrinthProject.clientSide == ModrinthSide.UNSUPPORTED ? "unsupported"
+                                    : "required");
+                    file.env.put("server",
+                            mod.modrinthProject.serverSide == ModrinthSide.UNSUPPORTED ? "unsupported"
+                                    : "required");
 
                     file.fileSize = modPath.toFile().length();
 

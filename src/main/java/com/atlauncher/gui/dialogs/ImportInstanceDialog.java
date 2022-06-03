@@ -155,7 +155,7 @@ public class ImportInstanceDialog extends JDialog {
                 }
             } else {
                 JFileChooser chooser = new JFileChooser();
-                chooser.setCurrentDirectory(FileSystem.USER_DOWNLOADS.toFile());
+                chooser.setCurrentDirectory(FileSystem.getUserDownloadsPath().toFile());
                 chooser.setDialogTitle(GetText.tr("Select"));
                 chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
                 chooser.setAcceptAllFileFilterUsed(false);
