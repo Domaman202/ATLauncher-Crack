@@ -53,6 +53,8 @@ import javax.swing.ToolTipManager;
 import javax.swing.UIManager;
 import javax.swing.text.DefaultEditorKit;
 
+import org.mini2Dx.gettext.GetText;
+
 import com.atlauncher.builders.HTMLBuilder;
 import com.atlauncher.constants.Constants;
 import com.atlauncher.data.Instance;
@@ -76,8 +78,6 @@ import com.atlauncher.utils.Utils;
 import com.formdev.flatlaf.extras.FlatInspector;
 import com.formdev.flatlaf.extras.FlatUIDefaultsInspector;
 
-import org.mini2Dx.gettext.GetText;
-
 import io.github.asyncronous.toast.Toaster;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
@@ -87,7 +87,6 @@ import oshi.SystemInfo;
 import oshi.hardware.CentralProcessor;
 import oshi.hardware.GraphicsCard;
 import oshi.hardware.HardwareAbstractionLayer;
-import oshi.software.os.OSFileStore;
 import oshi.software.os.OSProcess;
 import oshi.software.os.OperatingSystem;
 
@@ -465,9 +464,14 @@ public class App {
             LogManager.info("Uptime: " + os.getSystemUptime());
             LogManager.info("Manufacturer: " + os.getManufacturer());
 
-            for (OSFileStore fileStore : os.getFileSystem().getFileStores(true)) {
-                LogManager.info(
-                        "Disk: " + fileStore.getLabel() + " (" + fileStore.getFreeSpace() / 1048576 + " MB Free)");
+            if (OS.isWindows() && OS.isUsingAntivirus()) {
+                LogManager.warn(
+                        "A running antivirus process was found on your system. If you notice any issues running Minecraft or downloading files, please whitelist ATLauncher and its folder in your antivirus program/s listed below.");
+
+                for (OSProcess process : OS.getAntivirusProcesses()) {
+                    LogManager.info(String.format("Process %s (running at %s)", process.getName(),
+                            process.getPath()));
+                }
             }
 
             if (OS.isWindows() && OS.isUsingAntivirus()) {
@@ -510,7 +514,7 @@ public class App {
         }
 
         if (!matched && (Files.notExists(FileSystem.CONFIGS) && Files.notExists(FileSystem.BASE_DIR.resolve("Configs")))
-                && FileSystem.BASE_DIR.equals(FileSystem.USER_DOWNLOADS)) {
+                && FileSystem.BASE_DIR.equals(FileSystem.getUserDownloadsPath())) {
             matched = true;
 
             if (DialogManager.optionDialog().setTitle("Warning").setContent(new HTMLBuilder().center().text(

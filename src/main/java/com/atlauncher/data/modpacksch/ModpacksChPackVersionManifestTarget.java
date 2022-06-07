@@ -15,8 +15,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package com.atlauncher.data;
+package com.atlauncher.data.modpacksch;
 
-public enum InstanceExportFormat {
-    CURSEFORGE, MODRINTH, CURSEFORGE_AND_MODRINTH, MULTIMC
+public class ModpacksChPackVersionManifestTarget {
+    public String version;
+    public int id;
+    public String name;
+    public ModpacksChPackVersionManifestTargetType type;
+    public int updated;
 }

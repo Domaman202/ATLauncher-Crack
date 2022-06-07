@@ -15,8 +15,20 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package com.atlauncher.data;
+package com.atlauncher.data.modpacksch;
 
-public enum InstanceExportFormat {
-    CURSEFORGE, MODRINTH, CURSEFORGE_AND_MODRINTH, MULTIMC
+import com.google.gson.annotations.SerializedName;
+
+public enum ModpacksChPackVersionManifestFileType {
+    @SerializedName("config")
+    CONFIG,
+
+    @SerializedName("mod")
+    MOD,
+
+    @SerializedName("resource")
+    RESOURCE,
+
+    @SerializedName("script")
+    SCRIPT
 }

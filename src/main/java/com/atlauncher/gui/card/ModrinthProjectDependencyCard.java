@@ -20,7 +20,6 @@ package com.atlauncher.gui.card;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
-import java.util.Optional;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
@@ -34,23 +33,22 @@ import org.mini2Dx.gettext.GetText;
 
 import com.atlauncher.App;
 import com.atlauncher.data.Instance;
-import com.atlauncher.data.curseforge.CurseForgeAttachment;
-import com.atlauncher.data.curseforge.CurseForgeFileDependency;
-import com.atlauncher.data.curseforge.CurseForgeProject;
-import com.atlauncher.gui.dialogs.CurseForgeProjectFileSelectorDialog;
+import com.atlauncher.data.modrinth.ModrinthDependency;
+import com.atlauncher.data.modrinth.ModrinthProject;
+import com.atlauncher.gui.dialogs.ModrinthVersionSelectorDialog;
 import com.atlauncher.network.Analytics;
-import com.atlauncher.utils.CurseForgeApi;
-import com.atlauncher.utils.OS;
+import com.atlauncher.utils.ModrinthApi;
 import com.atlauncher.utils.Utils;
 import com.atlauncher.workers.BackgroundImageWorker;
 
 @SuppressWarnings("serial")
-public final class CurseForgeFileDependencyCard extends JPanel {
-    private final CurseForgeProjectFileSelectorDialog parent;
-    private final CurseForgeFileDependency dependency;
+public final class ModrinthProjectDependencyCard extends JPanel {
+    private final ModrinthVersionSelectorDialog parent;
+    private final ModrinthDependency dependency;
     private final Instance instance;
 
-    public CurseForgeFileDependencyCard(CurseForgeProjectFileSelectorDialog parent, CurseForgeFileDependency dependency, Instance instance) {
+    public ModrinthProjectDependencyCard(ModrinthVersionSelectorDialog parent, ModrinthDependency dependency,
+            Instance instance) {
         this.parent = parent;
 
         setLayout(new BorderLayout());
@@ -63,11 +61,11 @@ public final class CurseForgeFileDependencyCard extends JPanel {
     }
 
     private void setupComponents() {
-        CurseForgeProject mod = CurseForgeApi.getProjectById(dependency.modId);
+        ModrinthProject mod = ModrinthApi.getProject(dependency.projectId);
 
         JPanel summaryPanel = new JPanel(new BorderLayout());
         JTextArea summary = new JTextArea();
-        summary.setText(mod.summary);
+        summary.setText(mod.description);
         summary.setBorder(BorderFactory.createEmptyBorder(0, 5, 5, 5));
         summary.setEditable(false);
         summary.setHighlighter(null);
@@ -90,23 +88,22 @@ public final class CurseForgeFileDependencyCard extends JPanel {
         buttonsPanel.add(viewButton);
 
         addButton.addActionListener(e -> {
-            Analytics.sendEvent(mod.name, "AddDependency", "CurseForgeMod");
-            new CurseForgeProjectFileSelectorDialog(parent, mod, instance);
+            Analytics.sendEvent(mod.title, "AddDependency", "ModrinthMod");
+            new ModrinthVersionSelectorDialog(parent, mod, instance);
             parent.reloadDependenciesPanel();
         });
 
-        viewButton.addActionListener(e -> OS.openWebBrowser(mod.getWebsiteUrl()));
+        viewButton.addActionListener(e -> String.format("https://modrinth.com/mod/%s", mod.slug));
 
         add(summaryPanel, BorderLayout.CENTER);
         add(buttonsPanel, BorderLayout.SOUTH);
 
-        TitledBorder border = new TitledBorder(null, mod.name, TitledBorder.DEFAULT_JUSTIFICATION,
+        TitledBorder border = new TitledBorder(null, mod.title, TitledBorder.DEFAULT_JUSTIFICATION,
                 TitledBorder.DEFAULT_POSITION, App.THEME.getBoldFont().deriveFont(12f));
         setBorder(border);
 
-        Optional<CurseForgeAttachment> attachment = mod.getLogo();
-        if (attachment.isPresent()) {
-            new BackgroundImageWorker(icon, attachment.get().thumbnailUrl, 60, 60).execute();
+        if (mod.iconUrl != null && !mod.iconUrl.isEmpty()) {
+            new BackgroundImageWorker(icon, mod.iconUrl, 60, 60).execute();
         }
     }
 }

@@ -15,8 +15,20 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package com.atlauncher.data;
+package com.atlauncher.dbus;
 
-public enum InstanceExportFormat {
-    CURSEFORGE, MODRINTH, CURSEFORGE_AND_MODRINTH, MULTIMC
+import java.util.Map;
+
+import org.freedesktop.dbus.DBusPath;
+import org.freedesktop.dbus.annotations.DBusInterfaceName;
+import org.freedesktop.dbus.interfaces.DBusInterface;
+import org.freedesktop.dbus.types.Variant;
+
+@DBusInterfaceName(value = "org.freedesktop.portal.FileChooser")
+public interface FileChooserInterface extends DBusInterface {
+    DBusPath OpenFile(String parentWindow, String title, Map<String, Variant> options);
+
+    DBusPath SaveFile(String parentWindow, String title, Map<String, Variant> options);
+
+    DBusPath SaveFiles(String parentWindow, String title, Map<String, Variant> options);
 }
