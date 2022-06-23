@@ -17,6 +17,7 @@
  */
 package com.atlauncher.data;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -97,4 +98,18 @@ public class InstanceLauncher {
     public List<DisableableMod> mods = new ArrayList<>();
     public List<String> ignoredUpdates = new ArrayList<>();
     public boolean vanillaInstance = false;
+
+    public Instant lastPlayed = null;
+    public Long numPlays = null;
+
+    public String lastExportName = null;
+    public String lastExportVersion = null;
+    public String lastExportAuthor = null;
+    public String lastExportSaveTo = null;
+
+    public InstanceLauncher() {
+        this.numPlays = 0l;
+        this.lastPlayed = Instant.EPOCH;
+    }
+
 }

@@ -28,6 +28,7 @@ import java.io.File;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
@@ -42,6 +43,8 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextField;
 
+import org.mini2Dx.gettext.GetText;
+
 import com.atlauncher.App;
 import com.atlauncher.constants.UIConstants;
 import com.atlauncher.data.Instance;
@@ -51,8 +54,6 @@ import com.atlauncher.managers.AccountManager;
 import com.atlauncher.utils.ComboItem;
 import com.atlauncher.utils.OS;
 import com.atlauncher.utils.Utils;
-
-import org.mini2Dx.gettext.GetText;
 
 @SuppressWarnings("serial")
 public class InstanceExportDialog extends JDialog {
@@ -105,7 +106,7 @@ public class InstanceExportDialog extends JDialog {
         gbc.insets = UIConstants.LABEL_INSETS;
         gbc.anchor = GridBagConstraints.BASELINE_LEADING;
         final JTextField name = new JTextField(30);
-        name.setText(instance.launcher.name);
+        name.setText(Optional.ofNullable(instance.launcher.lastExportName).orElse(instance.launcher.name));
         topPanel.add(name, gbc);
 
         // Version
@@ -122,7 +123,7 @@ public class InstanceExportDialog extends JDialog {
         gbc.insets = UIConstants.LABEL_INSETS;
         gbc.anchor = GridBagConstraints.BASELINE_LEADING;
         final JTextField version = new JTextField(30);
-        version.setText(instance.launcher.version);
+        version.setText(Optional.ofNullable(instance.launcher.lastExportVersion).orElse(instance.launcher.version));
         topPanel.add(version, gbc);
 
         // Author
@@ -139,8 +140,9 @@ public class InstanceExportDialog extends JDialog {
         gbc.insets = UIConstants.LABEL_INSETS;
         gbc.anchor = GridBagConstraints.BASELINE_LEADING;
         final JTextField author = new JTextField(30);
-        author.setText(AccountManager.getSelectedAccount() == null ? ""
-                : AccountManager.getSelectedAccount().minecraftUsername);
+        author.setText(Optional.ofNullable(instance.launcher.lastExportAuthor)
+                .orElse(AccountManager.getSelectedAccount() == null ? ""
+                        : AccountManager.getSelectedAccount().minecraftUsername));
         topPanel.add(author, gbc);
 
         // Format
@@ -159,6 +161,7 @@ public class InstanceExportDialog extends JDialog {
         final JComboBox<ComboItem<InstanceExportFormat>> format = new JComboBox<>();
         format.addItem(new ComboItem<>(InstanceExportFormat.CURSEFORGE, "CurseForge"));
         format.addItem(new ComboItem<>(InstanceExportFormat.MODRINTH, "Modrinth"));
+        format.addItem(new ComboItem<>(InstanceExportFormat.CURSEFORGE_AND_MODRINTH, "CurseForge & Modrinth"));
         format.addItem(new ComboItem<>(InstanceExportFormat.MULTIMC, "MultiMC"));
         topPanel.add(format, gbc);
 
@@ -189,7 +192,8 @@ public class InstanceExportDialog extends JDialog {
         saveToPanel.setLayout(new BoxLayout(saveToPanel, BoxLayout.X_AXIS));
 
         final JTextField saveTo = new JTextField(25);
-        saveTo.setText(instance.getRoot().toAbsolutePath().toString());
+        saveTo.setText(Optional.ofNullable(instance.launcher.lastExportSaveTo)
+                .orElse(instance.getRoot().toAbsolutePath().toString()));
 
         JButton browseButton = new JButton(GetText.tr("Browse"));
         browseButton.addActionListener(e -> {
@@ -228,16 +232,18 @@ public class InstanceExportDialog extends JDialog {
         overridesPanel.setLayout(new BoxLayout(overridesPanel, BoxLayout.Y_AXIS));
         overridesPanel.setBorder(BorderFactory.createEmptyBorder(0, -3, 0, 0));
 
-        // get all files ignoring ATLauncher specific things
+        // get all files ignoring ATLauncher specific things as well as naughtys
         File[] files = instance.getRoot().toFile()
                 .listFiles(pathname -> !pathname.getName().equalsIgnoreCase("disabledmods")
                         && !pathname.getName().equalsIgnoreCase("jarmods")
-                        && !pathname.getName().equalsIgnoreCase("instance.json"));
+                        && !pathname.getName().equalsIgnoreCase("instance.json")
+                        && !pathname.getName().equalsIgnoreCase(".fabric")
+                        && !pathname.getName().equalsIgnoreCase(".quilt"));
 
         for (File filename : files) {
             JCheckBox checkBox = new JCheckBox(filename.getName());
 
-            checkBox.addChangeListener(e -> {
+            checkBox.addItemListener(e -> {
                 if (checkBox.isSelected()) {
                     overrides.add(checkBox.getText());
                 } else {
@@ -280,12 +286,23 @@ public class InstanceExportDialog extends JDialog {
 
                 if (instance.export(name.getText(), version.getText(), author.getText(),
                         exportFormat, saveTo.getText(), overrides)) {
+                    instance.launcher.lastExportName = name.getText();
+                    instance.launcher.lastExportVersion = version.getText();
+                    instance.launcher.lastExportAuthor = author.getText();
+                    instance.launcher.lastExportSaveTo = saveTo.getText();
+                    instance.save();
+
                     App.TOASTER.pop(GetText.tr("Exported Instance Successfully"));
-                    OS.openFileExplorer(
-                            Paths.get(saveTo.getText())
-                                    .resolve(name.getText()
-                                            + (exportFormat == InstanceExportFormat.MODRINTH ? ".mrpack" : ".zip")),
-                            true);
+                    String safePathName = name.getText().replaceAll("[\\\"?:*<>|]", "");
+                    if (exportFormat == InstanceExportFormat.CURSEFORGE_AND_MODRINTH) {
+                        OS.openFileExplorer(Paths.get(saveTo.getText()));
+                    } else {
+                        OS.openFileExplorer(
+                                Paths.get(saveTo.getText())
+                                        .resolve(String.format("%s %s.%s", safePathName, version.getText(),
+                                                (exportFormat == InstanceExportFormat.MODRINTH ? "mrpack" : "zip"))),
+                                true);
+                    }
                 } else {
                     App.TOASTER.popError(GetText.tr("Failed to export instance. Check the console for details"));
                 }

@@ -74,6 +74,7 @@ dependencies {
     implementation 'joda-time:joda-time:2.10.14'
     implementation 'org.apache.commons:commons-compress:1.21'
     implementation 'org.commonmark:commonmark:0.18.2'
+    implementation 'com.github.hypfvieh:dbus-java:3.3.1'
 
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.2'
@@ -113,6 +114,7 @@ jar {
                 'Multi-Release': 'true'
         )
     }
+
 }
 
 gettext {
@@ -151,8 +153,24 @@ shadowJar {
     minimize {
         exclude(dependency('org.apache.logging.log4j:.*:.*'))
         exclude(dependency('com.formdev:.*:.*'))
+        exclude(dependency('com.github.jnr:.*:.*'))
+        exclude(dependency('com.github.hypfvieh:.*:.*'))
         exclude(dependency('org.apache.commons:commons-compress:.*'))
     }
+
+    // these are included by dbus-java which is only used on Linux
+    exclude("jni/x86_64-Windows/")
+    exclude("jni/x86_64-SunOS/")
+    exclude("jni/x86_64-OpenBSD/")
+    exclude("jni/x86_64-FreeBSD/")
+    exclude("jni/x86_64-DragonFlyBSD/")
+    exclude("jni/sparcv9-SunOS/")
+    exclude("jni/ppc-AIX/")
+    exclude("jni/ppc64-AIX/")
+    exclude("jni/i386-Windows/")
+    exclude("jni/i386-SunOS/")
+    exclude("jni/Darwin/")
+
     classifier = ''
 }
 

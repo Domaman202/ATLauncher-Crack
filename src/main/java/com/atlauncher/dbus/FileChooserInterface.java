@@ -15,22 +15,20 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package com.atlauncher.data.modrinth;
+package com.atlauncher.dbus;
 
 import java.util.Map;
 
-public class ModrinthFile {
-    public Map<String, String> hashes;
-    public String url;
-    public String filename;
-    public boolean primary;
-    public Long size;
+import org.freedesktop.dbus.DBusPath;
+import org.freedesktop.dbus.annotations.DBusInterfaceName;
+import org.freedesktop.dbus.interfaces.DBusInterface;
+import org.freedesktop.dbus.types.Variant;
 
-    public String toString() {
-        if (primary) {
-            return String.format("%s (Primary)", this.filename);
-        }
+@DBusInterfaceName(value = "org.freedesktop.portal.FileChooser")
+public interface FileChooserInterface extends DBusInterface {
+    DBusPath OpenFile(String parentWindow, String title, Map<String, Variant> options);
 
-        return this.filename;
-    }
+    DBusPath SaveFile(String parentWindow, String title, Map<String, Variant> options);
+
+    DBusPath SaveFiles(String parentWindow, String title, Map<String, Variant> options);
 }

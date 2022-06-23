@@ -36,6 +36,8 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 
+import org.mini2Dx.gettext.GetText;
+
 import com.atlauncher.App;
 import com.atlauncher.constants.Constants;
 import com.atlauncher.data.AddModRestriction;
@@ -53,8 +55,6 @@ import com.atlauncher.network.Analytics;
 import com.atlauncher.utils.CurseForgeApi;
 import com.atlauncher.utils.OS;
 
-import org.mini2Dx.gettext.GetText;
-
 @SuppressWarnings("serial")
 public class CurseForgeProjectFileSelectorDialog extends JDialog {
     private int filesLength = 0;
@@ -63,6 +63,7 @@ public class CurseForgeProjectFileSelectorDialog extends JDialog {
     private Integer installedFileId = null;
 
     private final JPanel dependenciesPanel = new JPanel(new FlowLayout());
+    private JScrollPane scrollPane;
     private JButton addButton;
     private JButton viewModButton;
     private JButton viewFileButton;
@@ -140,10 +141,13 @@ public class CurseForgeProjectFileSelectorDialog extends JDialog {
         filesPanel.add(versionsLabel);
 
         filesDropdown = new JComboBox<>();
+        CurseForgeFile loadingProject = new CurseForgeFile();
+        loadingProject.displayName = GetText.tr("Loading");
+        filesDropdown.addItem(loadingProject);
         filesDropdown.setEnabled(false);
         filesPanel.add(filesDropdown);
 
-        JScrollPane scrollPane = new JScrollPane(dependenciesPanel);
+        scrollPane = new JScrollPane(dependenciesPanel);
         scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
         scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         scrollPane.setPreferredSize(new Dimension(550, 250));
@@ -184,37 +188,7 @@ public class CurseForgeProjectFileSelectorDialog extends JDialog {
         });
 
         filesDropdown.addActionListener(e -> {
-            CurseForgeFile selectedFile = (CurseForgeFile) filesDropdown.getSelectedItem();
-
-            dependenciesPanel.setVisible(false);
-
-            // this file has dependencies
-            if (selectedFile.dependencies.size() != 0) {
-                // check to see which required ones we don't already have
-                List<CurseForgeFileDependency> dependencies = selectedFile.dependencies.stream()
-                        .filter(dependency -> dependency.isRequired() && instance.launcher.mods.stream()
-                                .noneMatch(installedMod -> installedMod.isFromCurseForge()
-                                        && installedMod.getCurseForgeModId() == dependency.modId))
-                        .collect(Collectors.toList());
-
-                if (dependencies.size() != 0) {
-                    dependenciesPanel.removeAll();
-
-                    dependencies.forEach(dependency -> dependenciesPanel
-                            .add(new CurseForgeFileDependencyCard(this, dependency, instance)));
-
-                    dependenciesPanel.setLayout(new GridLayout(dependencies.size() < 2 ? 1 : dependencies.size() / 2,
-                            (dependencies.size() / 2) + 1));
-
-                    setSize(550, 450);
-                    setLocationRelativeTo(App.launcher.getParent());
-
-                    dependenciesPanel.setVisible(true);
-
-                    scrollPane.repaint();
-                    scrollPane.validate();
-                }
-            }
+            reloadDependenciesPanel();
         });
 
         JButton cancel = new JButton(GetText.tr("Cancel"));
@@ -228,6 +202,58 @@ public class CurseForgeProjectFileSelectorDialog extends JDialog {
         add(middle, BorderLayout.CENTER);
         add(bottom, BorderLayout.SOUTH);
         setVisible(true);
+    }
+
+    public void reloadDependenciesPanel() {
+        if (filesDropdown.getSelectedItem() == null) {
+            return;
+        }
+
+        CurseForgeFile selectedFile = (CurseForgeFile) filesDropdown.getSelectedItem();
+
+        dependenciesPanel.setVisible(false);
+
+        // this file has dependencies
+        if (selectedFile.dependencies.size() != 0) {
+            // check to see which required ones we don't already have
+            List<CurseForgeFileDependency> dependencies = selectedFile.dependencies.stream()
+                    .filter(dependency -> dependency.isRequired() && instance.launcher.mods.stream()
+                            .noneMatch(installedMod -> {
+                                if (instance.getLoaderVersion().isQuilt()
+                                        && dependency.modId == Constants.CURSEFORGE_FABRIC_MOD_ID) {
+                                    // if on Quilt and the dependency is Fabric API, then don't show it if user
+                                    // already has QSL installed
+                                    return instance.launcher.mods.parallelStream().anyMatch(m -> m.isFromModrinth()
+                                            && m.modrinthProject.id.equals(Constants.MODRINTH_QSL_MOD_ID));
+                                }
+
+                                return installedMod.isFromCurseForge()
+                                        && installedMod.getCurseForgeModId() == dependency.modId;
+                            }))
+                    .collect(Collectors.toList());
+
+            if (dependencies.size() != 0) {
+                dependenciesPanel.removeAll();
+
+                dependencies.forEach(dependency -> dependenciesPanel
+                        .add(new CurseForgeFileDependencyCard(this, dependency, instance)));
+
+                dependenciesPanel.setLayout(new GridLayout(dependencies.size() < 2 ? 1 : dependencies.size() / 2,
+                        (dependencies.size() / 2) + 1));
+
+                setSize(550, 450);
+                setLocationRelativeTo(App.launcher.getParent());
+
+                dependenciesPanel.setVisible(true);
+
+                scrollPane.repaint();
+                scrollPane.validate();
+            } else {
+                setSize(550, 200);
+            }
+        } else {
+            setSize(550, 200);
+        }
     }
 
     protected void getFiles() {
@@ -281,6 +307,8 @@ public class CurseForgeProjectFileSelectorDialog extends JDialog {
                 filesLength = Math.max(filesLength,
                         getFontMetrics(App.THEME.getNormalFont()).stringWidth(file.displayName) + 100);
             }
+
+            filesDropdown.removeAllItems();
 
             // try to filter out non compatable mods (Forge on Fabric and vice versa) if no
             // loader gameVersions are set
@@ -339,7 +367,6 @@ public class CurseForgeProjectFileSelectorDialog extends JDialog {
             addButton.setEnabled(true);
             viewModButton.setEnabled(true);
             viewFileButton.setEnabled(true);
-            filesDropdown.setEnabled(true);
         };
 
         new Thread(r).start();
