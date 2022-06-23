@@ -157,13 +157,18 @@ public class Instance extends MinecraftVersion {
 
     public transient Path ROOT;
 
-    private Instant lastPlayed;
-    private long numPlays;
+    /**
+     * @deprecated moved within launcher property
+     */
+    public transient Instant lastPlayed;
+
+    /**
+     * @deprecated moved within launcher property
+     */
+    public transient long numPlays;
 
     public Instance(MinecraftVersion version) {
         setValues(version);
-        this.numPlays = 0;
-        this.lastPlayed = Instant.EPOCH;
     }
 
     public void setValues(MinecraftVersion version) {
@@ -1299,16 +1304,13 @@ public class Instance extends MinecraftVersion {
                                         + "<br/><br/>"
                                         + (OS.isUsingMacApp()
                                                 ? FileSystem.getUserDownloadsPath().toFile().getAbsolutePath()
-                                                : (OS.isUsingFlatpak()
-                                                        ? FileSystem.DOWNLOADS.toAbsolutePath().toString()
-                                                        : FileSystem.DOWNLOADS.toAbsolutePath().toString()
-                                                                + " or<br/>"
-                                                                + FileSystem.getUserDownloadsPath().toFile())))
+                                                : FileSystem.DOWNLOADS.toAbsolutePath().toString()
+                                                        + " or<br/>"
+                                                        + FileSystem.getUserDownloadsPath().toFile()))
                                         .build())
                                 .addOption(GetText.tr("Open Folder"), true)
                                 .addOption(GetText.tr("I've Downloaded This File")).setType(DialogManager.INFO)
-                                .showWithFileMonitoring(fileLocation, OS.isUsingFlatpak() ? null : downloadsFolderFile,
-                                        file.fileLength, 1);
+                                .showWithFileMonitoring(fileLocation, downloadsFolderFile, file.fileLength, 1);
 
                         if (retValue == DialogManager.CLOSED_OPTION) {
                             return;
@@ -1400,8 +1402,9 @@ public class Instance extends MinecraftVersion {
         App.TOASTER.pop(GetText.tr("{0} Installed", mod.name));
     }
 
-    public void addFileFromModrinth(ModrinthProject mod, ModrinthVersion version, ProgressDialog dialog) {
-        ModrinthFile fileToDownload = version.getPrimaryFile();
+    public void addFileFromModrinth(ModrinthProject mod, ModrinthVersion version, ModrinthFile file,
+            ProgressDialog dialog) {
+        ModrinthFile fileToDownload = Optional.ofNullable(file).orElse(version.getPrimaryFile());
 
         Path downloadLocation = FileSystem.DOWNLOADS.resolve(fileToDownload.filename);
         Path finalLocation = this.getRoot().resolve("mods").resolve(fileToDownload.filename);
@@ -1973,32 +1976,34 @@ public class Instance extends MinecraftVersion {
         ModrinthModpackManifest manifest = new ModrinthModpackManifest();
 
         // for any mods not from Modrinth, scan for them on Modrinth
-        List<DisableableMod> nonModrinthMods = this.launcher.mods.parallelStream()
-                .filter(m -> !m.disabled && !m.isFromModrinth() && m.getFile(this).exists())
-                .collect(Collectors.toList());
+        if (!App.settings.dontCheckModsOnModrinth) {
+            List<DisableableMod> nonModrinthMods = this.launcher.mods.parallelStream()
+                    .filter(m -> !m.disabled && !m.isFromModrinth() && m.getFile(this).exists())
+                    .collect(Collectors.toList());
 
-        String[] sha1Hashes = nonModrinthMods.parallelStream()
-                .map(m -> Hashing.sha1(m.getFile(this).toPath()).toString()).toArray(String[]::new);
+            String[] sha1Hashes = nonModrinthMods.parallelStream()
+                    .map(m -> Hashing.sha1(m.getFile(this).toPath()).toString()).toArray(String[]::new);
 
-        Map<String, ModrinthVersion> modrinthVersions = ModrinthApi.getVersionsFromSha1Hashes(sha1Hashes);
+            Map<String, ModrinthVersion> modrinthVersions = ModrinthApi.getVersionsFromSha1Hashes(sha1Hashes);
 
-        if (modrinthVersions.size() != 0) {
-            Map<String, ModrinthProject> modrinthProjects = ModrinthApi.getProjectsAsMap(
-                    modrinthVersions.values().parallelStream().map(mv -> mv.projectId).toArray(String[]::new));
+            if (modrinthVersions.size() != 0) {
+                Map<String, ModrinthProject> modrinthProjects = ModrinthApi.getProjectsAsMap(
+                        modrinthVersions.values().parallelStream().map(mv -> mv.projectId).toArray(String[]::new));
 
-            nonModrinthMods.parallelStream().forEach(mod -> {
-                String hash = Hashing.sha1(mod.getFile(this).toPath()).toString();
+                nonModrinthMods.parallelStream().forEach(mod -> {
+                    String hash = Hashing.sha1(mod.getFile(this).toPath()).toString();
 
-                if (modrinthVersions.containsKey(hash)) {
-                    ModrinthVersion modrinthVersion = modrinthVersions.get(hash);
+                    if (modrinthVersions.containsKey(hash)) {
+                        ModrinthVersion modrinthVersion = modrinthVersions.get(hash);
 
-                    mod.modrinthVersion = modrinthVersion;
-                    mod.modrinthProject = modrinthProjects.get(modrinthVersion.projectId);
+                        mod.modrinthVersion = modrinthVersion;
+                        mod.modrinthProject = modrinthProjects.get(modrinthVersion.projectId);
 
-                    LogManager.debug("Found matching mod from Modrinth called " + mod.modrinthProject.title);
-                }
-            });
-            this.save();
+                        LogManager.debug("Found matching mod from Modrinth called " + mod.modrinthProject.title);
+                    }
+                });
+                this.save();
+            }
         }
 
         manifest.formatVersion = 1;
@@ -2178,32 +2183,20 @@ public class Instance extends MinecraftVersion {
         return launcher.loaderVersion;
     }
 
-    public void setNumberOfPlays(final long val) {
-        this.numPlays = val;
-    }
-
     public long incrementNumberOfPlays() {
-        return this.numPlays++;
-    }
-
-    public long decrementNumberOfPlays() {
-        return this.numPlays--;
+        return this.launcher.numPlays++;
     }
 
     public long getNumberOfPlays() {
-        return this.numPlays;
+        return this.launcher.numPlays;
     }
 
     public void setLastPlayed(final Instant ts) {
-        this.lastPlayed = ts;
-    }
-
-    public Instant getLastPlayed() {
-        return this.lastPlayed;
+        this.launcher.lastPlayed = ts;
     }
 
     public Instant getLastPlayedOrEpoch() {
-        return this.lastPlayed != null ? this.lastPlayed : Instant.EPOCH;
+        return this.launcher.lastPlayed != null ? this.launcher.lastPlayed : Instant.EPOCH;
     }
 
     public String getMainClass() {
@@ -2347,7 +2340,7 @@ public class Instance extends MinecraftVersion {
     }
 
     public void update() {
-        new InstanceInstallerDialog(this, true, false, null, null, true, null, App.launcher.getParent());
+        new InstanceInstallerDialog(this, true, false, null, null, true, null, App.launcher.getParent(), null);
     }
 
     public boolean hasCurseForgeProjectId() {
