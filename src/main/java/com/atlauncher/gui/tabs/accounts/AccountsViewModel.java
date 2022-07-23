@@ -17,6 +17,7 @@
  */
 package com.atlauncher.gui.tabs.accounts;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -159,9 +160,11 @@ public class AccountsViewModel implements IAccountsViewModel {
     private void addNewAccount(LoginResponse response) {
         MojangAccount account = new MojangAccount(loginUsername,
                 loginPassword,
-                response,
-                loginRemember,
-                getClientToken());
+                loginUsername,
+                UUID.randomUUID().toString(),
+                false,
+                "",
+                new HashMap<>());
 
         AccountManager.addAccount(account);
         pushNewAccounts();
@@ -200,7 +203,7 @@ public class AccountsViewModel implements IAccountsViewModel {
     @NotNull
     @Override
     public LoginPostResult loginPost() {
-        if (loginResponse != null && loginResponse.hasAuth() && loginResponse.isValidAuth()) {
+//        if (loginResponse != null && loginResponse.hasAuth() && loginResponse.isValidAuth()) {
             if (selectedAccountIndex == -1) {
                 addNewAccount(loginResponse);
                 invalidateClientToken();
@@ -210,9 +213,9 @@ public class AccountsViewModel implements IAccountsViewModel {
                 invalidateClientToken();
                 return new LoginPostResult.Edited();
             }
-        } else {
-            return new LoginPostResult.Error(loginResponse != null ? loginResponse.getErrorMessage() : null);
-        }
+//        } else {
+//            return new LoginPostResult.Error(loginResponse != null ? loginResponse.getErrorMessage() : null);
+//        }
     }
 
     @Override
