@@ -24,6 +24,7 @@ import java.io.Serializable;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -33,6 +34,8 @@ import org.mini2Dx.gettext.GetText;
 import com.atlauncher.App;
 import com.atlauncher.data.curseforge.CurseForgeFile;
 import com.atlauncher.data.curseforge.CurseForgeProject;
+import com.atlauncher.data.minecraft.FabricMod;
+import com.atlauncher.data.minecraft.MCMod;
 import com.atlauncher.data.modrinth.ModrinthProject;
 import com.atlauncher.data.modrinth.ModrinthVersion;
 import com.atlauncher.exceptions.InvalidMinecraftVersion;
@@ -380,7 +383,13 @@ public class DisableableMod implements Serializable {
                     }
 
                     if (cf.gameVersions.contains("Fabric") && instance.launcher.loaderVersion != null
-                            && !instance.launcher.loaderVersion.isFabric()) {
+                            && !instance.launcher.loaderVersion.isFabric()
+                            && !instance.launcher.loaderVersion.isQuilt()) {
+                        return false;
+                    }
+
+                    if (cf.gameVersions.contains("Quilt") && instance.launcher.loaderVersion != null
+                            && !instance.launcher.loaderVersion.isQuilt()) {
                         return false;
                     }
 
@@ -400,6 +409,10 @@ public class DisableableMod implements Serializable {
 
             if (dialog.getReturnValue() instanceof Boolean) {
                 return ((Boolean) dialog.getReturnValue()) == true;
+            }
+
+            if (dialog.getReturnValue() == null) {
+                return false;
             }
 
             new CurseForgeProjectFileSelectorDialog(parent, (CurseForgeProject) dialog.getReturnValue(), instance,
@@ -483,5 +496,33 @@ public class DisableableMod implements Serializable {
         }
 
         return true;
+    }
+
+    public static DisableableMod generateMod(File file, com.atlauncher.data.Type type, boolean enabled) {
+        DisableableMod mod = new DisableableMod();
+        mod.disabled = !enabled;
+        mod.userAdded = true;
+        mod.wasSelected = true;
+        mod.file = file.getName();
+        mod.type = type;
+        mod.optional = true;
+        mod.name = file.getName();
+        mod.version = "Unknown";
+        mod.description = null;
+
+        MCMod mcMod = Utils.getMCModForFile(file);
+        if (mcMod != null) {
+            mod.name = Optional.ofNullable(mcMod.name).orElse(file.getName());
+            mod.version = Optional.ofNullable(mcMod.version).orElse("Unknown");
+            mod.description = Optional.ofNullable(mcMod.description).orElse(null);
+        } else {
+            FabricMod fabricMod = Utils.getFabricModForFile(file);
+            if (fabricMod != null) {
+                mod.name = Optional.ofNullable(fabricMod.name).orElse(file.getName());
+                mod.version = Optional.ofNullable(fabricMod.version).orElse("Unknown");
+                mod.description = Optional.ofNullable(fabricMod.description).orElse(null);
+            }
+        }
+        return mod;
     }
 }

@@ -24,12 +24,12 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+import org.mini2Dx.gettext.GetText;
+import org.mini2Dx.gettext.PoFile;
+
 import com.atlauncher.App;
 import com.atlauncher.evnt.manager.RelocalizationManager;
 import com.atlauncher.managers.LogManager;
-
-import org.mini2Dx.gettext.GetText;
-import org.mini2Dx.gettext.PoFile;
 
 public class Language {
     public final static List<Locale> locales = new ArrayList<>();

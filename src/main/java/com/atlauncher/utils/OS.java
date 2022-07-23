@@ -479,13 +479,6 @@ public enum OS {
     }
 
     /**
-     * If the system is running in headless mode.
-     */
-    public static boolean isHeadless() {
-        return GraphicsEnvironment.isHeadless();
-    }
-
-    /**
      * This restarts the launcher with an option set of arguments to add.
      *
      * @param args a List of arguments to pass when starting the launcher
@@ -540,14 +533,7 @@ public enum OS {
      * This restarts the launcher in debug mode.
      */
     public static void relaunchInDebugMode() {
-        relaunchInDebugMode(3);
-    }
-
-    /**
-     * This restarts the launcher in debug mode.
-     */
-    public static void relaunchInDebugMode(int level) {
-        restartLauncher(new ArrayList<>(Arrays.asList("--debug", "--debug-level=" + level)));
+        restartLauncher(new ArrayList<>(Arrays.asList("--debug")));
     }
 
     /**
@@ -611,7 +597,7 @@ public enum OS {
 
     public static boolean isUsingAntivirus() {
         if (isWindows()) {
-            return getAntivirusProcesses().size() != 0;
+            return Optional.ofNullable(getAntivirusProcesses()).orElse(new ArrayList<>()).size() != 0;
         }
 
         return false;

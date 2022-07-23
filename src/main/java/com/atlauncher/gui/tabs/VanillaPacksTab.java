@@ -50,6 +50,11 @@ import javax.swing.event.ListSelectionListener;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableColumnModel;
 
+import org.joda.time.format.DateTimeFormat;
+import org.joda.time.format.DateTimeFormatter;
+import org.joda.time.format.ISODateTimeFormat;
+import org.mini2Dx.gettext.GetText;
+
 import com.atlauncher.App;
 import com.atlauncher.builders.HTMLBuilder;
 import com.atlauncher.constants.UIConstants;
@@ -69,11 +74,7 @@ import com.atlauncher.managers.InstanceManager;
 import com.atlauncher.managers.LogManager;
 import com.atlauncher.managers.MinecraftManager;
 import com.atlauncher.utils.ComboItem;
-
-import org.joda.time.format.DateTimeFormat;
-import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.ISODateTimeFormat;
-import org.mini2Dx.gettext.GetText;
+import com.atlauncher.utils.Utils;
 
 @SuppressWarnings("serial")
 public final class VanillaPacksTab extends JPanel implements Tab {
@@ -582,6 +583,10 @@ public final class VanillaPacksTab extends JPanel implements Tab {
         createServerButton.setEnabled(false);
         createInstanceButton.setEnabled(false);
 
+        // Legacy Forge doesn't support servers easily
+        boolean enableCreateServers = selectedLoader != LoaderType.FORGE
+                || !Utils.matchVersion(selectedMinecraftVersion, "1.5", true, true);
+
         Runnable r = () -> {
             List<LoaderVersion> loaderVersions = new ArrayList<>();
 
@@ -600,7 +605,7 @@ public final class VanillaPacksTab extends JPanel implements Tab {
                 loaderTypeFabricRadioButton.setEnabled(true);
                 loaderTypeForgeRadioButton.setEnabled(true);
                 loaderTypeQuiltRadioButton.setEnabled(true);
-                createServerButton.setEnabled(true);
+                createServerButton.setEnabled(enableCreateServers);
                 createInstanceButton.setEnabled(true);
                 return;
             }
@@ -640,7 +645,7 @@ public final class VanillaPacksTab extends JPanel implements Tab {
             loaderTypeForgeRadioButton.setEnabled(true);
             loaderTypeQuiltRadioButton.setEnabled(true);
             loaderVersionsDropDown.setEnabled(true);
-            createServerButton.setEnabled(true);
+            createServerButton.setEnabled(enableCreateServers);
             createInstanceButton.setEnabled(true);
 
             // update the name and description fields if they're not dirty

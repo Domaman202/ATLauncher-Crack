@@ -490,14 +490,33 @@ public class InstanceInstaller extends SwingWorker<Boolean, Void> implements Net
 
                 Map<String, Object> loaderMeta = new HashMap<>();
                 loaderMeta.put("minecraft", curseForgeManifest.minecraft.version);
-                loaderMeta.put("version", forgeVersionInfo.getData().version);
-                loaderMeta.put("rawVersion", forgeVersionInfo.getData().rawVersion);
-                loaderMeta.put("installerSize", forgeVersionInfo.getData().installerSize);
-                loaderMeta.put("installerSha1", forgeVersionInfo.getData().installerSha1Hash);
+
+                ATLauncherApiForgeVersion forgeData = forgeVersionInfo.getData();
+                loaderMeta.put("version", forgeData.version);
+                loaderMeta.put("rawVersion", forgeData.rawVersion);
+                if (forgeData.installerSize != null && forgeData.installerSha1Hash != null) {
+                    loaderMeta.put("installerSize", forgeData.installerSize);
+                    loaderMeta.put("installerSha1", forgeData.installerSha1Hash);
+                }
+                if (forgeData.universalSize != null && forgeData.universalSha1Hash != null) {
+                    loaderMeta.put("universalSize", forgeData.universalSize);
+                    loaderMeta.put("universalSha1", forgeData.universalSha1Hash);
+                }
+                if (forgeData.clientSize != null && forgeData.clientSha1Hash != null) {
+                    loaderMeta.put("clientSize", forgeData.clientSize);
+                    loaderMeta.put("clientSha1", forgeData.clientSha1Hash);
+                }
+                if (forgeData.serverSize != null && forgeData.serverSha1Hash != null) {
+                    loaderMeta.put("serverSize", forgeData.serverSize);
+                    loaderMeta.put("serverSha1", forgeData.serverSha1Hash);
+                }
+
                 packVersion.loader.metadata = loaderMeta;
 
                 if (Utils.matchVersion(curseForgeManifest.minecraft.version, "1.13", false, true)) {
                     packVersion.loader.className = "com.atlauncher.data.minecraft.loaders.forge.Forge113Loader";
+                } else if (Utils.matchVersion(curseForgeManifest.minecraft.version, "1.5", true, true)) {
+                    packVersion.loader.className = "com.atlauncher.data.minecraft.loaders.forge.LegacyForgeLoader";
                 } else {
                     packVersion.loader.className = "com.atlauncher.data.minecraft.loaders.forge.ForgeLoader";
                 }
@@ -820,14 +839,33 @@ public class InstanceInstaller extends SwingWorker<Boolean, Void> implements Net
 
             Map<String, Object> loaderMeta = new HashMap<>();
             loaderMeta.put("minecraft", packVersion.minecraft);
-            loaderMeta.put("version", forgeVersionInfo.getData().version);
-            loaderMeta.put("rawVersion", forgeVersionInfo.getData().rawVersion);
-            loaderMeta.put("installerSize", forgeVersionInfo.getData().installerSize);
-            loaderMeta.put("installerSha1", forgeVersionInfo.getData().installerSha1Hash);
+
+            ATLauncherApiForgeVersion forgeData = forgeVersionInfo.getData();
+            loaderMeta.put("version", forgeData.version);
+            loaderMeta.put("rawVersion", forgeData.rawVersion);
+            if (forgeData.installerSize != null && forgeData.installerSha1Hash != null) {
+                loaderMeta.put("installerSize", forgeData.installerSize);
+                loaderMeta.put("installerSha1", forgeData.installerSha1Hash);
+            }
+            if (forgeData.universalSize != null && forgeData.universalSha1Hash != null) {
+                loaderMeta.put("universalSize", forgeData.universalSize);
+                loaderMeta.put("universalSha1", forgeData.universalSha1Hash);
+            }
+            if (forgeData.clientSize != null && forgeData.clientSha1Hash != null) {
+                loaderMeta.put("clientSize", forgeData.clientSize);
+                loaderMeta.put("clientSha1", forgeData.clientSha1Hash);
+            }
+            if (forgeData.serverSize != null && forgeData.serverSha1Hash != null) {
+                loaderMeta.put("serverSize", forgeData.serverSize);
+                loaderMeta.put("serverSha1", forgeData.serverSha1Hash);
+            }
+
             packVersion.loader.metadata = loaderMeta;
 
             if (Utils.matchVersion(packVersion.minecraft, "1.13", false, true)) {
                 packVersion.loader.className = "com.atlauncher.data.minecraft.loaders.forge.Forge113Loader";
+            } else if (Utils.matchVersion(packVersion.minecraft, "1.5", true, true)) {
+                packVersion.loader.className = "com.atlauncher.data.minecraft.loaders.forge.LegacyForgeLoader";
             } else {
                 packVersion.loader.className = "com.atlauncher.data.minecraft.loaders.forge.ForgeLoader";
             }
@@ -1166,7 +1204,8 @@ public class InstanceInstaller extends SwingWorker<Boolean, Void> implements Net
         if (versionJson != null && versionJson.libraries != null) {
             Optional<Library> forgeLibrary = versionJson.libraries.stream()
                     .filter(l -> l.name.startsWith("net.minecraftforge:forge:")
-                            || l.name.startsWith("net.minecraftforge:minecraftforge:"))
+                            || l.name.startsWith("net.minecraftforge:minecraftforge:")
+                            || l.name.startsWith("net.minecraftforge:fmlloader:"))
                     .findFirst();
             Optional<Library> fabricLibrary = versionJson.libraries.stream()
                     .filter(l -> l.name.startsWith("net.fabricmc:fabric-loader:")).findFirst();
@@ -1187,14 +1226,33 @@ public class InstanceInstaller extends SwingWorker<Boolean, Void> implements Net
 
                     Map<String, Object> loaderMeta = new HashMap<>();
                     loaderMeta.put("minecraft", packVersion.minecraft);
-                    loaderMeta.put("version", forgeVersionInfo.getData().version);
-                    loaderMeta.put("rawVersion", forgeVersionInfo.getData().rawVersion);
-                    loaderMeta.put("installerSize", forgeVersionInfo.getData().installerSize);
-                    loaderMeta.put("installerSha1", forgeVersionInfo.getData().installerSha1Hash);
+
+                    ATLauncherApiForgeVersion forgeData = forgeVersionInfo.getData();
+                    loaderMeta.put("version", forgeData.version);
+                    loaderMeta.put("rawVersion", forgeData.rawVersion);
+                    if (forgeData.installerSize != null && forgeData.installerSha1Hash != null) {
+                        loaderMeta.put("installerSize", forgeData.installerSize);
+                        loaderMeta.put("installerSha1", forgeData.installerSha1Hash);
+                    }
+                    if (forgeData.universalSize != null && forgeData.universalSha1Hash != null) {
+                        loaderMeta.put("universalSize", forgeData.universalSize);
+                        loaderMeta.put("universalSha1", forgeData.universalSha1Hash);
+                    }
+                    if (forgeData.clientSize != null && forgeData.clientSha1Hash != null) {
+                        loaderMeta.put("clientSize", forgeData.clientSize);
+                        loaderMeta.put("clientSha1", forgeData.clientSha1Hash);
+                    }
+                    if (forgeData.serverSize != null && forgeData.serverSha1Hash != null) {
+                        loaderMeta.put("serverSize", forgeData.serverSize);
+                        loaderMeta.put("serverSha1", forgeData.serverSha1Hash);
+                    }
+
                     packVersion.loader.metadata = loaderMeta;
 
                     if (Utils.matchVersion(packVersion.minecraft, "1.13", false, true)) {
                         packVersion.loader.className = "com.atlauncher.data.minecraft.loaders.forge.Forge113Loader";
+                    } else if (Utils.matchVersion(packVersion.minecraft, "1.5", true, true)) {
+                        packVersion.loader.className = "com.atlauncher.data.minecraft.loaders.forge.LegacyForgeLoader";
                     } else {
                         packVersion.loader.className = "com.atlauncher.data.minecraft.loaders.forge.ForgeLoader";
                     }
@@ -1267,14 +1325,33 @@ public class InstanceInstaller extends SwingWorker<Boolean, Void> implements Net
 
                 Map<String, Object> loaderMeta = new HashMap<>();
                 loaderMeta.put("minecraft", packVersion.minecraft);
-                loaderMeta.put("version", forgeVersionInfo.getData().version);
-                loaderMeta.put("rawVersion", forgeVersionInfo.getData().rawVersion);
-                loaderMeta.put("installerSize", forgeVersionInfo.getData().installerSize);
-                loaderMeta.put("installerSha1", forgeVersionInfo.getData().installerSha1Hash);
+
+                ATLauncherApiForgeVersion forgeData = forgeVersionInfo.getData();
+                loaderMeta.put("version", forgeData.version);
+                loaderMeta.put("rawVersion", forgeData.rawVersion);
+                if (forgeData.installerSize != null && forgeData.installerSha1Hash != null) {
+                    loaderMeta.put("installerSize", forgeData.installerSize);
+                    loaderMeta.put("installerSha1", forgeData.installerSha1Hash);
+                }
+                if (forgeData.universalSize != null && forgeData.universalSha1Hash != null) {
+                    loaderMeta.put("universalSize", forgeData.universalSize);
+                    loaderMeta.put("universalSha1", forgeData.universalSha1Hash);
+                }
+                if (forgeData.clientSize != null && forgeData.clientSha1Hash != null) {
+                    loaderMeta.put("clientSize", forgeData.clientSize);
+                    loaderMeta.put("clientSha1", forgeData.clientSha1Hash);
+                }
+                if (forgeData.serverSize != null && forgeData.serverSha1Hash != null) {
+                    loaderMeta.put("serverSize", forgeData.serverSize);
+                    loaderMeta.put("serverSha1", forgeData.serverSha1Hash);
+                }
+
                 packVersion.loader.metadata = loaderMeta;
 
                 if (Utils.matchVersion(packVersion.minecraft, "1.13", false, true)) {
                     packVersion.loader.className = "com.atlauncher.data.minecraft.loaders.forge.Forge113Loader";
+                } else if (Utils.matchVersion(packVersion.minecraft, "1.5", true, true)) {
+                    packVersion.loader.className = "com.atlauncher.data.minecraft.loaders.forge.LegacyForgeLoader";
                 } else {
                     packVersion.loader.className = "com.atlauncher.data.minecraft.loaders.forge.ForgeLoader";
                 }
@@ -1332,14 +1409,33 @@ public class InstanceInstaller extends SwingWorker<Boolean, Void> implements Net
 
             Map<String, Object> loaderMeta = new HashMap<>();
             loaderMeta.put("minecraft", minecraftVersion);
-            loaderMeta.put("version", forgeVersionInfo.getData().version);
-            loaderMeta.put("rawVersion", forgeVersionInfo.getData().rawVersion);
-            loaderMeta.put("installerSize", forgeVersionInfo.getData().installerSize);
-            loaderMeta.put("installerSha1", forgeVersionInfo.getData().installerSha1Hash);
+
+            ATLauncherApiForgeVersion forgeData = forgeVersionInfo.getData();
+            loaderMeta.put("version", forgeData.version);
+            loaderMeta.put("rawVersion", forgeData.rawVersion);
+            if (forgeData.installerSize != null && forgeData.installerSha1Hash != null) {
+                loaderMeta.put("installerSize", forgeData.installerSize);
+                loaderMeta.put("installerSha1", forgeData.installerSha1Hash);
+            }
+            if (forgeData.universalSize != null && forgeData.universalSha1Hash != null) {
+                loaderMeta.put("universalSize", forgeData.universalSize);
+                loaderMeta.put("universalSha1", forgeData.universalSha1Hash);
+            }
+            if (forgeData.clientSize != null && forgeData.clientSha1Hash != null) {
+                loaderMeta.put("clientSize", forgeData.clientSize);
+                loaderMeta.put("clientSha1", forgeData.clientSha1Hash);
+            }
+            if (forgeData.serverSize != null && forgeData.serverSha1Hash != null) {
+                loaderMeta.put("serverSize", forgeData.serverSize);
+                loaderMeta.put("serverSha1", forgeData.serverSha1Hash);
+            }
+
             packVersion.loader.metadata = loaderMeta;
 
             if (Utils.matchVersion(minecraftVersion, "1.13", false, true)) {
                 packVersion.loader.className = "com.atlauncher.data.minecraft.loaders.forge.Forge113Loader";
+            } else if (Utils.matchVersion(packVersion.minecraft, "1.5", true, true)) {
+                packVersion.loader.className = "com.atlauncher.data.minecraft.loaders.forge.LegacyForgeLoader";
             } else {
                 packVersion.loader.className = "com.atlauncher.data.minecraft.loaders.forge.ForgeLoader";
             }
@@ -1386,14 +1482,33 @@ public class InstanceInstaller extends SwingWorker<Boolean, Void> implements Net
 
             Map<String, Object> loaderMeta = new HashMap<>();
             loaderMeta.put("minecraft", version.minecraftVersion.id);
-            loaderMeta.put("version", forgeVersionInfo.getData().version);
-            loaderMeta.put("rawVersion", forgeVersionInfo.getData().rawVersion);
-            loaderMeta.put("installerSize", forgeVersionInfo.getData().installerSize);
-            loaderMeta.put("installerSha1", forgeVersionInfo.getData().installerSha1Hash);
+
+            ATLauncherApiForgeVersion forgeData = forgeVersionInfo.getData();
+            loaderMeta.put("version", forgeData.version);
+            loaderMeta.put("rawVersion", forgeData.rawVersion);
+            if (forgeData.installerSize != null && forgeData.installerSha1Hash != null) {
+                loaderMeta.put("installerSize", forgeData.installerSize);
+                loaderMeta.put("installerSha1", forgeData.installerSha1Hash);
+            }
+            if (forgeData.universalSize != null && forgeData.universalSha1Hash != null) {
+                loaderMeta.put("universalSize", forgeData.universalSize);
+                loaderMeta.put("universalSha1", forgeData.universalSha1Hash);
+            }
+            if (forgeData.clientSize != null && forgeData.clientSha1Hash != null) {
+                loaderMeta.put("clientSize", forgeData.clientSize);
+                loaderMeta.put("clientSha1", forgeData.clientSha1Hash);
+            }
+            if (forgeData.serverSize != null && forgeData.serverSha1Hash != null) {
+                loaderMeta.put("serverSize", forgeData.serverSize);
+                loaderMeta.put("serverSha1", forgeData.serverSha1Hash);
+            }
+
             packVersion.loader.metadata = loaderMeta;
 
             if (Utils.matchVersion(version.minecraftVersion.id, "1.13", false, true)) {
                 packVersion.loader.className = "com.atlauncher.data.minecraft.loaders.forge.Forge113Loader";
+            } else if (Utils.matchVersion(packVersion.minecraft, "1.5", true, true)) {
+                packVersion.loader.className = "com.atlauncher.data.minecraft.loaders.forge.LegacyForgeLoader";
             } else {
                 packVersion.loader.className = "com.atlauncher.data.minecraft.loaders.forge.ForgeLoader";
             }
@@ -1575,9 +1690,9 @@ public class InstanceInstaller extends SwingWorker<Boolean, Void> implements Net
 
         if (this.curseForgeManifest != null) {
             if (Files.exists(curseForgeExtractedPath
-                    .resolve(Optional.of(curseForgeManifest.overrides).orElse("overrides") + "/mods"))) {
+                    .resolve(Optional.ofNullable(curseForgeManifest.overrides).orElse("overrides") + "/mods"))) {
                 try (Stream<Path> list = Files.list(curseForgeExtractedPath
-                        .resolve(Optional.of(curseForgeManifest.overrides).orElse("overrides") + "/mods"))) {
+                        .resolve(Optional.ofNullable(curseForgeManifest.overrides).orElse("overrides") + "/mods"))) {
                     this.modsInstalled.addAll(list.filter(p -> !Files.isDirectory(p))
                             .filter(p -> p.toString().toLowerCase().endsWith(".jar")
                                     || p.toString().toLowerCase().endsWith(".zip"))
@@ -1588,11 +1703,13 @@ public class InstanceInstaller extends SwingWorker<Boolean, Void> implements Net
             }
 
             if (Files.exists(
-                    curseForgeExtractedPath.resolve(Optional.of(curseForgeManifest.overrides).orElse("overrides")
-                            + "/mods/" + packVersion.minecraft))) {
+                    curseForgeExtractedPath
+                            .resolve(Optional.ofNullable(curseForgeManifest.overrides).orElse("overrides")
+                                    + "/mods/" + packVersion.minecraft))) {
                 try (Stream<Path> list = Files.list(
-                        curseForgeExtractedPath.resolve(Optional.of(curseForgeManifest.overrides).orElse("overrides")
-                                + "/mods/" + packVersion.minecraft))) {
+                        curseForgeExtractedPath
+                                .resolve(Optional.ofNullable(curseForgeManifest.overrides).orElse("overrides")
+                                        + "/mods/" + packVersion.minecraft))) {
                     this.modsInstalled.addAll(list.filter(p -> !Files.isDirectory(p))
                             .filter(p -> p.toString().toLowerCase().endsWith(".jar")
                                     || p.toString().toLowerCase().endsWith(".zip"))
@@ -2705,7 +2822,7 @@ public class InstanceInstaller extends SwingWorker<Boolean, Void> implements Net
             fireSubProgressUnknown();
             fireTask(GetText.tr("Copying Overrides"));
             Utils.copyDirectory(this.curseForgeExtractedPath
-                    .resolve(Optional.of(curseForgeManifest.overrides).orElse("overrides")).toFile(),
+                    .resolve(Optional.ofNullable(curseForgeManifest.overrides).orElse("overrides")).toFile(),
                     this.root.toFile(), false);
         } else if (modrinthManifest != null) {
             fireSubProgressUnknown();

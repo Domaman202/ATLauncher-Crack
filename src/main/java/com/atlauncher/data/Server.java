@@ -30,8 +30,11 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
+import javax.imageio.IIOException;
 import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
+
+import org.mini2Dx.gettext.GetText;
 
 import com.atlauncher.App;
 import com.atlauncher.FileSystem;
@@ -50,8 +53,6 @@ import com.atlauncher.utils.ArchiveUtils;
 import com.atlauncher.utils.OS;
 import com.atlauncher.utils.Utils;
 import com.google.gson.JsonIOException;
-
-import org.mini2Dx.gettext.GetText;
 
 @Json
 public class Server {
@@ -317,10 +318,17 @@ public class Server {
         if (customImage.exists()) {
             try {
                 BufferedImage img = ImageIO.read(customImage);
-                Image dimg = img.getScaledInstance(300, 150, Image.SCALE_SMOOTH);
-                return new ImageIcon(dimg);
-            } catch (IOException e) {
-                LogManager.logStackTrace("Error creating scaled image from the custom image of server " + this.name, e);
+                if (img != null) {
+                    Image dimg = img.getScaledInstance(300, 150, Image.SCALE_SMOOTH);
+                    return new ImageIcon(dimg);
+                }
+            } catch (IIOException e) {
+                LogManager.warn("Error creating scaled image from the custom image of server " + this.name
+                        + ". Using default image.");
+            } catch (Exception e) {
+                LogManager.logStackTrace(
+                        "Error creating scaled image from the custom image of server " + this.name, e,
+                        false);
             }
         }
 

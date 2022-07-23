@@ -28,6 +28,8 @@ import java.util.UUID;
 
 import javax.swing.ImageIcon;
 
+import org.mini2Dx.gettext.GetText;
+
 import com.atlauncher.FileSystem;
 import com.atlauncher.gui.dialogs.ProgressDialog;
 import com.atlauncher.gui.tabs.InstancesTab;
@@ -39,8 +41,6 @@ import com.atlauncher.network.Download;
 import com.atlauncher.utils.SkinUtils;
 import com.atlauncher.utils.Utils;
 import com.mojang.util.UUIDTypeAdapter;
-
-import org.mini2Dx.gettext.GetText;
 
 /**
  * This class deals with the Accounts in the launcher.

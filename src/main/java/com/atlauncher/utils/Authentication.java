@@ -17,6 +17,8 @@
  */
 package com.atlauncher.utils;
 
+import org.mini2Dx.gettext.GetText;
+
 import com.atlauncher.App;
 import com.atlauncher.data.LoginResponse;
 import com.atlauncher.data.MojangAccount;
@@ -27,8 +29,6 @@ import com.mojang.authlib.exceptions.AuthenticationException;
 import com.mojang.authlib.exceptions.AuthenticationUnavailableException;
 import com.mojang.authlib.yggdrasil.YggdrasilAuthenticationService;
 import com.mojang.authlib.yggdrasil.YggdrasilUserAuthentication;
-
-import org.mini2Dx.gettext.GetText;
 
 public class Authentication {
     public static LoginResponse checkAccount(String username, String password, String clientToken) {
@@ -84,7 +84,9 @@ public class Authentication {
                 response.setOffline();
                 LogManager.error("Authentication servers unavailable");
             } catch (AuthenticationException e) {
-                if (e.getMessage().contains("410")) {
+                if (e.getMessage() == null) {
+                    response.setErrorMessage("No error was returned from Mojang");
+                } else if (e.getMessage().contains("410")) {
                     response.setErrorMessage(GetText.tr(
                             "Account has been migrated to a Microsoft account. Please use the 'Login with Microsoft' button instead."));
                 } else {

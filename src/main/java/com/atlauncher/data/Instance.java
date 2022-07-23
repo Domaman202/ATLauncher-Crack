@@ -22,16 +22,19 @@ import java.awt.Dialog.ModalityType;
 import java.awt.Dimension;
 import java.awt.Graphics2D;
 import java.awt.Image;
+import java.awt.Window;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -39,15 +42,19 @@ import java.nio.file.Paths;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
+import javax.imageio.IIOException;
 import javax.imageio.ImageIO;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -74,6 +81,7 @@ import com.atlauncher.annot.Json;
 import com.atlauncher.builders.HTMLBuilder;
 import com.atlauncher.constants.Constants;
 import com.atlauncher.data.curseforge.CurseForgeFile;
+import com.atlauncher.data.curseforge.CurseForgeFileHash;
 import com.atlauncher.data.curseforge.CurseForgeFingerprint;
 import com.atlauncher.data.curseforge.CurseForgeProject;
 import com.atlauncher.data.curseforge.pack.CurseForgeManifest;
@@ -322,19 +330,23 @@ public class Instance extends MinecraftVersion {
         if (customImage.exists()) {
             try {
                 BufferedImage img = ImageIO.read(customImage);
+                if (img != null) {
+                    // if a square image, then make it 300x150 (without stretching) centered
+                    if (img.getHeight(null) == img.getWidth(null)) {
+                        BufferedImage dimg = new BufferedImage(300, 150, BufferedImage.TYPE_INT_ARGB);
 
-                // if a square image, then make it 300x150 (without stretching) centered
-                if (img.getHeight(null) == img.getWidth(null)) {
-                    BufferedImage dimg = new BufferedImage(300, 150, BufferedImage.TYPE_INT_ARGB);
+                        Graphics2D g2d = dimg.createGraphics();
+                        g2d.drawImage(img, 75, 0, 150, 150, null);
+                        g2d.dispose();
 
-                    Graphics2D g2d = dimg.createGraphics();
-                    g2d.drawImage(img, 75, 0, 150, 150, null);
-                    g2d.dispose();
+                        return new ImageIcon(dimg);
+                    }
 
-                    return new ImageIcon(dimg);
+                    return new ImageIcon(img.getScaledInstance(300, 150, Image.SCALE_SMOOTH));
                 }
-
-                return new ImageIcon(img.getScaledInstance(300, 150, Image.SCALE_SMOOTH));
+            } catch (IIOException e) {
+                LogManager.warn("Error creating scaled image from the custom image of instance " + this.launcher.name
+                        + ". Using default image.");
             } catch (Exception e) {
                 LogManager.logStackTrace(
                         "Error creating scaled image from the custom image of instance " + this.launcher.name, e,
@@ -1263,8 +1275,11 @@ public class Instance extends MinecraftVersion {
         // delete mod files that are the same mod id
         sameMods.forEach(disableableMod -> Utils.delete(disableableMod.getFile(this)));
 
-        // TODO: for some reason we never checked hashes, even when downloading from the
-        // api, so do that at some point when it's not 4am on a weekday
+        Optional<CurseForgeFileHash> md5Hash = file.hashes.stream().filter(h -> h.isMd5())
+                .findFirst();
+        Optional<CurseForgeFileHash> sha1Hash = file.hashes.stream().filter(h -> h.isSha1())
+                .findFirst();
+
         if (file.downloadUrl == null) {
             if (!App.settings.seenCurseForgeProjectDistributionDialog) {
                 App.settings.seenCurseForgeProjectDistributionDialog = true;
@@ -1281,6 +1296,16 @@ public class Instance extends MinecraftVersion {
             dialog.setIndeterminate();
             String filename = file.fileName.replace(" ", "+");
             File fileLocation = downloadLocation.toFile();
+            // if file downloaded already, but hashes don't match, delete it
+            if (fileLocation.exists()
+                    && ((md5Hash.isPresent()
+                            && !Hashing.md5(fileLocation.toPath()).equals(Hashing.toHashCode(md5Hash.get().value)))
+                            || (sha1Hash.isPresent()
+                                    && !Hashing.sha1(fileLocation.toPath())
+                                            .equals(Hashing.toHashCode(sha1Hash.get().value))))) {
+                FileUtils.delete(fileLocation.toPath());
+            }
+
             if (!fileLocation.exists()) {
                 File downloadsFolderFile = new File(FileSystem.getUserDownloadsPath().toFile(), filename);
                 if (downloadsFolderFile.exists()) {
@@ -1335,6 +1360,16 @@ public class Instance extends MinecraftVersion {
                             }
                         }
                     }
+
+                    // file downloaded, but hashes don't match, delete it
+                    if (fileLocation.exists()
+                            && ((md5Hash.isPresent() && !Hashing.md5(fileLocation.toPath())
+                                    .equals(Hashing.toHashCode(md5Hash.get().value)))
+                                    || (sha1Hash.isPresent()
+                                            && !Hashing.sha1(fileLocation.toPath())
+                                                    .equals(Hashing.toHashCode(sha1Hash.get().value))))) {
+                        FileUtils.delete(fileLocation.toPath());
+                    }
                 }
             }
 
@@ -1369,6 +1404,12 @@ public class Instance extends MinecraftVersion {
                 }
             }
 
+            if (md5Hash.isPresent()) {
+                download = download.hash(md5Hash.get().value);
+            } else if (sha1Hash.isPresent()) {
+                download = download.hash(sha1Hash.get().value);
+            }
+
             if (download.needToDownload()) {
                 try {
                     download.downloadFile();
@@ -1392,8 +1433,7 @@ public class Instance extends MinecraftVersion {
         // add this mod
         this.launcher.mods.add(new DisableableMod(mod.name, file.displayName, true, file.fileName,
                 mod.getRootCategoryId() == Constants.CURSEFORGE_RESOURCE_PACKS_SECTION_ID ? Type.resourcepack
-                        : (mod.getRootCategoryId() == Constants.CURSEFORGE_WORLDS_SECTION_ID ? Type.worlds
-                                : Type.mods),
+                        : (mod.getRootCategoryId() == Constants.CURSEFORGE_WORLDS_SECTION_ID ? Type.worlds : Type.mods),
                 null, mod.summary, false, true, true, false, mod, file));
 
         this.save();
@@ -2062,8 +2102,10 @@ public class Instance extends MinecraftVersion {
         FileUtils.createDirectory(tempDir);
 
         // create modrinth.index.json
-        try (FileWriter fileWriter = new FileWriter(tempDir.resolve("modrinth.index.json").toFile())) {
-            Gsons.MINECRAFT.toJson(manifest, fileWriter);
+        try (FileOutputStream fos = new FileOutputStream(tempDir.resolve("modrinth.index.json").toFile());
+                OutputStreamWriter osw = new OutputStreamWriter(fos,
+                        StandardCharsets.UTF_8)) {
+            Gsons.MINECRAFT.toJson(manifest, osw);
         } catch (JsonIOException | IOException e) {
             LogManager.logStackTrace("Failed to save modrinth.index.json", e);
 
@@ -2828,5 +2870,190 @@ public class Instance extends MinecraftVersion {
         }
 
         return launcher.version;
+    }
+
+    public void scanMissingMods() {
+        scanMissingMods(App.launcher.getParent());
+    }
+
+    public void scanMissingMods(Window parent) {
+        PerformanceManager.start("Instance::scanMissingMods - CheckForAddedMods");
+
+        // files to scan
+        List<Path> files = new ArrayList<>();
+
+        // find the mods that have been added by the user manually
+        for (Path path : Arrays.asList(ROOT.resolve("mods"), ROOT.resolve("disabledmods"))) {
+            try (Stream<Path> stream = Files.list(path)) {
+                files.addAll(stream
+                        .filter(file -> !Files.isDirectory(file) && Utils.isAcceptedModFile(file)).filter(
+                                file -> launcher.mods.stream()
+                                        .noneMatch(mod -> mod.type == com.atlauncher.data.Type.mods
+                                                && mod.file.equals(file.getFileName().toString())))
+                        .collect(Collectors.toList()));
+            } catch (IOException e) {
+                LogManager.logStackTrace("Error scanning missing mods", e);
+            }
+        }
+
+        if (files.size() != 0) {
+            final ProgressDialog progressDialog = new ProgressDialog(GetText.tr("Scanning New Mods"), 0,
+                    GetText.tr("Scanning New Mods"), parent);
+
+            progressDialog.addThread(new Thread(() -> {
+                List<DisableableMod> mods = files.parallelStream()
+                        .map(file -> DisableableMod.generateMod(file.toFile(), com.atlauncher.data.Type.mods,
+                                file.getParent().equals(ROOT.resolve("mods"))))
+                        .collect(Collectors.toList());
+
+                if (!App.settings.dontCheckModsOnCurseForge) {
+                    Map<Long, DisableableMod> murmurHashes = new HashMap<>();
+
+                    mods.stream()
+                            .filter(dm -> dm.curseForgeProject == null && dm.curseForgeFile == null)
+                            .filter(dm -> dm.getFile(ROOT, id) != null).forEach(dm -> {
+                                try {
+                                    long hash = Hashing
+                                            .murmur(dm.disabled ? dm.getDisabledFile(this).toPath()
+                                                    : dm
+                                                            .getFile(ROOT, id).toPath());
+                                    murmurHashes.put(hash, dm);
+                                } catch (Throwable t) {
+                                    LogManager.logStackTrace(t);
+                                }
+                            });
+
+                    if (murmurHashes.size() != 0) {
+                        CurseForgeFingerprint fingerprintResponse = CurseForgeApi
+                                .checkFingerprints(murmurHashes.keySet().stream().toArray(Long[]::new));
+
+                        if (fingerprintResponse != null && fingerprintResponse.exactMatches != null) {
+                            int[] projectIdsFound = fingerprintResponse.exactMatches.stream().mapToInt(em -> em.id)
+                                    .toArray();
+
+                            if (projectIdsFound.length != 0) {
+                                Map<Integer, CurseForgeProject> foundProjects = CurseForgeApi
+                                        .getProjectsAsMap(projectIdsFound);
+
+                                if (foundProjects != null) {
+                                    fingerprintResponse.exactMatches.stream()
+                                            .filter(em -> em != null && em.file != null
+                                                    && murmurHashes.containsKey(em.file.packageFingerprint))
+                                            .forEach(foundMod -> {
+                                                DisableableMod dm = murmurHashes
+                                                        .get(foundMod.file.packageFingerprint);
+
+                                                // add CurseForge information
+                                                dm.curseForgeProjectId = foundMod.id;
+                                                dm.curseForgeFile = foundMod.file;
+                                                dm.curseForgeFileId = foundMod.file.id;
+
+                                                CurseForgeProject curseForgeProject = foundProjects
+                                                        .get(foundMod.id);
+
+                                                if (curseForgeProject != null) {
+                                                    dm.curseForgeProject = curseForgeProject;
+                                                    dm.name = curseForgeProject.name;
+                                                    dm.description = curseForgeProject.summary;
+                                                }
+
+                                                LogManager.debug("Found matching mod from CurseForge called "
+                                                        + dm.curseForgeFile.displayName);
+                                            });
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (!App.settings.dontCheckModsOnModrinth) {
+                    Map<String, DisableableMod> sha1Hashes = new HashMap<>();
+
+                    mods.stream()
+                            .filter(dm -> dm.modrinthProject == null && dm.modrinthVersion == null)
+                            .filter(dm -> dm.getFile(ROOT, id) != null).forEach(dm -> {
+                                try {
+                                    sha1Hashes.put(Hashing
+                                            .sha1(dm.disabled ? dm.getDisabledFile(this).toPath()
+                                                    : dm
+                                                            .getFile(ROOT, id).toPath())
+                                            .toString(), dm);
+                                } catch (Throwable t) {
+                                    LogManager.logStackTrace(t);
+                                }
+                            });
+
+                    if (sha1Hashes.size() != 0) {
+                        Set<String> keys = sha1Hashes.keySet();
+                        Map<String, ModrinthVersion> modrinthVersions = ModrinthApi
+                                .getVersionsFromSha1Hashes(keys.toArray(new String[keys.size()]));
+
+                        if (modrinthVersions != null && modrinthVersions.size() != 0) {
+                            String[] projectIdsFound = modrinthVersions.values().stream().map(mv -> mv.projectId)
+                                    .toArray(String[]::new);
+
+                            if (projectIdsFound.length != 0) {
+                                Map<String, ModrinthProject> foundProjects = ModrinthApi
+                                        .getProjectsAsMap(projectIdsFound);
+
+                                if (foundProjects != null) {
+                                    for (Map.Entry<String, ModrinthVersion> entry : modrinthVersions.entrySet()) {
+                                        ModrinthVersion version = entry.getValue();
+                                        ModrinthProject project = foundProjects.get(version.projectId);
+
+                                        if (project != null) {
+                                            DisableableMod dm = sha1Hashes.get(entry.getKey());
+
+                                            // add Modrinth information
+                                            dm.modrinthProject = project;
+                                            dm.modrinthVersion = version;
+
+                                            if (!dm.isFromCurseForge()
+                                                    || App.settings.defaultModPlatform == ModPlatform.MODRINTH) {
+                                                dm.name = project.title;
+                                                dm.description = project.description;
+                                            }
+
+                                            LogManager.debug(String.format(
+                                                    "Found matching mod from Modrinth called %s with file %s",
+                                                    project.title, version.name));
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                mods.forEach(mod -> LogManager.info("Found extra mod with name of " + mod.file));
+                launcher.mods.addAll(mods);
+                save();
+                progressDialog.close();
+            }));
+
+            progressDialog.start();
+        }
+        PerformanceManager.end("Instance::scanMissingMods - CheckForAddedMods");
+
+        PerformanceManager.start("Instance::scanMissingMods - CheckForRemovedMods");
+        // next remove any mods that the no longer exist in the filesystem
+        List<DisableableMod> removedMods = launcher.mods.parallelStream().filter(mod -> {
+            if (!mod.wasSelected || mod.skipped || mod.type != com.atlauncher.data.Type.mods) {
+                return false;
+            }
+
+            if (mod.disabled) {
+                return (mod.getFile(this) != null && !mod.getDisabledFile(this).exists());
+            } else {
+                return (mod.getFile(this) != null && !mod.getFile(this).exists());
+            }
+        }).collect(Collectors.toList());
+
+        if (removedMods.size() != 0) {
+            removedMods.forEach(mod -> LogManager.info("Mod no longer in filesystem: " + mod.file));
+            launcher.mods.removeAll(removedMods);
+            save();
+        }
+        PerformanceManager.end("Instance::scanMissingMods - CheckForRemovedMods");
     }
 }

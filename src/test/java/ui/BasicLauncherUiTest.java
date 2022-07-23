@@ -18,13 +18,12 @@
 package ui;
 
 import java.awt.Dialog;
+import java.awt.event.KeyEvent;
 import java.nio.file.Files;
 import java.util.concurrent.TimeUnit;
 
-import com.atlauncher.constants.Constants;
-import com.atlauncher.gui.card.InstanceCard;
-
 import org.assertj.swing.core.GenericTypeMatcher;
+import org.assertj.swing.core.KeyPressInfo;
 import org.assertj.swing.core.matcher.JButtonMatcher;
 import org.assertj.swing.data.Index;
 import org.assertj.swing.finder.WindowFinder;
@@ -38,6 +37,9 @@ import org.assertj.swing.timing.Condition;
 import org.assertj.swing.timing.Pause;
 import org.assertj.swing.timing.Timeout;
 import org.junit.Test;
+
+import com.atlauncher.constants.Constants;
+import com.atlauncher.gui.card.InstanceCard;
 
 import ui.mocks.MockHelper;
 
@@ -76,7 +78,9 @@ public class BasicLauncherUiTest extends AbstractUiTest {
                 "3b60a1f6d562f52aaebbf1434f1de147933a3affe0e764fa49ea057536623cd3.png");
 
         usernameField.setText("test@example.com");
+        usernameField.pressAndReleaseKey(KeyPressInfo.keyCode(KeyEvent.VK_M));
         passwordField.setText("password");
+        passwordField.pressAndReleaseKey(KeyPressInfo.keyCode(KeyEvent.VK_D));
 
         // login
         loginButton.click();
@@ -101,7 +105,7 @@ public class BasicLauncherUiTest extends AbstractUiTest {
         MockHelper.mockCdnJson(mockServer, "GET", "/containers/atl/packs/VanillaMinecraft/versions/1.16.4/Configs.json",
                 "vanilla-1-16-4-configs.json");
         MockHelper.mockJson(mockServer, "GET", "launchermeta.mojang.com",
-                "/v1/packages/8c72b5155010a100c70a558c6a7bef3e923c8525/1.16.4.json", "1.16.4.json");
+                "/v1/packages/99586066f9142b08f3f2e705ec306cae2ab860f5/1.16.4.json", "1.16.4.json");
         MockHelper.mockJson(mockServer, "GET", "launchermeta.mojang.com",
                 "/v1/packages/f8e11ca03b475dd655755b945334c7a0ac2c3b43/1.16.json", "1.16.json");
         MockHelper.mockPng(mockServer, "GET", "resources.download.minecraft.net",

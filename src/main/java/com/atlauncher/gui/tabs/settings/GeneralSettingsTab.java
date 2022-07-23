@@ -36,6 +36,8 @@ import javax.swing.JFileChooser;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 
+import org.mini2Dx.gettext.GetText;
+
 import com.atlauncher.App;
 import com.atlauncher.FileSystem;
 import com.atlauncher.builders.HTMLBuilder;
@@ -47,8 +49,6 @@ import com.atlauncher.utils.ComboItem;
 import com.atlauncher.utils.OS;
 import com.atlauncher.utils.Utils;
 import com.atlauncher.utils.sort.InstanceSortingStrategies;
-
-import org.mini2Dx.gettext.GetText;
 
 @SuppressWarnings("serial")
 public class GeneralSettingsTab extends AbstractSettingsTab {
@@ -171,7 +171,14 @@ public class GeneralSettingsTab extends AbstractSettingsTab {
             dateFormat.addItem(new ComboItem<>(format, new SimpleDateFormat(format).format(exampleDate)));
         }
 
-        dateFormat.setSelectedItem(App.settings.dateFormat);
+        for (int i = 0; i < dateFormat.getItemCount(); i++) {
+            ComboItem<String> item = dateFormat.getItemAt(i);
+
+            if (item.getValue().equalsIgnoreCase(App.settings.dateFormat)) {
+                dateFormat.setSelectedIndex(i);
+                break;
+            }
+        }
 
         add(dateFormat, gbc);
 
@@ -197,7 +204,14 @@ public class GeneralSettingsTab extends AbstractSettingsTab {
                     GetText.tr("Pack Name"), GetText.tr("Pack Version"), GetText.tr("Minecraft Version"))));
         }
 
-        instanceTitleFormat.setSelectedItem(App.settings.instanceTitleFormat);
+        for (int i = 0; i < instanceTitleFormat.getItemCount(); i++) {
+            ComboItem<String> item = instanceTitleFormat.getItemAt(i);
+
+            if (item.getValue().equalsIgnoreCase(App.settings.instanceTitleFormat)) {
+                instanceTitleFormat.setSelectedIndex(i);
+                break;
+            }
+        }
 
         add(instanceTitleFormat, gbc);
 
@@ -245,8 +259,9 @@ public class GeneralSettingsTab extends AbstractSettingsTab {
         gbc.insets = UIConstants.LABEL_INSETS;
         gbc.anchor = GridBagConstraints.BASELINE_TRAILING;
 
-        JLabelWithHover defaultInstanceSortingLabel = new JLabelWithHover(GetText.tr("Default Tab") + ":", HELP_ICON,
-                GetText.tr("Which tab to have selected by default when opening the launcher."));
+        JLabelWithHover defaultInstanceSortingLabel = new JLabelWithHover(GetText.tr("Default Instance Sort") + ":",
+                HELP_ICON,
+                GetText.tr("Default sorting of instances under the Instances tab."));
 
         add(defaultInstanceSortingLabel, gbc);
 

@@ -152,7 +152,18 @@ public class ModrinthApi {
                 queryParamsString += "&";
             }
 
-            queryParamsString += String.format("loaders=[\"%s\"]", loaderVersion.isFabric() ? "fabric" : "forge");
+            List<String> loaders = new ArrayList<>();
+
+            if (loaderVersion.isForge()) {
+                loaders.add("forge");
+            } else if (loaderVersion.isFabric()) {
+                loaders.add("fabric");
+            } else if (loaderVersion.isQuilt()) {
+                loaders.add("fabric");
+                loaders.add("quilt");
+            }
+
+            queryParamsString += String.format("loaders=%s", Gsons.DEFAULT_SLIM.toJson(loaders));
         }
 
         return Download.build()
@@ -257,7 +268,7 @@ public class ModrinthApi {
             List<ModrinthProject> projects = getProjects(projectIds);
 
             if (projects != null) {
-                return projects.stream().distinct().collect(Collectors.toMap(p -> p.id, p -> p));
+                return projects.stream().distinct().collect(Collectors.toMap(p -> p.id, p -> p, (existing, replacement) -> existing));
             }
         } catch (Throwable t) {
             LogManager.logStackTrace("Error trying to get Modrinth projects as map", t);

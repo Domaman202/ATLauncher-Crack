@@ -29,7 +29,7 @@ public class Constants {
     static {
         String versionFromFile = new BufferedReader(
                 new InputStreamReader(App.class.getResourceAsStream("/version"), StandardCharsets.UTF_8)).lines()
-                        .collect(Collectors.joining("")).trim();
+                .collect(Collectors.joining("")).trim();
         String[] versionParts = versionFromFile.split("\\.", 4);
 
         String stream = "Release";
@@ -46,6 +46,7 @@ public class Constants {
     // Launcher config
     public static final LauncherVersion VERSION;
     public static final String LAUNCHER_NAME = "ATLauncher";
+    public static final String LAUNCHER_WEBSITE = "https://atlauncher.com";
     public static final String DEFAULT_THEME_CLASS = "com.atlauncher.themes.Dark";
     public static final String DISCORD_CLIENT_ID = "589393213723246592";
     public static final String GA_TRACKING_ID = "UA-88820616-7";
@@ -71,7 +72,8 @@ public class Constants {
 
     // CurseForge domains, endpoints, config, etc
     public static final String CURSEFORGE_CORE_API_URL = "https://api.curseforge.com/v1";
-    // if you fork or modify this launcher, you must not use this API key and apply for your own
+    // if you fork or modify this launcher, you must not use this API key and apply
+    // for your own
     public static final String CURSEFORGE_CORE_API_KEY = "$2a$10$.7CSxLm/lnj5lCBSM5jGQ.3SICSX4j9r661AgoB1Rc4Nw8jCMKcv2";
     public static final String CURSEFORGE_CORE_API_HOST = "api.curseforge.com";
     public static final int CURSEFORGE_FORGE_MODLOADER_ID = 1;

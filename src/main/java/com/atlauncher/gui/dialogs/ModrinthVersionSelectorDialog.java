@@ -40,6 +40,7 @@ import javax.swing.JScrollPane;
 import org.mini2Dx.gettext.GetText;
 
 import com.atlauncher.App;
+import com.atlauncher.constants.Constants;
 import com.atlauncher.data.AddModRestriction;
 import com.atlauncher.data.Instance;
 import com.atlauncher.data.modrinth.ModrinthDependency;
@@ -133,8 +134,26 @@ public class ModrinthVersionSelectorDialog extends JDialog {
             List<ModrinthDependency> dependenciesNeeded = dependencies.stream()
                     .filter(dependency -> dependency.dependencyType == ModrinthDependencyType.REQUIRED
                             && instance.launcher.mods.stream()
-                                    .noneMatch(installedMod -> installedMod.isFromModrinth()
-                                            && installedMod.modrinthProject.id.equals(dependency.projectId)))
+                                    .noneMatch(installedMod -> {
+                                        // don't show Modrinth dependency when grabbed from CurseForge
+                                        if (dependency.projectId.equals(Constants.MODRINTH_FABRIC_MOD_ID)
+                                                && installedMod.isFromCurseForge()
+                                                && installedMod
+                                                        .getCurseForgeFileId() == Constants.CURSEFORGE_FABRIC_MOD_ID) {
+                                            return true;
+                                        }
+
+                                        // don't show Fabric dependency when QSL is installed
+                                        if (dependency.projectId.equals(Constants.MODRINTH_FABRIC_MOD_ID)
+                                                && installedMod.isFromModrinth()
+                                                && installedMod.modrinthProject.id
+                                                        .equals(Constants.MODRINTH_QSL_MOD_ID)) {
+                                            return true;
+                                        }
+
+                                        return installedMod.isFromModrinth()
+                                                && installedMod.modrinthProject.id.equals(dependency.projectId);
+                                    }))
                     .collect(Collectors.toList());
 
             if (dependenciesNeeded.size() != 0) {
