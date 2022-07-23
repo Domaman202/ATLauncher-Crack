@@ -17,6 +17,7 @@
  */
 package com.atlauncher.gui.tabs.accounts;
 
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
@@ -156,15 +157,17 @@ public class AccountsViewModel implements IAccountsViewModel {
         }
         return null;
     }
-
     private void addNewAccount(LoginResponse response) {
+        // generate proper UUID like Minecraft Launcher does in offline mode (https://forums.spongepowered.org/t/why-are-the-uuids-changing-in-offline-mode/20237/2)
+        UUID offlineUUID = UUID.nameUUIDFromBytes(("OfflinePlayer:" + loginUsername).getBytes(StandardCharsets.UTF_8));
+
         MojangAccount account = new MojangAccount(loginUsername,
-                loginPassword,
-                loginUsername,
-                UUID.randomUUID().toString(),
-                false,
-                "",
-                new HashMap<>());
+            loginPassword,
+            loginUsername,
+            offlineUUID.toString(),
+            false,
+            "",
+            new HashMap<>());
 
         AccountManager.addAccount(account);
         pushNewAccounts();
