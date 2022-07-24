@@ -32,6 +32,8 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 
+import org.mini2Dx.gettext.GetText;
+
 import com.atlauncher.App;
 import com.atlauncher.builders.HTMLBuilder;
 import com.atlauncher.data.Instance;
@@ -51,8 +53,6 @@ import com.atlauncher.managers.LogManager;
 import com.atlauncher.managers.ServerManager;
 import com.atlauncher.utils.FileUtils;
 import com.atlauncher.workers.InstanceInstaller;
-
-import org.mini2Dx.gettext.GetText;
 
 public abstract class Installable {
     public String instanceName;
@@ -162,7 +162,7 @@ public abstract class Installable {
         final InstanceInstaller instanceInstaller = new InstanceInstaller(instanceName, pack, version, isReinstall,
                 isServer, changingLoader, saveMods, null, showModsChooser, loaderVersion, curseForgeManifest,
                 curseExtractedPath, modpacksChPackManifest, modrinthManifest, modrinthExtractedPath, multiMCManifest,
-                multiMCExtractedPath, technicModpack) {
+                multiMCExtractedPath, technicModpack, dialog) {
 
             protected void done() {
                 Boolean success = false;
@@ -179,6 +179,13 @@ public abstract class Installable {
                         // #. {0} is the pack name and {1} is the pack version
                         text = GetText.tr("{0} {1} wasn't reinstalled.<br/><br/>Check error logs for more information.",
                                 pack.getName(), version.version);
+
+                        if (instanceIsCorrupt && instance != null) {
+                            instance.launcher.isPlayable = false;
+                            instance.save();
+
+                            App.launcher.reloadInstancesPanel();
+                        }
                     } else {
                         // #. {0} is the pack name and {1} is the pack version
                         title = GetText.tr("{0} {1} Not Installed", pack.getName(), version.version);

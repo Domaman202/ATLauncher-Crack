@@ -209,7 +209,7 @@ public class CurseForgeApi {
 
         CurseForgeCoreApiResponse<List<CurseForgeProject>> response = download.asType(type);
 
-        if (response != null) {
+        if (response != null && response.data.size() != 0) {
             return response.data.get(0);
         }
 
@@ -221,7 +221,8 @@ public class CurseForgeApi {
             List<CurseForgeProject> projects = getProjects(addonIds);
 
             if (projects != null) {
-                return projects.stream().distinct().collect(Collectors.toMap(p -> p.id, p -> p));
+                return projects.stream().distinct()
+                        .collect(Collectors.toMap(p -> p.id, p -> p, (existing, replacement) -> existing));
             }
         } catch (Throwable t) {
             LogManager.logStackTrace("Error trying to get CurseForge projects as map", t);

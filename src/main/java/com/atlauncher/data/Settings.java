@@ -66,6 +66,7 @@ public class Settings {
     public String instanceTitleFormat = Constants.INSTANCE_TITLE_FORMATS[0];
     public InstanceSortingStrategies defaultInstanceSorting = InstanceSortingStrategies.BY_NAME;
     public int selectedTabOnStartup = 0;
+    public String customDownloadsPath = null;
     public Boolean showPackNameAndVersion = null;
     public boolean keepLauncherOpen = true;
     public boolean enableConsole = true;
@@ -82,6 +83,7 @@ public class Settings {
     public AddModRestriction addModRestriction = AddModRestriction.STRICT;
     public boolean enableAddedModsByDefault = true;
     public boolean dontCheckModsOnCurseForge = false;
+    public boolean dontCheckModsOnModrinth = false;
     public InstanceExportFormat defaultExportFormat = InstanceExportFormat.CURSEFORGE;
 
     // Java/Minecraft

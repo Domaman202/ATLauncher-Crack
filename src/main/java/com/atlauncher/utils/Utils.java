@@ -80,6 +80,10 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.ScrollPaneConstants;
 
+import org.apache.commons.io.IOUtils;
+import org.tukaani.xz.LZMAInputStream;
+import org.tukaani.xz.XZInputStream;
+
 import com.atlauncher.App;
 import com.atlauncher.Gsons;
 import com.atlauncher.Network;
@@ -90,10 +94,6 @@ import com.atlauncher.data.minecraft.MCMod;
 import com.atlauncher.data.openmods.OpenEyeReportResponse;
 import com.atlauncher.managers.LogManager;
 import com.google.gson.reflect.TypeToken;
-
-import org.apache.commons.io.IOUtils;
-import org.tukaani.xz.LZMAInputStream;
-import org.tukaani.xz.XZInputStream;
 
 import net.iharder.Base64;
 
@@ -318,7 +318,7 @@ public class Utils {
                 destination = new FileOutputStream(to).getChannel();
                 destination.transferFrom(source, 0, source.size());
             } else {
-                sourceStream = ArchiveUtils.createStream(from.toPath());
+                sourceStream = ArchiveUtils.createInputStream(from.toPath());
                 destinationStream = new FileOutputStream(to);
                 IOUtils.copy(sourceStream, destinationStream);
             }

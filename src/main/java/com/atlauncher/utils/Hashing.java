@@ -22,11 +22,11 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import org.apache.commons.lang3.ArrayUtils;
+
 import com.atlauncher.managers.LogManager;
 import com.google.common.hash.HashCode;
 import com.sangupta.murmur.Murmur2;
-
-import org.apache.commons.lang3.ArrayUtils;
 
 public final class Hashing {
     public static final HashCode EMPTY_HASH_CODE = HashCode.fromBytes(new byte[1]);

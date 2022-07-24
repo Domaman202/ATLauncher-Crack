@@ -15,20 +15,25 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package com.atlauncher.data.modpacksch;
+package com.atlauncher.gui.tabs.news;
 
-import com.google.gson.annotations.SerializedName;
+import com.atlauncher.managers.NewsManager;
 
-public enum ModpacksChPackVersionManifectFileType {
-    @SerializedName("config")
-    CONFIG,
+import java.util.function.Consumer;
 
-    @SerializedName("mod")
-    MOD,
+/**
+ * 14 / 06 / 2022
+ */
+public class NewsViewModel implements INewsViewModel {
+    private Consumer<String> _onReload;
 
-    @SerializedName("resource")
-    RESOURCE,
+    @Override
+    public void addOnReloadListener(Consumer<String> onReload) {
+        _onReload = onReload;
+    }
 
-    @SerializedName("script")
-    SCRIPT
+    @Override
+    public void reload() {
+        _onReload.accept(NewsManager.getNewsHTML());
+    }
 }

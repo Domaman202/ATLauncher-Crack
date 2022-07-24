@@ -15,14 +15,16 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package com.atlauncher.data.modpacksch;
+package com.atlauncher.data.minecraft.loaders.forge;
 
-import com.google.gson.annotations.SerializedName;
+public class FMLLibrary {
+    public String name;
+    public String sha1Hash;
+    public Long size;
 
-public enum ModpacksChPackVersionManifectTargetType {
-    @SerializedName("modloader")
-    MODLOADER,
-
-    @SerializedName("game")
-    GAME
+    public FMLLibrary(String name, String sha1Hash, Long size) {
+        this.name = name;
+        this.sha1Hash = sha1Hash;
+        this.size = size;
+    }
 }

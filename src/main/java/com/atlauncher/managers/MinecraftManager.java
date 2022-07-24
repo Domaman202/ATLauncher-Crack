@@ -27,6 +27,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.joda.time.format.ISODateTimeFormat;
+
 import com.atlauncher.Data;
 import com.atlauncher.FileSystem;
 import com.atlauncher.Gsons;
@@ -41,9 +43,9 @@ import com.google.gson.JsonIOException;
 import com.google.gson.JsonSyntaxException;
 import com.google.gson.reflect.TypeToken;
 
-import org.joda.time.format.ISODateTimeFormat;
-
 public class MinecraftManager {
+    private static boolean forceReloaded = false;
+
     public static void loadMinecraftVersions() {
         loadMinecraftVersions(false);
     }
@@ -149,6 +151,11 @@ public class MinecraftManager {
     }
 
     public static VersionManifestVersion getMinecraftVersion(String version) throws InvalidMinecraftVersion {
+        if (!Data.MINECRAFT.containsKey(version) && !forceReloaded) {
+            forceReloaded = true;
+            MinecraftManager.loadMinecraftVersions(true);
+        }
+
         if (!Data.MINECRAFT.containsKey(version)) {
             throw new InvalidMinecraftVersion("No Minecraft version found matching " + version);
         }
@@ -168,8 +175,18 @@ public class MinecraftManager {
         }
 
         return Data.MINECRAFT.entrySet().stream()
-                .filter(e -> e.getValue().type == VersionManifestVersionType.RELEASE
-                        && e.getKey().startsWith(version.substring(0, version.lastIndexOf("."))))
+                .filter(e -> {
+                    if (e.getValue().type != VersionManifestVersionType.RELEASE) {
+                        return false;
+                    }
+
+                    // no patch version (for instance 1.19, 1.18, etc)
+                    if (version.split("\\.").length == 2) {
+                        return e.getKey().startsWith(version);
+                    }
+
+                    return e.getKey().startsWith(version.substring(0, version.lastIndexOf(".")));
+                })
                 .map(e -> e.getValue()).collect(Collectors.toList());
     }
 

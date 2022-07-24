@@ -38,6 +38,8 @@ import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTextArea;
 
+import org.mini2Dx.gettext.GetText;
+
 import com.atlauncher.App;
 import com.atlauncher.Gsons;
 import com.atlauncher.builders.HTMLBuilder;
@@ -65,8 +67,6 @@ import com.atlauncher.network.Analytics;
 import com.atlauncher.utils.OS;
 import com.atlauncher.utils.Utils;
 import com.google.gson.reflect.TypeToken;
-
-import org.mini2Dx.gettext.GetText;
 
 /**
  * <p/>
@@ -112,6 +112,7 @@ public class InstanceCard extends CollapsiblePanel implements RelocalizationList
 
     private final JPopupMenu editInstancePopupMenu = new JPopupMenu();
     private final JMenuItem reinstallMenuItem = new JMenuItem(GetText.tr("Reinstall"));
+    private final JMenuItem cloneMenuItem = new JMenuItem(GetText.tr("Clone"));
     private final JMenuItem renameMenuItem = new JMenuItem(GetText.tr("Rename"));
     private final JMenuItem changeDescriptionMenuItem = new JMenuItem(GetText.tr("Change Description"));
     private final JMenuItem changeImageMenuItem = new JMenuItem(GetText.tr("Change Image"));
@@ -281,6 +282,7 @@ public class InstanceCard extends CollapsiblePanel implements RelocalizationList
 
     private void setupEditInstanceButton() {
         editInstancePopupMenu.add(reinstallMenuItem);
+        editInstancePopupMenu.add(cloneMenuItem);
         editInstancePopupMenu.add(renameMenuItem);
         editInstancePopupMenu.add(changeDescriptionMenuItem);
         editInstancePopupMenu.add(changeImageMenuItem);
@@ -313,6 +315,7 @@ public class InstanceCard extends CollapsiblePanel implements RelocalizationList
         setEditInstanceMenuItemVisbility();
 
         reinstallMenuItem.addActionListener(e -> instance.startReinstall());
+        cloneMenuItem.addActionListener(e -> instance.startClone());
         renameMenuItem.addActionListener(e -> instance.startRename());
         changeDescriptionMenuItem.addActionListener(e -> {
             instance.startChangeDescription();

@@ -67,7 +67,7 @@ public class Forge113Loader extends ForgeLoader {
                         new File(tempDir,
                                 "maven/" + library.downloads.artifact.path.substring(0,
                                         library.downloads.artifact.path.lastIndexOf(".jar")) + "-universal.jar")
-                                                .toPath(),
+                                .toPath(),
                         FileSystem.LIBRARIES.resolve(library.downloads.artifact.path.substring(0,
                                 library.downloads.artifact.path.lastIndexOf(".jar")) + "-universal.jar"),
                         true);

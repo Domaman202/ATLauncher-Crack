@@ -17,10 +17,22 @@
  */
 package com.atlauncher.data.modpacksch;
 
-public class ModpacksChPackVersionManifectTarget {
-    public String version;
+import java.util.List;
+
+public class ModpacksChPackVersionModsManifest {
+    public ModpacksChPackVersionSpecs specs;
+    public List<ModpacksChPackVersionManifestTarget> targets;
+    public int installs;
+    public int plays;
+    public int refreshed;
+    public String changelog;
+    public int parent;
+    public String notification;
+    public List<Object> links;
+    public String status;
     public int id;
     public String name;
-    public ModpacksChPackVersionManifectTargetType type;
+    public String type;
     public int updated;
+    public List<ModpacksChPackVersionManifestMod> mods;
 }

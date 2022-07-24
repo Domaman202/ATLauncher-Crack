@@ -22,16 +22,19 @@ import java.awt.Dialog.ModalityType;
 import java.awt.Dimension;
 import java.awt.Graphics2D;
 import java.awt.Image;
+import java.awt.Window;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -39,15 +42,19 @@ import java.nio.file.Paths;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
+import javax.imageio.IIOException;
 import javax.imageio.ImageIO;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -63,6 +70,8 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
+import org.mini2Dx.gettext.GetText;
+
 import com.atlauncher.App;
 import com.atlauncher.Data;
 import com.atlauncher.FileSystem;
@@ -72,6 +81,7 @@ import com.atlauncher.annot.Json;
 import com.atlauncher.builders.HTMLBuilder;
 import com.atlauncher.constants.Constants;
 import com.atlauncher.data.curseforge.CurseForgeFile;
+import com.atlauncher.data.curseforge.CurseForgeFileHash;
 import com.atlauncher.data.curseforge.CurseForgeFingerprint;
 import com.atlauncher.data.curseforge.CurseForgeProject;
 import com.atlauncher.data.curseforge.pack.CurseForgeManifest;
@@ -99,6 +109,7 @@ import com.atlauncher.data.minecraft.loaders.quilt.QuiltLoader;
 import com.atlauncher.data.modpacksch.ModpacksChPackVersion;
 import com.atlauncher.data.modrinth.ModrinthFile;
 import com.atlauncher.data.modrinth.ModrinthProject;
+import com.atlauncher.data.modrinth.ModrinthSide;
 import com.atlauncher.data.modrinth.ModrinthVersion;
 import com.atlauncher.data.modrinth.pack.ModrinthModpackFile;
 import com.atlauncher.data.modrinth.pack.ModrinthModpackManifest;
@@ -115,6 +126,7 @@ import com.atlauncher.gui.dialogs.InstanceInstallerDialog;
 import com.atlauncher.gui.dialogs.ProgressDialog;
 import com.atlauncher.gui.dialogs.RenameInstanceDialog;
 import com.atlauncher.managers.AccountManager;
+import com.atlauncher.managers.ConfigManager;
 import com.atlauncher.managers.CurseForgeUpdateManager;
 import com.atlauncher.managers.DialogManager;
 import com.atlauncher.managers.InstanceManager;
@@ -141,8 +153,6 @@ import com.atlauncher.utils.Utils;
 import com.atlauncher.utils.ZipNameMapper;
 import com.google.gson.JsonIOException;
 
-import org.mini2Dx.gettext.GetText;
-
 import net.arikia.dev.drpc.DiscordRPC;
 import net.arikia.dev.drpc.DiscordRichPresence;
 import okhttp3.HttpUrl;
@@ -155,13 +165,18 @@ public class Instance extends MinecraftVersion {
 
     public transient Path ROOT;
 
-    private Instant lastPlayed;
-    private long numPlays;
+    /**
+     * @deprecated moved within launcher property
+     */
+    public transient Instant lastPlayed;
+
+    /**
+     * @deprecated moved within launcher property
+     */
+    public transient long numPlays;
 
     public Instance(MinecraftVersion version) {
         setValues(version);
-        this.numPlays = 0;
-        this.lastPlayed = Instant.EPOCH;
     }
 
     public void setValues(MinecraftVersion version) {
@@ -315,19 +330,23 @@ public class Instance extends MinecraftVersion {
         if (customImage.exists()) {
             try {
                 BufferedImage img = ImageIO.read(customImage);
+                if (img != null) {
+                    // if a square image, then make it 300x150 (without stretching) centered
+                    if (img.getHeight(null) == img.getWidth(null)) {
+                        BufferedImage dimg = new BufferedImage(300, 150, BufferedImage.TYPE_INT_ARGB);
 
-                // if a square image, then make it 300x150 (without stretching) centered
-                if (img.getHeight(null) == img.getWidth(null)) {
-                    BufferedImage dimg = new BufferedImage(300, 150, BufferedImage.TYPE_INT_ARGB);
+                        Graphics2D g2d = dimg.createGraphics();
+                        g2d.drawImage(img, 75, 0, 150, 150, null);
+                        g2d.dispose();
 
-                    Graphics2D g2d = dimg.createGraphics();
-                    g2d.drawImage(img, 75, 0, 150, 150, null);
-                    g2d.dispose();
+                        return new ImageIcon(dimg);
+                    }
 
-                    return new ImageIcon(dimg);
+                    return new ImageIcon(img.getScaledInstance(300, 150, Image.SCALE_SMOOTH));
                 }
-
-                return new ImageIcon(img.getScaledInstance(300, 150, Image.SCALE_SMOOTH));
+            } catch (IIOException e) {
+                LogManager.warn("Error creating scaled image from the custom image of instance " + this.launcher.name
+                        + ". Using default image.");
             } catch (Exception e) {
                 LogManager.logStackTrace(
                         "Error creating scaled image from the custom image of instance " + this.launcher.name, e,
@@ -1256,8 +1275,11 @@ public class Instance extends MinecraftVersion {
         // delete mod files that are the same mod id
         sameMods.forEach(disableableMod -> Utils.delete(disableableMod.getFile(this)));
 
-        // TODO: for some reason we never checked hashes, even when downloading from the
-        // api, so do that at some point when it's not 4am on a weekday
+        Optional<CurseForgeFileHash> md5Hash = file.hashes.stream().filter(h -> h.isMd5())
+                .findFirst();
+        Optional<CurseForgeFileHash> sha1Hash = file.hashes.stream().filter(h -> h.isSha1())
+                .findFirst();
+
         if (file.downloadUrl == null) {
             if (!App.settings.seenCurseForgeProjectDistributionDialog) {
                 App.settings.seenCurseForgeProjectDistributionDialog = true;
@@ -1272,9 +1294,20 @@ public class Instance extends MinecraftVersion {
             }
 
             dialog.setIndeterminate();
+            String filename = file.fileName.replace(" ", "+");
             File fileLocation = downloadLocation.toFile();
+            // if file downloaded already, but hashes don't match, delete it
+            if (fileLocation.exists()
+                    && ((md5Hash.isPresent()
+                            && !Hashing.md5(fileLocation.toPath()).equals(Hashing.toHashCode(md5Hash.get().value)))
+                            || (sha1Hash.isPresent()
+                                    && !Hashing.sha1(fileLocation.toPath())
+                                            .equals(Hashing.toHashCode(sha1Hash.get().value))))) {
+                FileUtils.delete(fileLocation.toPath());
+            }
+
             if (!fileLocation.exists()) {
-                File downloadsFolderFile = new File(FileSystem.USER_DOWNLOADS.toFile(), file.fileName);
+                File downloadsFolderFile = new File(FileSystem.getUserDownloadsPath().toFile(), filename);
                 if (downloadsFolderFile.exists()) {
                     Utils.moveFile(downloadsFolderFile, fileLocation, true);
                 }
@@ -1283,21 +1316,22 @@ public class Instance extends MinecraftVersion {
                     int retValue = 1;
                     do {
                         if (retValue == 1) {
-                            OS.openWebBrowser(String.format("https://www.curseforge.com/minecraft/%s/%s/download/%d",
-                                    mod.getClassUrlSlug(), mod.slug, file.id));
+                            OS.openWebBrowser(mod.getBrowserDownloadUrl(file));
                         }
 
                         retValue = DialogManager.optionDialog()
                                 .setTitle(GetText.tr("Downloading") + " "
-                                        + file.fileName)
+                                        + filename)
                                 .setContent(new HTMLBuilder().center().text(GetText.tr(
                                         "Browser opened to download file {0}",
-                                        file.fileName)
+                                        filename)
                                         + "<br/><br/>" + GetText.tr("Please save this file to the following location")
                                         + "<br/><br/>"
-                                        + (OS.isUsingMacApp() ? FileSystem.USER_DOWNLOADS.toFile().getAbsolutePath()
-                                                : FileSystem.DOWNLOADS.toAbsolutePath().toString() + " or<br/>"
-                                                        + FileSystem.USER_DOWNLOADS.toFile()))
+                                        + (OS.isUsingMacApp()
+                                                ? FileSystem.getUserDownloadsPath().toFile().getAbsolutePath()
+                                                : FileSystem.DOWNLOADS.toAbsolutePath().toString()
+                                                        + " or<br/>"
+                                                        + FileSystem.getUserDownloadsPath().toFile()))
                                         .build())
                                 .addOption(GetText.tr("Open Folder"), true)
                                 .addOption(GetText.tr("I've Downloaded This File")).setType(DialogManager.INFO)
@@ -1320,11 +1354,21 @@ public class Instance extends MinecraftVersion {
                         if (zipAddedFile.exists()) {
                             Utils.moveFile(zipAddedFile, fileLocation, true);
                         } else {
-                            zipAddedFile = new File(FileSystem.USER_DOWNLOADS.toFile(), file.fileName + ".zip");
+                            zipAddedFile = new File(FileSystem.getUserDownloadsPath().toFile(), file.fileName + ".zip");
                             if (zipAddedFile.exists()) {
                                 Utils.moveFile(zipAddedFile, fileLocation, true);
                             }
                         }
+                    }
+
+                    // file downloaded, but hashes don't match, delete it
+                    if (fileLocation.exists()
+                            && ((md5Hash.isPresent() && !Hashing.md5(fileLocation.toPath())
+                                    .equals(Hashing.toHashCode(md5Hash.get().value)))
+                                    || (sha1Hash.isPresent()
+                                            && !Hashing.sha1(fileLocation.toPath())
+                                                    .equals(Hashing.toHashCode(sha1Hash.get().value))))) {
+                        FileUtils.delete(fileLocation.toPath());
                     }
                 }
             }
@@ -1360,6 +1404,12 @@ public class Instance extends MinecraftVersion {
                 }
             }
 
+            if (md5Hash.isPresent()) {
+                download = download.hash(md5Hash.get().value);
+            } else if (sha1Hash.isPresent()) {
+                download = download.hash(sha1Hash.get().value);
+            }
+
             if (download.needToDownload()) {
                 try {
                     download.downloadFile();
@@ -1383,9 +1433,8 @@ public class Instance extends MinecraftVersion {
         // add this mod
         this.launcher.mods.add(new DisableableMod(mod.name, file.displayName, true, file.fileName,
                 mod.getRootCategoryId() == Constants.CURSEFORGE_RESOURCE_PACKS_SECTION_ID ? Type.resourcepack
-                        : (mod.getRootCategoryId() == Constants.CURSEFORGE_WORLDS_SECTION_ID ? Type.worlds
-                                : Type.mods),
-                null, mod.summary, false, true, true, mod, file));
+                        : (mod.getRootCategoryId() == Constants.CURSEFORGE_WORLDS_SECTION_ID ? Type.worlds : Type.mods),
+                null, mod.summary, false, true, true, false, mod, file));
 
         this.save();
 
@@ -1393,8 +1442,9 @@ public class Instance extends MinecraftVersion {
         App.TOASTER.pop(GetText.tr("{0} Installed", mod.name));
     }
 
-    public void addFileFromModrinth(ModrinthProject mod, ModrinthVersion version, ProgressDialog dialog) {
-        ModrinthFile fileToDownload = version.getPrimaryFile();
+    public void addFileFromModrinth(ModrinthProject mod, ModrinthVersion version, ModrinthFile file,
+            ProgressDialog dialog) {
+        ModrinthFile fileToDownload = Optional.ofNullable(file).orElse(version.getPrimaryFile());
 
         Path downloadLocation = FileSystem.DOWNLOADS.resolve(fileToDownload.filename);
         Path finalLocation = this.getRoot().resolve("mods").resolve(fileToDownload.filename);
@@ -1448,7 +1498,7 @@ public class Instance extends MinecraftVersion {
 
         // add this mod
         this.launcher.mods.add(new DisableableMod(mod.title, version.name, true, fileToDownload.filename, Type.mods,
-                null, mod.description, false, true, true, mod, version));
+                null, mod.description, false, true, true, false, mod, version));
 
         this.save();
 
@@ -1529,6 +1579,12 @@ public class Instance extends MinecraftVersion {
             return exportAsCurseForgeZip(name, version, author, saveTo, overrides);
         } else if (format == InstanceExportFormat.MODRINTH) {
             return exportAsModrinthZip(name, version, author, saveTo, overrides);
+        } else if (format == InstanceExportFormat.CURSEFORGE_AND_MODRINTH) {
+            if (!exportAsCurseForgeZip(name, version, author, saveTo, overrides)) {
+                return false;
+            }
+
+            return exportAsModrinthZip(name, version, author, saveTo, overrides);
         } else if (format == InstanceExportFormat.MULTIMC) {
             return exportAsMultiMcZip(name, version, author, saveTo, overrides);
         }
@@ -1538,7 +1594,8 @@ public class Instance extends MinecraftVersion {
 
     public boolean exportAsMultiMcZip(String name, String version, String author, String saveTo,
             List<String> overrides) {
-        Path to = Paths.get(saveTo).resolve(name + ".zip");
+        String safePathName = name.replaceAll("[\\\"?:*<>|]", "");
+        Path to = Paths.get(saveTo).resolve(safePathName + ".zip");
         MultiMCManifest manifest = new MultiMCManifest();
 
         manifest.formatVersion = 1;
@@ -1660,7 +1717,7 @@ public class Instance extends MinecraftVersion {
         }
 
         // create temp directory to put this in
-        Path tempDir = FileSystem.TEMP.resolve(this.launcher.name + "-export");
+        Path tempDir = FileSystem.TEMP.resolve(this.getSafeName() + "-export");
         FileUtils.createDirectory(tempDir);
 
         // create mmc-pack.json
@@ -1758,7 +1815,7 @@ public class Instance extends MinecraftVersion {
         FileUtils.createDirectory(dotMinecraftPath);
 
         for (String path : overrides) {
-            if (!path.equalsIgnoreCase(name + ".zip") && getRoot().resolve(path).toFile().exists()
+            if (!path.equalsIgnoreCase(safePathName + ".zip") && getRoot().resolve(path).toFile().exists()
                     && (getRoot().resolve(path).toFile().isFile()
                             || getRoot().resolve(path).toFile().list().length != 0)) {
                 if (getRoot().resolve(path).toFile().isDirectory()) {
@@ -1778,7 +1835,8 @@ public class Instance extends MinecraftVersion {
 
     public boolean exportAsCurseForgeZip(String name, String version, String author, String saveTo,
             List<String> overrides) {
-        Path to = Paths.get(saveTo).resolve(name + ".zip");
+        String safePathName = name.replaceAll("[\\\"?:*<>|]", "");
+        Path to = Paths.get(saveTo).resolve(String.format("%s %s.zip", safePathName, version));
         CurseForgeManifest manifest = new CurseForgeManifest();
 
         // for any mods not from CurseForge, scan for them on CurseForge
@@ -1870,7 +1928,7 @@ public class Instance extends MinecraftVersion {
         manifest.overrides = "overrides";
 
         // create temp directory to put this in
-        Path tempDir = FileSystem.TEMP.resolve(this.launcher.name + "-export");
+        Path tempDir = FileSystem.TEMP.resolve(this.getSafeName() + "-export");
         FileUtils.createDirectory(tempDir);
 
         // create manifest.json
@@ -1911,7 +1969,7 @@ public class Instance extends MinecraftVersion {
         FileUtils.createDirectory(overridesPath);
 
         for (String path : overrides) {
-            if (!path.equalsIgnoreCase(name + ".zip") && getRoot().resolve(path).toFile().exists()
+            if (!path.equalsIgnoreCase(safePathName + ".zip") && getRoot().resolve(path).toFile().exists()
                     && (getRoot().resolve(path).toFile().isFile()
                             || getRoot().resolve(path).toFile().list().length != 0)) {
                 if (getRoot().resolve(path).toFile().isDirectory()) {
@@ -1939,6 +1997,11 @@ public class Instance extends MinecraftVersion {
             }
         }
 
+        // if overrides folder itself is empty, then remove it
+        if (overridesPath.toFile().list().length == 0) {
+            FileUtils.deleteDirectory(overridesPath);
+        }
+
         ArchiveUtils.createZip(tempDir, to);
 
         FileUtils.deleteDirectory(tempDir);
@@ -1948,25 +2011,43 @@ public class Instance extends MinecraftVersion {
 
     public boolean exportAsModrinthZip(String name, String version, String author, String saveTo,
             List<String> overrides) {
-        Path to = Paths.get(saveTo).resolve(name + ".mrpack");
+        String safePathName = name.replaceAll("[\\\"?:*<>|]", "");
+        Path to = Paths.get(saveTo).resolve(String.format("%s %s.mrpack", safePathName, version));
         ModrinthModpackManifest manifest = new ModrinthModpackManifest();
 
         // for any mods not from Modrinth, scan for them on Modrinth
-        this.launcher.mods.stream()
-                .filter(m -> !m.disabled && !m.isFromModrinth()).forEach(mod -> {
-                    Path modPath = mod.getFile(this).toPath();
+        if (!App.settings.dontCheckModsOnModrinth) {
+            List<DisableableMod> nonModrinthMods = this.launcher.mods.parallelStream()
+                    .filter(m -> !m.disabled && !m.isFromModrinth() && m.getFile(this).exists())
+                    .collect(Collectors.toList());
 
-                    ModrinthVersion modrinthVersion = ModrinthApi
-                            .getVersionFromSha1Hash(Hashing.sha1(modPath).toString());
+            String[] sha1Hashes = nonModrinthMods.parallelStream()
+                    .map(m -> Hashing.sha1(m.getFile(this).toPath()).toString()).toArray(String[]::new);
 
-                    if (modrinthVersion != null) {
+            Map<String, ModrinthVersion> modrinthVersions = ModrinthApi.getVersionsFromSha1Hashes(sha1Hashes);
+
+            if (modrinthVersions.size() != 0) {
+                Map<String, ModrinthProject> modrinthProjects = ModrinthApi.getProjectsAsMap(
+                        modrinthVersions.values().parallelStream().map(mv -> mv.projectId).toArray(String[]::new));
+
+                nonModrinthMods.parallelStream().forEach(mod -> {
+                    String hash = Hashing.sha1(mod.getFile(this).toPath()).toString();
+
+                    if (modrinthVersions.containsKey(hash)) {
+                        ModrinthVersion modrinthVersion = modrinthVersions.get(hash);
+
                         mod.modrinthVersion = modrinthVersion;
-                        mod.modrinthProject = ModrinthApi.getProject(modrinthVersion.projectId);
 
-                        LogManager.debug("Found matching mod from Modrinth called " + modrinthVersion.name);
+                        LogManager.debug("Found matching version from Modrinth called " + mod.modrinthVersion.name);
+
+                        if (modrinthProjects.containsKey(modrinthVersions.get(hash).projectId)) {
+                            mod.modrinthProject = modrinthProjects.get(modrinthVersion.projectId);
+                        }
                     }
                 });
-        this.save();
+                this.save();
+            }
+        }
 
         manifest.formatVersion = 1;
         manifest.game = "minecraft";
@@ -1974,7 +2055,7 @@ public class Instance extends MinecraftVersion {
         manifest.name = name;
         manifest.summary = this.launcher.description;
         manifest.files = this.launcher.mods.parallelStream()
-                .filter(m -> !m.disabled && m.isFromModrinth()).map(mod -> {
+                .filter(m -> !m.disabled && m.modrinthVersion != null && m.getFile(this).exists()).map(mod -> {
                     Path modPath = mod.getFile(this).toPath();
 
                     ModrinthModpackFile file = new ModrinthModpackFile();
@@ -1987,17 +2068,23 @@ public class Instance extends MinecraftVersion {
                     file.hashes.put("sha512", Hashing.sha512(modPath).toString());
 
                     file.env = new HashMap<>();
-                    file.env.put("client", mod.modrinthProject.clientSide.toString());
-                    file.env.put("server", mod.modrinthProject.serverSide.toString());
+
+                    if (mod.modrinthProject != null) {
+                        file.env.put("client",
+                                mod.modrinthProject.clientSide == ModrinthSide.UNSUPPORTED ? "unsupported"
+                                        : "required");
+                        file.env.put("server",
+                                mod.modrinthProject.serverSide == ModrinthSide.UNSUPPORTED ? "unsupported"
+                                        : "required");
+                    } else {
+                        file.env.put("client", "required");
+                        file.env.put("server", "required");
+                    }
 
                     file.fileSize = modPath.toFile().length();
 
                     file.downloads = new ArrayList<>();
-                    String downloadUrl = "";
-                    if (mod.isFromModrinth()) {
-                        downloadUrl = mod.modrinthVersion.getFileBySha1(sha1Hash).url;
-                    }
-                    file.downloads.add(HttpUrl.get(downloadUrl).toString());
+                    file.downloads.add(HttpUrl.get(mod.modrinthVersion.getFileBySha1(sha1Hash).url).toString());
 
                     return file;
                 }).collect(Collectors.toList());
@@ -2011,12 +2098,14 @@ public class Instance extends MinecraftVersion {
         }
 
         // create temp directory to put this in
-        Path tempDir = FileSystem.TEMP.resolve(this.launcher.name + "-export");
+        Path tempDir = FileSystem.TEMP.resolve(this.getSafeName() + "-export");
         FileUtils.createDirectory(tempDir);
 
         // create modrinth.index.json
-        try (FileWriter fileWriter = new FileWriter(tempDir.resolve("modrinth.index.json").toFile())) {
-            Gsons.MINECRAFT.toJson(manifest, fileWriter);
+        try (FileOutputStream fos = new FileOutputStream(tempDir.resolve("modrinth.index.json").toFile());
+                OutputStreamWriter osw = new OutputStreamWriter(fos,
+                        StandardCharsets.UTF_8)) {
+            Gsons.MINECRAFT.toJson(manifest, osw);
         } catch (JsonIOException | IOException e) {
             LogManager.logStackTrace("Failed to save modrinth.index.json", e);
 
@@ -2030,7 +2119,7 @@ public class Instance extends MinecraftVersion {
         FileUtils.createDirectory(overridesPath);
 
         for (String path : overrides) {
-            if (!path.equalsIgnoreCase(name + ".zip") && getRoot().resolve(path).toFile().exists()
+            if (!path.equalsIgnoreCase(safePathName + ".zip") && getRoot().resolve(path).toFile().exists()
                     && (getRoot().resolve(path).toFile().isFile()
                             || getRoot().resolve(path).toFile().list().length != 0)) {
                 if (getRoot().resolve(path).toFile().isDirectory()) {
@@ -2042,7 +2131,7 @@ public class Instance extends MinecraftVersion {
         }
 
         // remove files that come from Modrinth or aren't disabled
-        launcher.mods.stream().filter(m -> !m.disabled && m.isFromModrinth()).forEach(mod -> {
+        launcher.mods.stream().filter(m -> !m.disabled && m.modrinthVersion != null).forEach(mod -> {
             File file = mod.getFile(this, overridesPath);
 
             if (file.exists()) {
@@ -2056,6 +2145,11 @@ public class Instance extends MinecraftVersion {
                     && overridesPath.resolve(path).toFile().list().length == 0) {
                 FileUtils.deleteDirectory(overridesPath.resolve(path));
             }
+        }
+
+        // if overrides folder itself is empty, then remove it
+        if (overridesPath.toFile().list().length == 0) {
+            FileUtils.deleteDirectory(overridesPath);
         }
 
         ArchiveUtils.createZip(tempDir, to);
@@ -2136,32 +2230,28 @@ public class Instance extends MinecraftVersion {
         return launcher.loaderVersion;
     }
 
-    public void setNumberOfPlays(final long val) {
-        this.numPlays = val;
-    }
-
     public long incrementNumberOfPlays() {
-        return this.numPlays++;
-    }
+        if (this.launcher.numPlays == null) {
+            this.launcher.numPlays = 0l;
+        }
 
-    public long decrementNumberOfPlays() {
-        return this.numPlays--;
+        return this.launcher.numPlays++;
     }
 
     public long getNumberOfPlays() {
-        return this.numPlays;
+        if (this.launcher.numPlays == null) {
+            this.launcher.numPlays = 0l;
+        }
+
+        return this.launcher.numPlays;
     }
 
     public void setLastPlayed(final Instant ts) {
-        this.lastPlayed = ts;
-    }
-
-    public Instant getLastPlayed() {
-        return this.lastPlayed;
+        this.launcher.lastPlayed = ts;
     }
 
     public Instant getLastPlayedOrEpoch() {
-        return this.lastPlayed != null ? this.lastPlayed : Instant.EPOCH;
+        return this.launcher.lastPlayed != null ? this.launcher.lastPlayed : Instant.EPOCH;
     }
 
     public String getMainClass() {
@@ -2227,7 +2317,13 @@ public class Instance extends MinecraftVersion {
     }
 
     public boolean isUpdatableExternalPack() {
-        return isExternalPack() && (isModpacksChPack() || isCurseForgePack() || isTechnicPack() || isModrinthPack());
+        return isExternalPack() && ((isModpacksChPack()
+                && ConfigManager.getConfigItem("platforms.modpacksch.modpacksEnabled", true) == true)
+                || (isCurseForgePack()
+                        && ConfigManager.getConfigItem("platforms.curseforge.modpacksEnabled", true) == true)
+                || (isTechnicPack() && ConfigManager.getConfigItem("platforms.technic.modpacksEnabled", true) == true)
+                || (isModrinthPack()
+                        && ConfigManager.getConfigItem("platforms.modrinth.modpacksEnabled", true) == true));
     }
 
     public String getAnalyticsCategory() {
@@ -2299,7 +2395,7 @@ public class Instance extends MinecraftVersion {
     }
 
     public void update() {
-        new InstanceInstallerDialog(this, true, false, null, null, true, null, App.launcher.getParent());
+        new InstanceInstallerDialog(this, true, false, null, null, true, null, App.launcher.getParent(), null);
     }
 
     public boolean hasCurseForgeProjectId() {
@@ -2774,5 +2870,190 @@ public class Instance extends MinecraftVersion {
         }
 
         return launcher.version;
+    }
+
+    public void scanMissingMods() {
+        scanMissingMods(App.launcher.getParent());
+    }
+
+    public void scanMissingMods(Window parent) {
+        PerformanceManager.start("Instance::scanMissingMods - CheckForAddedMods");
+
+        // files to scan
+        List<Path> files = new ArrayList<>();
+
+        // find the mods that have been added by the user manually
+        for (Path path : Arrays.asList(ROOT.resolve("mods"), ROOT.resolve("disabledmods"))) {
+            try (Stream<Path> stream = Files.list(path)) {
+                files.addAll(stream
+                        .filter(file -> !Files.isDirectory(file) && Utils.isAcceptedModFile(file)).filter(
+                                file -> launcher.mods.stream()
+                                        .noneMatch(mod -> mod.type == com.atlauncher.data.Type.mods
+                                                && mod.file.equals(file.getFileName().toString())))
+                        .collect(Collectors.toList()));
+            } catch (IOException e) {
+                LogManager.logStackTrace("Error scanning missing mods", e);
+            }
+        }
+
+        if (files.size() != 0) {
+            final ProgressDialog progressDialog = new ProgressDialog(GetText.tr("Scanning New Mods"), 0,
+                    GetText.tr("Scanning New Mods"), parent);
+
+            progressDialog.addThread(new Thread(() -> {
+                List<DisableableMod> mods = files.parallelStream()
+                        .map(file -> DisableableMod.generateMod(file.toFile(), com.atlauncher.data.Type.mods,
+                                file.getParent().equals(ROOT.resolve("mods"))))
+                        .collect(Collectors.toList());
+
+                if (!App.settings.dontCheckModsOnCurseForge) {
+                    Map<Long, DisableableMod> murmurHashes = new HashMap<>();
+
+                    mods.stream()
+                            .filter(dm -> dm.curseForgeProject == null && dm.curseForgeFile == null)
+                            .filter(dm -> dm.getFile(ROOT, id) != null).forEach(dm -> {
+                                try {
+                                    long hash = Hashing
+                                            .murmur(dm.disabled ? dm.getDisabledFile(this).toPath()
+                                                    : dm
+                                                            .getFile(ROOT, id).toPath());
+                                    murmurHashes.put(hash, dm);
+                                } catch (Throwable t) {
+                                    LogManager.logStackTrace(t);
+                                }
+                            });
+
+                    if (murmurHashes.size() != 0) {
+                        CurseForgeFingerprint fingerprintResponse = CurseForgeApi
+                                .checkFingerprints(murmurHashes.keySet().stream().toArray(Long[]::new));
+
+                        if (fingerprintResponse != null && fingerprintResponse.exactMatches != null) {
+                            int[] projectIdsFound = fingerprintResponse.exactMatches.stream().mapToInt(em -> em.id)
+                                    .toArray();
+
+                            if (projectIdsFound.length != 0) {
+                                Map<Integer, CurseForgeProject> foundProjects = CurseForgeApi
+                                        .getProjectsAsMap(projectIdsFound);
+
+                                if (foundProjects != null) {
+                                    fingerprintResponse.exactMatches.stream()
+                                            .filter(em -> em != null && em.file != null
+                                                    && murmurHashes.containsKey(em.file.packageFingerprint))
+                                            .forEach(foundMod -> {
+                                                DisableableMod dm = murmurHashes
+                                                        .get(foundMod.file.packageFingerprint);
+
+                                                // add CurseForge information
+                                                dm.curseForgeProjectId = foundMod.id;
+                                                dm.curseForgeFile = foundMod.file;
+                                                dm.curseForgeFileId = foundMod.file.id;
+
+                                                CurseForgeProject curseForgeProject = foundProjects
+                                                        .get(foundMod.id);
+
+                                                if (curseForgeProject != null) {
+                                                    dm.curseForgeProject = curseForgeProject;
+                                                    dm.name = curseForgeProject.name;
+                                                    dm.description = curseForgeProject.summary;
+                                                }
+
+                                                LogManager.debug("Found matching mod from CurseForge called "
+                                                        + dm.curseForgeFile.displayName);
+                                            });
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (!App.settings.dontCheckModsOnModrinth) {
+                    Map<String, DisableableMod> sha1Hashes = new HashMap<>();
+
+                    mods.stream()
+                            .filter(dm -> dm.modrinthProject == null && dm.modrinthVersion == null)
+                            .filter(dm -> dm.getFile(ROOT, id) != null).forEach(dm -> {
+                                try {
+                                    sha1Hashes.put(Hashing
+                                            .sha1(dm.disabled ? dm.getDisabledFile(this).toPath()
+                                                    : dm
+                                                            .getFile(ROOT, id).toPath())
+                                            .toString(), dm);
+                                } catch (Throwable t) {
+                                    LogManager.logStackTrace(t);
+                                }
+                            });
+
+                    if (sha1Hashes.size() != 0) {
+                        Set<String> keys = sha1Hashes.keySet();
+                        Map<String, ModrinthVersion> modrinthVersions = ModrinthApi
+                                .getVersionsFromSha1Hashes(keys.toArray(new String[keys.size()]));
+
+                        if (modrinthVersions != null && modrinthVersions.size() != 0) {
+                            String[] projectIdsFound = modrinthVersions.values().stream().map(mv -> mv.projectId)
+                                    .toArray(String[]::new);
+
+                            if (projectIdsFound.length != 0) {
+                                Map<String, ModrinthProject> foundProjects = ModrinthApi
+                                        .getProjectsAsMap(projectIdsFound);
+
+                                if (foundProjects != null) {
+                                    for (Map.Entry<String, ModrinthVersion> entry : modrinthVersions.entrySet()) {
+                                        ModrinthVersion version = entry.getValue();
+                                        ModrinthProject project = foundProjects.get(version.projectId);
+
+                                        if (project != null) {
+                                            DisableableMod dm = sha1Hashes.get(entry.getKey());
+
+                                            // add Modrinth information
+                                            dm.modrinthProject = project;
+                                            dm.modrinthVersion = version;
+
+                                            if (!dm.isFromCurseForge()
+                                                    || App.settings.defaultModPlatform == ModPlatform.MODRINTH) {
+                                                dm.name = project.title;
+                                                dm.description = project.description;
+                                            }
+
+                                            LogManager.debug(String.format(
+                                                    "Found matching mod from Modrinth called %s with file %s",
+                                                    project.title, version.name));
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                mods.forEach(mod -> LogManager.info("Found extra mod with name of " + mod.file));
+                launcher.mods.addAll(mods);
+                save();
+                progressDialog.close();
+            }));
+
+            progressDialog.start();
+        }
+        PerformanceManager.end("Instance::scanMissingMods - CheckForAddedMods");
+
+        PerformanceManager.start("Instance::scanMissingMods - CheckForRemovedMods");
+        // next remove any mods that the no longer exist in the filesystem
+        List<DisableableMod> removedMods = launcher.mods.parallelStream().filter(mod -> {
+            if (!mod.wasSelected || mod.skipped || mod.type != com.atlauncher.data.Type.mods) {
+                return false;
+            }
+
+            if (mod.disabled) {
+                return (mod.getFile(this) != null && !mod.getDisabledFile(this).exists());
+            } else {
+                return (mod.getFile(this) != null && !mod.getFile(this).exists());
+            }
+        }).collect(Collectors.toList());
+
+        if (removedMods.size() != 0) {
+            removedMods.forEach(mod -> LogManager.info("Mod no longer in filesystem: " + mod.file));
+            launcher.mods.removeAll(removedMods);
+            save();
+        }
+        PerformanceManager.end("Instance::scanMissingMods - CheckForRemovedMods");
     }
 }

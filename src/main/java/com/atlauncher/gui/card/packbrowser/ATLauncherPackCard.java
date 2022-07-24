@@ -29,6 +29,8 @@ import javax.swing.JSplitPane;
 import javax.swing.JTextArea;
 import javax.swing.border.TitledBorder;
 
+import org.mini2Dx.gettext.GetText;
+
 import com.atlauncher.App;
 import com.atlauncher.builders.HTMLBuilder;
 import com.atlauncher.constants.Constants;
@@ -44,8 +46,6 @@ import com.atlauncher.managers.InstanceManager;
 import com.atlauncher.network.Analytics;
 import com.atlauncher.utils.OS;
 
-import org.mini2Dx.gettext.GetText;
-
 @SuppressWarnings("serial")
 public class ATLauncherPackCard extends JPanel implements RelocalizationListener {
     private final JButton newInstanceButton = new JButton(GetText.tr("New Instance"));
@@ -56,10 +56,12 @@ public class ATLauncherPackCard extends JPanel implements RelocalizationListener
     private final JButton serversButton = new JButton(GetText.tr("Servers"));
     private final JButton modsButton = new JButton(GetText.tr("View Mods"));
     private final Pack pack;
+    private final boolean featured;
 
-    public ATLauncherPackCard(final Pack pack) {
+    public ATLauncherPackCard(final Pack pack, final boolean featured) {
         super();
         this.pack = pack;
+        this.featured = featured;
         setLayout(new BorderLayout());
         setBorder(BorderFactory.createTitledBorder(null, pack.name, TitledBorder.LEADING, TitledBorder.DEFAULT_POSITION,
                 App.THEME.getBoldFont().deriveFont(15f)));
@@ -144,7 +146,7 @@ public class ATLauncherPackCard extends JPanel implements RelocalizationListener
                         .setContent(GetText.tr("Cannot create instance as you have no account selected."))
                         .setType(DialogManager.ERROR).show();
             } else {
-                Analytics.sendEvent(pack.getName(), "Install", "ATLauncherPack");
+                Analytics.sendEvent(pack.getName(), "Install", featured ? "ATLauncherFeaturedPack" : "ATLauncherPack");
                 new InstanceInstallerDialog(pack);
             }
         });
@@ -168,7 +170,8 @@ public class ATLauncherPackCard extends JPanel implements RelocalizationListener
                         .setContent(GetText.tr("Cannot create server as you have no account selected."))
                         .setType(DialogManager.ERROR).show();
             } else {
-                Analytics.sendEvent(pack.getName(), "ServerInstall", "ATLauncherPack");
+                Analytics.sendEvent(pack.getName(), "ServerInstall",
+                        featured ? "ATLauncherFeaturedPack" : "ATLauncherPack");
                 new InstanceInstallerDialog(pack, true);
             }
         });
@@ -184,7 +187,7 @@ public class ATLauncherPackCard extends JPanel implements RelocalizationListener
                         Constants.SERVERS_LIST_PACK, pack.getSafeName())));
 
         this.modsButton.addActionListener(e -> {
-            Analytics.sendEvent(pack.getName(), "ViewMods", "ATLauncherPack");
+            Analytics.sendEvent(pack.getName(), "ViewMods", featured ? "ATLauncherFeaturedPack" : "ATLauncherPack");
             new ViewModsDialog(pack).setVisible(true);
         });
     }

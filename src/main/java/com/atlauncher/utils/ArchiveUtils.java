@@ -53,8 +53,8 @@ public class ArchiveUtils {
 
         boolean found = false;
 
-        try (InputStream is = Files.newInputStream(archivePath);
-                ZipArchiveInputStream zais = new ZipArchiveInputStream(is, "UTF8", true, true)) {
+        try (InputStream is = createInputStream(archivePath);
+             ZipArchiveInputStream zais = new ZipArchiveInputStream(is, "UTF8", true, true)) {
             ArchiveEntry entry = null;
             while ((entry = zais.getNextEntry()) != null) {
                 if (!zais.canReadEntryData(entry)) {
@@ -80,7 +80,7 @@ public class ArchiveUtils {
      * @param archivePath Path to create an input stream for.
      * @return Input stream if successful, null otherwise
      */
-    public static @Nullable InputStream createStream(Path archivePath) {
+    public static @Nullable InputStream createInputStream(Path archivePath) {
         InputStream is = null;
 
         try {
@@ -98,7 +98,7 @@ public class ArchiveUtils {
 
     public static String getFile(Path archivePath, String file) {
         try {
-            return new String(ZipUtil.unpackEntry(createStream(archivePath), file));
+            return new String(ZipUtil.unpackEntry(createInputStream(archivePath), file));
         } catch (Throwable t) {
             // allow this to fail as we can fallback to Apache Commons library
             LogManager.debug(
@@ -108,7 +108,7 @@ public class ArchiveUtils {
         String contents = null;
 
         try {
-            InputStream is = createStream(archivePath);
+            InputStream is = createInputStream(archivePath);
             try (
                     ArchiveInputStream ais = new ArchiveStreamFactory().createArchiveInputStream("ZIP", is)) {
                 ArchiveEntry entry = null;
@@ -145,8 +145,8 @@ public class ArchiveUtils {
             LogManager.error("Failed to extract " + archivePath.toAbsolutePath());
         }
 
-        try (InputStream is = Files.newInputStream(archivePath);
-                ZipArchiveInputStream zais = new ZipArchiveInputStream(is, "UTF8", true, true)) {
+        try (InputStream is = createInputStream(archivePath);
+             ZipArchiveInputStream zais = new ZipArchiveInputStream(is, "UTF8", true, true)) {
             ArchiveEntry entry = null;
             while ((entry = zais.getNextEntry()) != null) {
                 if (!zais.canReadEntryData(entry)) {
@@ -207,6 +207,9 @@ public class ArchiveUtils {
                     + pathToCompress.toAbsolutePath());
         }
 
+        // TODO, It seems that exports currently do not use dbus for dir sel,
+        //  it would be optimal to be aware the below line will cause problems
+        //  once dbus is setup for export as well
         try (OutputStream os = Files.newOutputStream(archivePath);
                 ArchiveOutputStream aos = new ArchiveStreamFactory().createArchiveOutputStream("ZIP", os)) {
 

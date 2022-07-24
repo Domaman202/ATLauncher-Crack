@@ -61,7 +61,7 @@ public class TechnicModpackUpdateManager {
                                 LogManager.error(String.format(
                                         "Technic pack with name of %s no longer exists, disabling update checks.",
                                         i.launcher.technicModpack.displayName));
-//                                i.launcher.checkForUpdates = false;
+                                // i.launcher.checkForUpdates = false;
                                 i.save();
                             }
                         }

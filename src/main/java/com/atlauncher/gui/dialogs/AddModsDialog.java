@@ -37,6 +37,8 @@ import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 
+import org.mini2Dx.gettext.GetText;
+
 import com.atlauncher.App;
 import com.atlauncher.builders.HTMLBuilder;
 import com.atlauncher.constants.Constants;
@@ -63,8 +65,6 @@ import com.atlauncher.utils.ComboItem;
 import com.atlauncher.utils.CurseForgeApi;
 import com.atlauncher.utils.ModrinthApi;
 import com.formdev.flatlaf.icons.FlatSearchIcon;
-
-import org.mini2Dx.gettext.GetText;
 
 @SuppressWarnings("serial")
 public final class AddModsDialog extends JDialog {
@@ -527,13 +527,13 @@ public final class AddModsDialog extends JDialog {
 
         contentPanel.removeAll();
 
-        prevButton.setEnabled(page > 0);
-        nextButton.setEnabled(mods.size() == Constants.CURSEFORGE_PAGINATION_SIZE);
-
-        if (mods.size() == 0) {
+        if (mods == null || mods.size() == 0) {
             contentPanel.setLayout(new BorderLayout());
             contentPanel.add(new NoCurseModsPanel(!this.searchField.getText().isEmpty()), BorderLayout.CENTER);
         } else {
+            prevButton.setEnabled(page > 0);
+            nextButton.setEnabled(mods.size() == Constants.CURSEFORGE_PAGINATION_SIZE);
+
             contentPanel.setLayout(new WrapLayout());
 
             mods.forEach(mod -> {
@@ -564,13 +564,13 @@ public final class AddModsDialog extends JDialog {
 
         contentPanel.removeAll();
 
-        prevButton.setEnabled(page > 0);
-        nextButton.setEnabled((searchResult.offset + searchResult.limit) < searchResult.totalHits);
-
-        if (searchResult.hits.size() == 0) {
+        if (searchResult == null || searchResult.hits.size() == 0) {
             contentPanel.setLayout(new BorderLayout());
             contentPanel.add(new NoCurseModsPanel(!this.searchField.getText().isEmpty()), BorderLayout.CENTER);
         } else {
+            prevButton.setEnabled(page > 0);
+            nextButton.setEnabled((searchResult.offset + searchResult.limit) < searchResult.totalHits);
+
             contentPanel.setLayout(new WrapLayout());
 
             searchResult.hits.forEach(mod -> {

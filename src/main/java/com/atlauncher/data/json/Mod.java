@@ -22,6 +22,8 @@ import java.io.File;
 import java.io.FilenameFilter;
 import java.util.List;
 
+import org.mini2Dx.gettext.GetText;
+
 import com.atlauncher.FileSystem;
 import com.atlauncher.annot.Json;
 import com.atlauncher.builders.HTMLBuilder;
@@ -37,8 +39,6 @@ import com.atlauncher.utils.OS;
 import com.atlauncher.utils.Utils;
 import com.atlauncher.workers.InstanceInstaller;
 import com.google.gson.annotations.SerializedName;
-
-import org.mini2Dx.gettext.GetText;
 
 @Json
 public class Mod {
@@ -364,19 +364,19 @@ public class Mod {
         return (dir, name) -> name.matches(file);
     }
 
-    public void download(InstanceInstaller installer) {
-        download(installer, 1);
+    public boolean download(InstanceInstaller installer) {
+        return download(installer, 1);
     }
 
-    public void download(InstanceInstaller installer, int attempt) {
+    public boolean download(InstanceInstaller installer, int attempt) {
         if (installer.isServer && this.serverUrl != null) {
-            downloadServer(installer, attempt);
+            return downloadServer(installer, attempt);
         } else {
-            downloadClient(installer, attempt);
+            return downloadClient(installer, attempt);
         }
     }
 
-    public void downloadClient(InstanceInstaller installer, int attempt) {
+    public boolean downloadClient(InstanceInstaller installer, int attempt) {
         File fileLocation = FileSystem.DOWNLOADS.resolve(getFile()).toFile();
 
         if (fileLocation.exists()) {
@@ -385,41 +385,41 @@ public class Mod {
             } else if (this.download != DownloadType.direct) {
                 if (hasMD5()) {
                     if (Hashing.md5(fileLocation.toPath()).equals(Hashing.toHashCode(this.md5))) {
-                        return; // File already exists and matches hash, don't download it
+                        return true; // File already exists and matches hash, don't download it
                     } else {
                         Utils.delete(fileLocation); // File exists but is corrupt, delete it
                     }
                 } else {
                     if (fileLocation.length() != 0) {
-                        return; // No MD5, but file is there, can only assume it's fine
+                        return true; // No MD5, but file is there, can only assume it's fine
                     }
                 }
             }
         }
         switch (this.download) {
             case browser:
-                File downloadsFolderFile = new File(FileSystem.USER_DOWNLOADS.toFile(), getFile());
+                File downloadsFolderFile = new File(FileSystem.getUserDownloadsPath().toFile(), getFile());
                 if (downloadsFolderFile.exists()) {
                     Utils.moveFile(downloadsFolderFile, fileLocation, true);
                 }
                 if (fileCheck != null && fileCheck.equalsIgnoreCase("before") && isFilePattern()) {
-                    String[] files = (OS.isUsingMacApp() ? FileSystem.USER_DOWNLOADS.toFile()
+                    String[] files = (OS.isUsingMacApp() ? FileSystem.getUserDownloadsPath().toFile()
                             : FileSystem.DOWNLOADS.toFile()).list(getFileNameFilter());
                     if (files.length == 1) {
                         this.file = files[0];
-                        fileLocation = new File((OS.isUsingMacApp() ? FileSystem.USER_DOWNLOADS.toFile()
+                        fileLocation = new File((OS.isUsingMacApp() ? FileSystem.getUserDownloadsPath().toFile()
                                 : FileSystem.DOWNLOADS.toFile()), files[0]);
                     } else if (files.length > 1) {
                         for (int i = 0; i < files.length; i++) {
                             if (this.filePreference.equalsIgnoreCase("first") && i == 0) {
                                 this.file = files[i];
-                                fileLocation = new File((OS.isUsingMacApp() ? FileSystem.USER_DOWNLOADS.toFile()
+                                fileLocation = new File((OS.isUsingMacApp() ? FileSystem.getUserDownloadsPath().toFile()
                                         : FileSystem.DOWNLOADS.toFile()), files[i]);
                                 break;
                             }
                             if (this.filePreference.equalsIgnoreCase("last") && (i + 1) == files.length) {
                                 this.file = files[i];
-                                fileLocation = new File((OS.isUsingMacApp() ? FileSystem.USER_DOWNLOADS.toFile()
+                                fileLocation = new File((OS.isUsingMacApp() ? FileSystem.getUserDownloadsPath().toFile()
                                         : FileSystem.DOWNLOADS.toFile()), files[i]);
                                 break;
                             }
@@ -443,42 +443,52 @@ public class Mod {
                                                 : (isFilePattern() ? getName() : getServerFile())))
                                         + "<br/><br/>" + GetText.tr("Please save this file to the following location")
                                         + "<br/><br/>"
-                                        + (OS.isUsingMacApp() ? FileSystem.USER_DOWNLOADS.toFile().getAbsolutePath()
+                                        + (OS.isUsingMacApp()
+                                                ? FileSystem.getUserDownloadsPath().toFile().getAbsolutePath()
                                                 : (isFilePattern() ? FileSystem.DOWNLOADS.toAbsolutePath().toString()
-                                                        : FileSystem.DOWNLOADS.toAbsolutePath().toString() + " or<br/>"
-                                                                + FileSystem.USER_DOWNLOADS.toFile())))
+                                                        : FileSystem.DOWNLOADS.toAbsolutePath().toString()
+                                                                + " or<br/>"
+                                                                + FileSystem.getUserDownloadsPath().toFile())))
                                         .build())
                                 .addOption(GetText.tr("Open Folder"), true)
-                                .addOption(GetText.tr("I've Downloaded This File")).setType(DialogManager.INFO)
+                                .addOption(GetText.tr("I've Downloaded This File"))
+                                .addOption(GetText.tr("Skip Mod (Pack May Break)")).setType(DialogManager.INFO)
                                 .showWithFileMonitoring(fileLocation, downloadsFolderFile, filesize, 1);
 
                         if (retValue == DialogManager.CLOSED_OPTION) {
                             installer.cancel(true);
-                            return;
+                            return false;
                         } else if (retValue == 0) {
                             OS.openFileExplorer(FileSystem.DOWNLOADS);
+                        } else if (retValue == 2) {
+                            LogManager.warn(String.format("Skipping browser download of mod %s", name));
+                            return false;
                         }
                     } while (retValue != 1);
 
                     if (isFilePattern()) {
-                        String[] files = (OS.isUsingMacApp() ? FileSystem.USER_DOWNLOADS.toFile()
+                        String[] files = (OS.isUsingMacApp() ? FileSystem.getUserDownloadsPath().toFile()
                                 : FileSystem.DOWNLOADS.toFile()).list(getFileNameFilter());
                         if (files.length == 1) {
                             this.file = files[0];
-                            fileLocation = new File((OS.isUsingMacApp() ? FileSystem.USER_DOWNLOADS.toFile()
+                            fileLocation = new File((OS.isUsingMacApp() ? FileSystem.getUserDownloadsPath().toFile()
                                     : FileSystem.DOWNLOADS.toFile()), files[0]);
                         } else if (files.length > 1) {
                             for (int i = 0; i < files.length; i++) {
                                 if (this.filePreference.equalsIgnoreCase("first") && i == 0) {
                                     this.file = files[i];
-                                    fileLocation = new File((OS.isUsingMacApp() ? FileSystem.USER_DOWNLOADS.toFile()
-                                            : FileSystem.DOWNLOADS.toFile()), files[i]);
+                                    fileLocation = new File(
+                                            (OS.isUsingMacApp() ? FileSystem.getUserDownloadsPath().toFile()
+                                                    : FileSystem.DOWNLOADS.toFile()),
+                                            files[i]);
                                     break;
                                 }
                                 if (this.filePreference.equalsIgnoreCase("last") && (i + 1) == files.length) {
                                     this.file = files[i];
-                                    fileLocation = new File((OS.isUsingMacApp() ? FileSystem.USER_DOWNLOADS.toFile()
-                                            : FileSystem.DOWNLOADS.toFile()), files[i]);
+                                    fileLocation = new File(
+                                            (OS.isUsingMacApp() ? FileSystem.getUserDownloadsPath().toFile()
+                                                    : FileSystem.DOWNLOADS.toFile()),
+                                            files[i]);
                                     break;
                                 }
                             }
@@ -494,7 +504,7 @@ public class Mod {
                             if (zipAddedFile.exists()) {
                                 Utils.moveFile(zipAddedFile, fileLocation, true);
                             } else {
-                                zipAddedFile = new File(FileSystem.USER_DOWNLOADS.toFile(), getFile() + ".zip");
+                                zipAddedFile = new File(FileSystem.getUserDownloadsPath().toFile(), getFile() + ".zip");
                                 if (zipAddedFile.exists()) {
                                     Utils.moveFile(zipAddedFile, fileLocation, true);
                                 }
@@ -509,21 +519,24 @@ public class Mod {
         }
 
         if (!hasMD5()) {
-            return;
+            return true;
         }
 
         if (!Hashing.md5(fileLocation.toPath()).equals(Hashing.toHashCode(this.md5))) {
             if (attempt < 5) {
                 Utils.delete(fileLocation); // MD5 hash doesn't match, delete it
-                downloadClient(installer, ++attempt); // download again
+                return downloadClient(installer, ++attempt); // download again
             } else {
                 LogManager.error("Cannot download " + fileLocation.getAbsolutePath() + ". Aborting install!");
                 installer.cancel(true);
+                return false;
             }
         }
+
+        return true;
     }
 
-    public void downloadServer(InstanceInstaller installer, int attempt) {
+    public boolean downloadServer(InstanceInstaller installer, int attempt) {
         File fileLocation = FileSystem.DOWNLOADS.resolve(getServerFile()).toFile();
         if (fileLocation.exists()) {
             if (this.shouldForce()) {
@@ -531,40 +544,41 @@ public class Mod {
             } else if (this.download != DownloadType.direct) {
                 if (this.hasServerMD5()) {
                     if (Hashing.md5(fileLocation.toPath()).equals(Hashing.toHashCode(this.serverMD5))) {
-                        return; // File already exists and matches hash, don't download it
+                        return true; // File already exists and matches hash, don't download it
                     } else {
                         Utils.delete(fileLocation); // File exists but is corrupt, delete it
                     }
                 } else {
-                    return; // No MD5, but file is there, can only assume it's fine
+                    return true; // No MD5, but file is there, can only assume it's fine
                 }
             }
         }
         if (this.serverDownload == DownloadType.browser) {
-            File downloadsFolderFile = new File(FileSystem.USER_DOWNLOADS.toFile(), getServerFile());
+            File downloadsFolderFile = new File(FileSystem.getUserDownloadsPath().toFile(), getServerFile());
             if (downloadsFolderFile.exists()) {
                 Utils.moveFile(downloadsFolderFile, fileLocation, true);
             }
 
             if (fileCheck.equalsIgnoreCase("before") && isFilePattern()) {
-                String[] files = (OS.isUsingMacApp() ? FileSystem.USER_DOWNLOADS.toFile()
+                String[] files = (OS.isUsingMacApp() ? FileSystem.getUserDownloadsPath().toFile()
                         : FileSystem.DOWNLOADS.toFile()).list(getFileNameFilter());
                 if (files.length == 1) {
                     this.file = files[0];
                     fileLocation = new File(
-                            (OS.isUsingMacApp() ? FileSystem.USER_DOWNLOADS.toFile() : FileSystem.DOWNLOADS.toFile()),
+                            (OS.isUsingMacApp() ? FileSystem.getUserDownloadsPath().toFile()
+                                    : FileSystem.DOWNLOADS.toFile()),
                             files[0]);
                 } else if (files.length > 1) {
                     for (int i = 0; i < files.length; i++) {
                         if (this.filePreference.equalsIgnoreCase("first") && i == 0) {
                             this.file = files[i];
-                            fileLocation = new File((OS.isUsingMacApp() ? FileSystem.USER_DOWNLOADS.toFile()
+                            fileLocation = new File((OS.isUsingMacApp() ? FileSystem.getUserDownloadsPath().toFile()
                                     : FileSystem.DOWNLOADS.toFile()), files[i]);
                             break;
                         }
                         if (this.filePreference.equalsIgnoreCase("last") && (i + 1) == files.length) {
                             this.file = files[i];
-                            fileLocation = new File((OS.isUsingMacApp() ? FileSystem.USER_DOWNLOADS.toFile()
+                            fileLocation = new File((OS.isUsingMacApp() ? FileSystem.getUserDownloadsPath().toFile()
                                     : FileSystem.DOWNLOADS.toFile()), files[i]);
                             break;
                         }
@@ -581,36 +595,38 @@ public class Mod {
                                 .text(GetText.tr("Browser opened to download file {0}",
                                         (serverFile == null ? getFile() : getServerFile())) + "<br/><br/>"
                                         + GetText.tr("Please save this file to the following location") + "<br/><br/>"
-                                        + (OS.isUsingMacApp() ? FileSystem.USER_DOWNLOADS.toFile().getAbsolutePath()
-                                                : FileSystem.DOWNLOADS.toAbsolutePath().toString() + " or<br/>"
-                                                        + FileSystem.USER_DOWNLOADS.toFile()))
+                                        + (OS.isUsingMacApp()
+                                                ? FileSystem.getUserDownloadsPath().toFile().getAbsolutePath()
+                                                : FileSystem.DOWNLOADS.toAbsolutePath().toString()
+                                                        + " or<br/>"
+                                                        + FileSystem.getUserDownloadsPath().toFile()))
                                 .build())
                         .setType(DialogManager.INFO).addOption(GetText.tr("Open Folder"), true)
                         .addOption(GetText.tr("I've Downloaded This File")).show();
 
                 if (ret == DialogManager.CLOSED_OPTION) {
                     installer.cancel(true);
-                    return;
+                    return false;
                 }
 
                 if (isFilePattern()) {
-                    String[] files = (OS.isUsingMacApp() ? FileSystem.USER_DOWNLOADS.toFile()
+                    String[] files = (OS.isUsingMacApp() ? FileSystem.getUserDownloadsPath().toFile()
                             : FileSystem.DOWNLOADS.toFile()).list(getFileNameFilter());
                     if (files.length == 1) {
                         this.file = files[0];
-                        fileLocation = new File((OS.isUsingMacApp() ? FileSystem.USER_DOWNLOADS.toFile()
+                        fileLocation = new File((OS.isUsingMacApp() ? FileSystem.getUserDownloadsPath().toFile()
                                 : FileSystem.DOWNLOADS.toFile()), files[0]);
                     } else if (files.length > 1) {
                         for (int i = 0; i < files.length; i++) {
                             if (this.filePreference.equalsIgnoreCase("first") && i == 0) {
                                 this.file = files[i];
-                                fileLocation = new File((OS.isUsingMacApp() ? FileSystem.USER_DOWNLOADS.toFile()
+                                fileLocation = new File((OS.isUsingMacApp() ? FileSystem.getUserDownloadsPath().toFile()
                                         : FileSystem.DOWNLOADS.toFile()), files[i]);
                                 break;
                             }
                             if (this.filePreference.equalsIgnoreCase("last") && (i + 1) == files.length) {
                                 this.file = files[i];
-                                fileLocation = new File((OS.isUsingMacApp() ? FileSystem.USER_DOWNLOADS.toFile()
+                                fileLocation = new File((OS.isUsingMacApp() ? FileSystem.getUserDownloadsPath().toFile()
                                         : FileSystem.DOWNLOADS.toFile()), files[i]);
                                 break;
                             }
@@ -627,7 +643,8 @@ public class Mod {
                         if (zipAddedFile.exists()) {
                             Utils.moveFile(zipAddedFile, fileLocation, true);
                         } else {
-                            zipAddedFile = new File(FileSystem.USER_DOWNLOADS.toFile(), getServerFile() + ".zip");
+                            zipAddedFile = new File(FileSystem.getUserDownloadsPath().toFile(),
+                                    getServerFile() + ".zip");
                             if (zipAddedFile.exists()) {
                                 Utils.moveFile(zipAddedFile, fileLocation, true);
                             }
@@ -638,18 +655,21 @@ public class Mod {
         }
 
         if (!hasServerMD5()) {
-            return;
+            return true;
         }
 
         if (!Hashing.md5(fileLocation.toPath()).equals(Hashing.toHashCode(this.serverMD5))) {
             if (attempt < 5) {
                 Utils.delete(fileLocation); // MD5 hash doesn't match, delete it
-                downloadServer(installer, ++attempt); // download again
+                return downloadServer(installer, ++attempt); // download again
             } else {
                 LogManager.error("Cannot download " + fileLocation.getAbsolutePath() + ". Aborting install!");
                 installer.cancel(true);
+                return false;
             }
         }
+
+        return true;
     }
 
     public void install(InstanceInstaller installer) {

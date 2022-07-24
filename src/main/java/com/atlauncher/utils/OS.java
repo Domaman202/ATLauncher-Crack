@@ -173,6 +173,8 @@ public enum OS {
                 Runtime.getRuntime().exec("xdg-open " + uri);
             } else if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
                 Desktop.getDesktop().browse(uri);
+            } else {
+                LogManager.error("Cannot open web browser as no supported methods were found");
             }
         } catch (Exception e) {
             LogManager.logStackTrace("Error opening web browser!", e);
@@ -189,7 +191,6 @@ public enum OS {
     public static void openFileExplorer(Path path, boolean toFile) {
         try {
             if ((toFile || !Files.isDirectory(path)) && OS.isWindows()) {
-                LogManager.info("/select," + path.toAbsolutePath());
                 Runtime.getRuntime().exec("explorer /select," + path.toAbsolutePath());
             } else {
                 Path pathToOpen = path;
@@ -203,6 +204,8 @@ public enum OS {
                 } else if (getOS() == LINUX && (Files.exists(Paths.get("/usr/bin/xdg-open"))
                         || Files.exists(Paths.get("/usr/local/bin/xdg-open")))) {
                     Runtime.getRuntime().exec("xdg-open " + pathToOpen.toString());
+                } else {
+                    LogManager.error("Cannot open file explorer as no supported methods were found");
                 }
             }
         } catch (Exception e) {
@@ -476,13 +479,6 @@ public enum OS {
     }
 
     /**
-     * If the system is running in headless mode.
-     */
-    public static boolean isHeadless() {
-        return GraphicsEnvironment.isHeadless();
-    }
-
-    /**
      * This restarts the launcher with an option set of arguments to add.
      *
      * @param args a List of arguments to pass when starting the launcher
@@ -537,14 +533,7 @@ public enum OS {
      * This restarts the launcher in debug mode.
      */
     public static void relaunchInDebugMode() {
-        relaunchInDebugMode(3);
-    }
-
-    /**
-     * This restarts the launcher in debug mode.
-     */
-    public static void relaunchInDebugMode(int level) {
-        restartLauncher(new ArrayList<>(Arrays.asList("--debug", "--debug-level=" + level)));
+        restartLauncher(new ArrayList<>(Arrays.asList("--debug")));
     }
 
     /**
@@ -608,7 +597,7 @@ public enum OS {
 
     public static boolean isUsingAntivirus() {
         if (isWindows()) {
-            return getAntivirusProcesses().size() != 0;
+            return Optional.ofNullable(getAntivirusProcesses()).orElse(new ArrayList<>()).size() != 0;
         }
 
         return false;

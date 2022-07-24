@@ -22,6 +22,8 @@ import java.awt.GridBagConstraints;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 
+import org.mini2Dx.gettext.GetText;
+
 import com.atlauncher.App;
 import com.atlauncher.builders.HTMLBuilder;
 import com.atlauncher.constants.UIConstants;
@@ -31,14 +33,13 @@ import com.atlauncher.data.ModPlatform;
 import com.atlauncher.gui.components.JLabelWithHover;
 import com.atlauncher.utils.ComboItem;
 
-import org.mini2Dx.gettext.GetText;
-
 @SuppressWarnings("serial")
 public class ModsSettingsTab extends AbstractSettingsTab {
     private final JComboBox<ComboItem<ModPlatform>> defaultModPlatform;
     private final JComboBox<ComboItem<AddModRestriction>> addModRestriction;
     private final JCheckBox enableAddedModsByDefault;
     private final JCheckBox dontCheckModsOnCurseForge;
+    private final JCheckBox dontCheckModsOnModrinth;
     private final JComboBox<ComboItem<InstanceExportFormat>> defaultExportFormat;
 
     public ModsSettingsTab() {
@@ -50,7 +51,8 @@ public class ModsSettingsTab extends AbstractSettingsTab {
         gbc.anchor = GridBagConstraints.BASELINE_TRAILING;
 
         JLabelWithHover defaultModPlatformLabel = new JLabelWithHover(GetText.tr("Default Mod Platform") + ":",
-                HELP_ICON, GetText.tr("The default mod platform to use when adding mods to instances."));
+                HELP_ICON, GetText.tr(
+                        "The default mod platform to use when adding mods to instances, as well as the platform to use when updating/reinstalling mods on multiple platforms."));
 
         add(defaultModPlatformLabel, gbc);
 
@@ -144,6 +146,26 @@ public class ModsSettingsTab extends AbstractSettingsTab {
         dontCheckModsOnCurseForge.setSelected(App.settings.dontCheckModsOnCurseForge);
         add(dontCheckModsOnCurseForge, gbc);
 
+        // Dont check mods on Modrinth
+
+        gbc.gridx = 0;
+        gbc.gridy++;
+        gbc.insets = UIConstants.LABEL_INSETS;
+        gbc.anchor = GridBagConstraints.BASELINE_TRAILING;
+        JLabelWithHover dontCheckModsOnModrinthLabel = new JLabelWithHover(
+                GetText.tr("Don't Check Mods On Modrinth?"), HELP_ICON,
+                new HTMLBuilder().center().split(100).text(GetText.tr(
+                        "When installing packs or adding mods manually to instances, we check for the file on Modrinth to show more information about the mod as well as make updating easier. Disabling this will mean you won't be able to update manually added mods from within the launcher."))
+                        .build());
+        add(dontCheckModsOnModrinthLabel, gbc);
+
+        gbc.gridx++;
+        gbc.insets = UIConstants.CHECKBOX_FIELD_INSETS;
+        gbc.anchor = GridBagConstraints.BASELINE_LEADING;
+        dontCheckModsOnModrinth = new JCheckBox();
+        dontCheckModsOnModrinth.setSelected(App.settings.dontCheckModsOnModrinth);
+        add(dontCheckModsOnModrinth, gbc);
+
         // Default export format
 
         gbc.gridx = 0;
@@ -163,6 +185,8 @@ public class ModsSettingsTab extends AbstractSettingsTab {
         defaultExportFormat = new JComboBox<>();
         defaultExportFormat.addItem(new ComboItem<>(InstanceExportFormat.CURSEFORGE, "CurseForge"));
         defaultExportFormat.addItem(new ComboItem<>(InstanceExportFormat.MODRINTH, "Modrinth"));
+        defaultExportFormat
+                .addItem(new ComboItem<>(InstanceExportFormat.CURSEFORGE_AND_MODRINTH, "CurseForge & Modrinth"));
         defaultExportFormat.addItem(new ComboItem<>(InstanceExportFormat.MULTIMC, "MultiMC"));
 
         for (int i = 0; i < defaultExportFormat.getItemCount(); i++) {
@@ -184,6 +208,7 @@ public class ModsSettingsTab extends AbstractSettingsTab {
                 .getValue();
         App.settings.enableAddedModsByDefault = enableAddedModsByDefault.isSelected();
         App.settings.dontCheckModsOnCurseForge = dontCheckModsOnCurseForge.isSelected();
+        App.settings.dontCheckModsOnModrinth = dontCheckModsOnModrinth.isSelected();
         App.settings.defaultExportFormat = ((ComboItem<InstanceExportFormat>) defaultExportFormat.getSelectedItem())
                 .getValue();
     }
