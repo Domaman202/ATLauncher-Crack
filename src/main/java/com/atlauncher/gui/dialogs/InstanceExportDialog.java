@@ -54,6 +54,7 @@ import com.atlauncher.managers.AccountManager;
 import com.atlauncher.utils.ComboItem;
 import com.atlauncher.utils.OS;
 import com.atlauncher.utils.Utils;
+import com.atlauncher.utils.WindowUtils;
 
 @SuppressWarnings("serial")
 public class InstanceExportDialog extends JDialog {
@@ -68,6 +69,7 @@ public class InstanceExportDialog extends JDialog {
     final GridBagConstraints gbc = new GridBagConstraints();
 
     public InstanceExportDialog(Instance instance) {
+        // #. {0} is the name of the instance we're exporting
         super(App.launcher.getParent(), GetText.tr("Export {0}", instance.launcher.name), ModalityType.DOCUMENT_MODAL);
         this.instance = instance;
 
@@ -79,12 +81,12 @@ public class InstanceExportDialog extends JDialog {
             }
         });
 
+        WindowUtils.resizeForContent(this);
+
         setVisible(true);
     }
 
     private void setupComponents() {
-        setSize(550, 460);
-        setMinimumSize(new Dimension(550, 460));
         setLocationRelativeTo(App.launcher.getParent());
         setLayout(new BorderLayout());
         setResizable(true);

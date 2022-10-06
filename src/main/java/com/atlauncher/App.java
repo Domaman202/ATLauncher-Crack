@@ -244,11 +244,6 @@ public class App {
     public static TrayIcon trayIcon;
 
     static {
-        // Prefer to use IPv4 if `java.net.preferIPv6Addresses` is set
-        if (System.getProperty("java.net.preferIPv6Addresses") == null) {
-            System.setProperty("java.net.preferIPv4Stack", "true");
-        }
-
         // Sets up where all uncaught exceptions go to.
         Thread.setDefaultUncaughtExceptionHandler(new ExceptionStrainer());
     }
@@ -285,6 +280,13 @@ public class App {
         // Load the settings from json, convert old properties config and validate it
         loadSettings();
 
+        try {
+            Language.init();
+            Language.setLanguage(settings.language);
+        } catch (IOException e1) {
+            LogManager.logStackTrace("Error loading language", e1);
+        }
+
         // inject any certs into the keystore that we need (Let's Encrypt for example)
         Java.injectNeededCerts();
 
@@ -317,13 +319,6 @@ public class App {
             // Show the console if enabled.
             console.setVisible(true);
         }
-
-        try {
-            Language.init();
-        } catch (IOException e1) {
-            LogManager.logStackTrace("Error loading language", e1);
-        }
-
         if (!noConsole && settings.enableConsole) {
             // Show the console if enabled.
             SwingUtilities.invokeLater(() -> console.setVisible(true));
@@ -395,7 +390,7 @@ public class App {
     }
 
     public static void ensureDiscordIsInitialized() {
-        if (!discordInitialized) {
+        if (!OS.isArm() && !discordInitialized) {
             try {
                 DiscordEventHandlers handlers = new DiscordEventHandlers.Builder().build();
                 DiscordRPC.discordInitialize(Constants.DISCORD_CLIENT_ID, handlers, true);
@@ -436,6 +431,10 @@ public class App {
 
         if (OS.isMac()) {
             LogManager.info("Using Mac App? " + (OS.isUsingMacApp() ? "Yes" : "No"));
+        }
+
+        if (OS.isArm()) {
+            LogManager.info("Arm: " + OS.getArch());
         }
 
         if (OS.isUsingFlatpak()) {
