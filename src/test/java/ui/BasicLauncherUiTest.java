@@ -38,7 +38,6 @@ package ui;
 //import org.assertj.swing.timing.Timeout;
 import org.junit.Test;
 
-import com.atlauncher.constants.Constants;
 import com.atlauncher.gui.card.InstanceCard;
 
 import ui.mocks.MockHelper;

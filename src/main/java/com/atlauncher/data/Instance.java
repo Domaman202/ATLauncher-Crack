@@ -116,7 +116,6 @@ import com.atlauncher.data.modrinth.pack.ModrinthModpackManifest;
 import com.atlauncher.data.multimc.MultiMCComponent;
 import com.atlauncher.data.multimc.MultiMCManifest;
 import com.atlauncher.data.multimc.MultiMCRequire;
-import com.atlauncher.data.openmods.OpenEyeReportResponse;
 import com.atlauncher.data.technic.TechnicModpack;
 import com.atlauncher.data.technic.TechnicSolderModpack;
 import com.atlauncher.exceptions.CommandException;
@@ -130,6 +129,7 @@ import com.atlauncher.managers.ConfigManager;
 import com.atlauncher.managers.CurseForgeUpdateManager;
 import com.atlauncher.managers.DialogManager;
 import com.atlauncher.managers.InstanceManager;
+import com.atlauncher.managers.LWJGLManager;
 import com.atlauncher.managers.LogManager;
 import com.atlauncher.managers.MinecraftManager;
 import com.atlauncher.managers.ModpacksChUpdateManager;
@@ -455,7 +455,7 @@ public class Instance extends MinecraftVersion {
      * Minecraft jar and libraries, as well as organise the libraries, ready to be
      * played.
      */
-    public boolean prepareForLaunch(ProgressDialog progressDialog, Path nativesTempDir) {
+    public boolean prepareForLaunch(ProgressDialog progressDialog, Path nativesTempDir, Path lwjglNativesTempDir) {
         PerformanceManager.start();
         OkHttpClient httpClient = Network.createProgressClient(progressDialog);
 
@@ -466,16 +466,11 @@ public class Instance extends MinecraftVersion {
             VersionManifestVersion minecraftVersionManifest = MinecraftManager
                     .getMinecraftVersion(id);
 
-            String[] urlParts = minecraftVersionManifest.url.split("/");
-            String sha1 = urlParts[urlParts.length - 2];
-
             com.atlauncher.network.Download download = com.atlauncher.network.Download.build()
-                    .cached()
-                    .setUrl(minecraftVersionManifest.url).withHttpClient(httpClient);
-
-            if (sha1.length() == 40) {
-                download = download.hash(sha1);
-            }
+                    .setUrl(minecraftVersionManifest.url).hash(minecraftVersionManifest.sha1)
+                    .size(minecraftVersionManifest.size)
+                    .downloadTo(FileSystem.MINECRAFT_VERSIONS_JSON.resolve(minecraftVersionManifest.id + ".json"))
+                    .withHttpClient(httpClient);
 
             MinecraftVersion minecraftVersion = download.asClass(MinecraftVersion.class);
 
@@ -517,7 +512,7 @@ public class Instance extends MinecraftVersion {
 
                 LoggingFile loggingFile = logging.client.file;
 
-                com.atlauncher.network.Download loggerDownload = com.atlauncher.network.Download.build().cached()
+                com.atlauncher.network.Download loggerDownload = com.atlauncher.network.Download.build()
                         .setUrl(loggingFile.url).hash(loggingFile.sha1)
                         .size(loggingFile.size).downloadTo(FileSystem.RESOURCES_LOG_CONFIGS.resolve(loggingFile.id))
                         .withHttpClient(httpClient);
@@ -548,7 +543,11 @@ public class Instance extends MinecraftVersion {
         this.libraries.stream()
                 .filter(library -> library.shouldInstall() && library.downloads.artifact != null
                         && library.downloads.artifact.url != null && !library.hasNativeForOS())
-                .distinct().forEach(library -> {
+                .distinct()
+                .map(l -> LWJGLManager.shouldReplaceLWJGL3(this)
+                        ? LWJGLManager.getReplacementLWJGL3Library(this, l)
+                        : l)
+                .forEach(library -> {
                     com.atlauncher.network.Download download = new com.atlauncher.network.Download()
                             .setUrl(library.downloads.artifact.url)
                             .downloadTo(FileSystem.LIBRARIES.resolve(library.downloads.artifact.path))
@@ -558,13 +557,18 @@ public class Instance extends MinecraftVersion {
                     librariesPool.add(download);
                 });
 
-        this.libraries.stream().filter(Library::hasNativeForOS).forEach(library -> {
-            com.atlauncher.data.minecraft.Download download = library.getNativeDownloadForOS();
+        this.libraries.stream().filter(Library::hasNativeForOS)
+                .map(l -> LWJGLManager.shouldReplaceLWJGL3(this)
+                        ? LWJGLManager.getReplacementLWJGL3Library(this, l)
+                        : l)
+                .forEach(library -> {
+                    com.atlauncher.data.minecraft.Download download = library.getNativeDownloadForOS();
 
-            librariesPool.add(new com.atlauncher.network.Download().setUrl(download.url)
-                    .downloadTo(FileSystem.LIBRARIES.resolve(download.path)).hash(download.sha1).size(download.size)
-                    .withHttpClient(httpClient));
-        });
+                    librariesPool.add(new com.atlauncher.network.Download().setUrl(download.url)
+                            .downloadTo(FileSystem.LIBRARIES.resolve(download.path)).hash(download.sha1)
+                            .size(download.size)
+                            .withHttpClient(httpClient));
+                });
 
         DownloadPool smallLibrariesPool = librariesPool.downsize();
 
@@ -590,12 +594,13 @@ public class Instance extends MinecraftVersion {
             }
 
             if (runtimesForSystem.containsKey(javaVersion.component)) {
+                // #. {0} is the version of Java were downloading
                 progressDialog.setLabel(GetText.tr("Downloading Java Runtime {0}", javaVersion.majorVersion));
 
                 JavaRuntime runtimeToDownload = runtimesForSystem.get(javaVersion.component).get(0);
 
                 try {
-                    JavaRuntimeManifest javaRuntimeManifest = com.atlauncher.network.Download.build().cached()
+                    JavaRuntimeManifest javaRuntimeManifest = com.atlauncher.network.Download.build()
                             .setUrl(runtimeToDownload.manifest.url).size(runtimeToDownload.manifest.size)
                             .hash(runtimeToDownload.manifest.sha1).downloadTo(FileSystem.MINECRAFT_RUNTIMES
                                     .resolve(javaVersion.component).resolve("manifest.json"))
@@ -708,27 +713,74 @@ public class Instance extends MinecraftVersion {
         PerformanceManager.start("Extracting Natives");
         boolean useSystemGlfw = Optional.ofNullable(launcher.useSystemGlfw).orElse(App.settings.useSystemGlfw);
         boolean useSystemOpenAl = Optional.ofNullable(launcher.useSystemOpenAl).orElse(App.settings.useSystemOpenAl);
-        this.libraries.stream().filter(Library::shouldInstall).forEach(library -> {
-            if (library.hasNativeForOS()) {
-                if ((library.name.contains("glfw") && useSystemGlfw)
-                        || (library.name.contains("openal") && useSystemOpenAl)) {
-                    return;
-                }
+        this.libraries.stream().filter(Library::shouldInstall)
+                .map(l -> LWJGLManager.shouldReplaceLWJGL3(this)
+                        ? LWJGLManager.getReplacementLWJGL3Library(this, l)
+                        : l)
+                .forEach(library -> {
+                    if (library.hasNativeForOS()) {
+                        if ((library.name.contains("glfw") && useSystemGlfw)
+                                || (library.name.contains("openal") && useSystemOpenAl)) {
+                            return;
+                        }
 
-                Path nativePath = FileSystem.LIBRARIES.resolve(library.getNativeDownloadForOS().path);
+                        Path nativePath = FileSystem.LIBRARIES.resolve(library.getNativeDownloadForOS().path);
 
-                ArchiveUtils.extract(nativePath, nativesTempDir, name -> {
-                    if (library.extract != null && library.extract.shouldExclude(name)) {
-                        return null;
+                        ArchiveUtils.extract(nativePath, nativesTempDir, name -> {
+                            if (library.extract != null && library.extract.shouldExclude(name)) {
+                                return null;
+                            }
+
+                            // keep META-INF folder as per normal
+                            if (name.startsWith("META-INF")) {
+                                return name;
+                            }
+
+                            // don't extract folders
+                            if (name.endsWith("/")) {
+                                return null;
+                            }
+
+                            // if it has a / then extract just to root
+                            if (name.contains("/")) {
+                                return name.substring(name.lastIndexOf("/") + 1);
+                            }
+
+                            return name;
+                        });
                     }
-
-                    return name;
                 });
-            }
-        });
 
         progressDialog.doneTask();
         PerformanceManager.end("Extracting Natives");
+
+        if (LWJGLManager.shouldUseLegacyLWJGL(this)) {
+            PerformanceManager.start("Extracting Legacy LWJGL");
+            progressDialog.setLabel(GetText.tr("Extracting Legacy LWJGL"));
+
+            LWJGLLibrary library = LWJGLManager.getLegacyLWJGLLibrary();
+
+            if (library != null) {
+                com.atlauncher.network.Download download = new com.atlauncher.network.Download().setUrl(library.url)
+                        .downloadTo(FileSystem.LIBRARIES.resolve(library.path)).unzipTo(lwjglNativesTempDir)
+                        .hash(library.sha1).size(library.size).withHttpClient(httpClient);
+
+                if (download.needToDownload()) {
+                    progressDialog.setTotalBytes(library.size);
+
+                    try {
+                        download.downloadFile();
+                    } catch (IOException e) {
+                        LogManager.logStackTrace(e);
+                    }
+                } else {
+                    download.runPostProcessors();
+                }
+            }
+
+            progressDialog.doneTask();
+            PerformanceManager.end("Extracting Legacy LWJGL");
+        }
 
         if (usesCustomMinecraftJar()) {
             PerformanceManager.start("Creating custom minecraft.jar");
@@ -825,6 +877,8 @@ public class Instance extends MinecraftVersion {
         }
 
         Path nativesTempDir = FileSystem.TEMP.resolve("natives-" + UUID.randomUUID().toString().replace("-", ""));
+        Path lwjglNativesTempDir = FileSystem.TEMP
+                .resolve("lwjgl-natives-" + UUID.randomUUID().toString().replace("-", ""));
 
         try {
             Files.createDirectory(nativesTempDir);
@@ -832,11 +886,20 @@ public class Instance extends MinecraftVersion {
             LogManager.logStackTrace(e2, false);
         }
 
-        ProgressDialog<Boolean> prepareDialog = new ProgressDialog<>(GetText.tr("Preparing For Launch"), 7,
+        if (LWJGLManager.shouldUseLegacyLWJGL(this)) {
+            try {
+                Files.createDirectory(lwjglNativesTempDir);
+            } catch (IOException e2) {
+                LogManager.logStackTrace(e2, false);
+            }
+        }
+
+        ProgressDialog<Boolean> prepareDialog = new ProgressDialog<>(GetText.tr("Preparing For Launch"),
+                LWJGLManager.shouldUseLegacyLWJGL(this) ? 8 : 7,
                 GetText.tr("Preparing For Launch"));
         prepareDialog.addThread(new Thread(() -> {
             LogManager.info("Preparing for launch!");
-            prepareDialog.setReturnValue(prepareForLaunch(prepareDialog, nativesTempDir));
+            prepareDialog.setReturnValue(prepareForLaunch(prepareDialog, nativesTempDir, lwjglNativesTempDir));
             prepareDialog.close();
         }));
         prepareDialog.start();
@@ -848,6 +911,7 @@ public class Instance extends MinecraftVersion {
         }
 
         Analytics.sendEvent(this.launcher.pack + " - " + this.launcher.version, offline ? "PlayOffline" : "Play",
+
                 getAnalyticsCategory());
 
         Thread launcher = new Thread(() -> {
@@ -917,7 +981,9 @@ public class Instance extends MinecraftVersion {
                         }
                     }
 
-                    process = MCLauncher.launch(mojangAccount, this, session, nativesTempDir, wrapperCommand, username);
+                    process = MCLauncher.launch(mojangAccount, this, session, nativesTempDir,
+                            LWJGLManager.shouldUseLegacyLWJGL(this) ? lwjglNativesTempDir : null,
+                            wrapperCommand, username);
                 } else if (account instanceof MicrosoftAccount) {
                     MicrosoftAccount microsoftAccount = (MicrosoftAccount) account;
 
@@ -958,7 +1024,9 @@ public class Instance extends MinecraftVersion {
                         }
                     }
 
-                    process = MCLauncher.launch(microsoftAccount, this, nativesTempDir, wrapperCommand, username);
+                    process = MCLauncher.launch(microsoftAccount, this, nativesTempDir,
+                            LWJGLManager.shouldUseLegacyLWJGL(this) ? lwjglNativesTempDir : null,
+                            wrapperCommand, username);
                 }
 
                 if (process == null) {
@@ -982,25 +1050,29 @@ public class Instance extends MinecraftVersion {
                     System.exit(0);
                 }
 
-                if (Optional.ofNullable(this.launcher.enableDiscordIntegration)
-                        .orElse(App.settings.enableDiscordIntegration)) {
-                    App.ensureDiscordIsInitialized();
+                try {
+                    if (!OS.isArm() && Optional.ofNullable(this.launcher.enableDiscordIntegration)
+                            .orElse(App.settings.enableDiscordIntegration)) {
+                        App.ensureDiscordIsInitialized();
 
-                    String playing = this.launcher.pack
-                            + (this.launcher.multiMCManifest != null ? " (" + this.launcher.version + ")" : "");
+                        String playing = this.launcher.pack
+                                + (this.launcher.multiMCManifest != null ? " (" + this.launcher.version + ")" : "");
 
-                    DiscordRichPresence.Builder presence = new DiscordRichPresence.Builder("");
-                    presence.setDetails(playing);
-                    presence.setStartTimestamps(System.currentTimeMillis());
+                        DiscordRichPresence.Builder presence = new DiscordRichPresence.Builder("");
+                        presence.setDetails(playing);
+                        presence.setStartTimestamps(System.currentTimeMillis());
 
-                    if (this.getPack() != null && this.getPack().hasDiscordImage()) {
-                        presence.setBigImage(this.getPack().getSafeName().toLowerCase(), playing);
-                        presence.setSmallImage("atlauncher", "ATLauncher");
-                    } else {
-                        presence.setBigImage("atlauncher", playing);
+                        if (this.getPack() != null && this.getPack().hasDiscordImage()) {
+                            presence.setBigImage(this.getPack().getSafeName().toLowerCase(), playing);
+                            presence.setSmallImage("atlauncher", "ATLauncher");
+                        } else {
+                            presence.setBigImage("atlauncher", playing);
+                        }
+
+                        DiscordRPC.discordUpdatePresence(presence.build());
                     }
-
-                    DiscordRPC.discordUpdatePresence(presence.build());
+                } catch (Throwable t) {
+                    // ignored
                 }
 
                 App.launcher.showKillMinecraft(process);
@@ -1073,8 +1145,12 @@ public class Instance extends MinecraftVersion {
                     App.launcher.getParent().setVisible(true);
                 }
                 long end = System.currentTimeMillis();
-                if (App.discordInitialized) {
-                    DiscordRPC.discordClearPresence();
+                if (!OS.isArm() && App.discordInitialized) {
+                    try {
+                        DiscordRPC.discordClearPresence();
+                    } catch (Throwable t) {
+                        // ignored
+                    }
                 }
                 int exitValue = 0; // Assume we exited fine
                 try {
@@ -1108,12 +1184,6 @@ public class Instance extends MinecraftVersion {
                                     LogManager.warn("The mod " + newMod.getFileName().toString() + " has been added.");
                                 });
                     }
-
-                    // Submit any pending crash reports from Open Eye if need to since we
-                    // exited abnormally
-                    if (App.settings.enableLogs && App.settings.enableOpenEyeReporting) {
-                        App.TASKPOOL.submit(this::sendOpenEyePendingReports);
-                    }
                 }
 
                 if (detectedError != 0) {
@@ -1144,7 +1214,10 @@ public class Instance extends MinecraftVersion {
                     App.launcher.updateData();
                 }
                 if (Files.isDirectory(nativesTempDir)) {
-                    FileUtils.deleteDirectory(nativesTempDir);
+                    FileUtils.deleteDirectoryQuietly(nativesTempDir);
+                }
+                if (Files.isDirectory(lwjglNativesTempDir)) {
+                    FileUtils.deleteDirectoryQuietly(lwjglNativesTempDir);
                 }
                 if (usesCustomMinecraftJar() && Files.exists(getCustomMinecraftJarLibraryPath())) {
                     FileUtils.delete(getCustomMinecraftJarLibraryPath());
@@ -1186,42 +1259,6 @@ public class Instance extends MinecraftVersion {
                     .setType(DialogManager.ERROR).show();
 
             return false;
-        }
-    }
-
-    public void sendOpenEyePendingReports() {
-        File reportsDir = this.getRoot().resolve("reports").toFile();
-        if (reportsDir.exists()) {
-            for (String filename : reportsDir.list(Utils.getOpenEyePendingReportsFileFilter())) {
-                File report = new File(reportsDir, filename);
-                LogManager.info("OpenEye: Sending pending crash report located at '" + report.getAbsolutePath() + "'");
-                OpenEyeReportResponse response = Utils.sendOpenEyePendingReport(report);
-                if (response == null) {
-                    // Pending report was never sent due to an issue. Won't delete the file in case
-                    // it's
-                    // a temporary issue and can be sent again later.
-                    LogManager.error("OpenEye: Couldn't send pending crash report!");
-                } else {
-                    // OpenEye returned a response to the report, display that to user if needed.
-                    LogManager.info("OpenEye: Pending crash report sent! URL: " + response.getURL());
-                    if (response.hasNote()) {
-                        int ret = DialogManager.optionDialog().setTitle(GetText.tr("About Your Crash"))
-                                .setContent(new HTMLBuilder().center().text(GetText.tr(
-                                        "We detected a previous unreported crash generated by the OpenEye mod.<br/><br/>This has now been sent off to OpenEye and you can open the crash report below or continue without viewing it.")
-                                        + "<br/><br/>" + response.getNoteDisplay()
-                                        + GetText.tr(
-                                                "You can turn this off by unchecking the OpenEye Reporting setting in the Settings tab. Click Ok to continue."))
-                                        .build())
-                                .setType(DialogManager.INFO).addOption(GetText.tr("Open Crash Report"))
-                                .addOption(GetText.tr("Ok"), true).show();
-
-                        if (ret == 0) {
-                            OS.openWebBrowser(response.getURL());
-                        }
-                    }
-                }
-                Utils.delete(report); // Delete the pending report since we've sent it
-            }
         }
     }
 
@@ -2423,6 +2460,7 @@ public class Instance extends MinecraftVersion {
     }
 
     public void backup(BackupMode backupMode) {
+        // #. {0} is the name of the instance
         final JDialog dialog = new JDialog(App.launcher.getParent(), GetText.tr("Backing Up {0}", launcher.name),
                 ModalityType.DOCUMENT_MODAL);
         dialog.setSize(300, 100);
@@ -2431,6 +2469,7 @@ public class Instance extends MinecraftVersion {
 
         JPanel topPanel = new JPanel();
         topPanel.setLayout(new BorderLayout());
+        // #. {0} is the name of the instance
         JLabel doing = new JLabel(GetText.tr("Backing Up {0}", launcher.name));
         doing.setHorizontalAlignment(JLabel.CENTER);
         doing.setVerticalAlignment(JLabel.TOP);
@@ -2604,16 +2643,20 @@ public class Instance extends MinecraftVersion {
         }
 
         if (success) {
+            // #. {0} is the loader (Forge/Fabric/Quilt)
             DialogManager.okDialog().setTitle(GetText.tr("{0} Installed", launcher.loaderVersion.getLoaderType()))
                     .setContent(
                             new HTMLBuilder().center()
+                                    // #. {0} is the loader (Forge/Fabric/Quilt) {1} is the version
                                     .text(GetText.tr("{0} {1} has been installed.",
                                             launcher.loaderVersion.getLoaderType(), loaderVersion.version))
                                     .build())
                     .setType(DialogManager.INFO).show();
         } else {
+            // #. {0} is the loader (Forge/Fabric/Quilt)
             DialogManager.okDialog().setTitle(GetText.tr("{0} Not Installed", launcher.loaderVersion.getLoaderType()))
                     .setContent(new HTMLBuilder().center()
+                            // #. {0} is the loader (Forge/Fabric/Quilt)
                             .text(GetText.tr("{0} has not been installed. Check the console for more information.",
                                     launcher.loaderVersion.getLoaderType()))
                             .build())
@@ -2649,12 +2692,16 @@ public class Instance extends MinecraftVersion {
         }
 
         if (success) {
+            // #. {0} is the loader (Forge/Fabric/Quilt)
             DialogManager.okDialog().setTitle(GetText.tr("{0} Installed", loaderType))
                     .setContent(new HTMLBuilder().center()
+                            // #. {0} is the loader (Forge/Fabric/Quilt) {1} is the version
                             .text(GetText.tr("{0} {1} has been installed.", loaderType, loaderVersion.version)).build())
                     .setType(DialogManager.INFO).show();
         } else {
+            // #. {0} is the loader (Forge/Fabric/Quilt)
             DialogManager.okDialog().setTitle(GetText.tr("{0} Not Installed", loaderType))
+                    // #. {0} is the loader (Forge/Fabric/Quilt)
                     .setContent(new HTMLBuilder().center().text(GetText
                             .tr("{0} has not been installed. Check the console for more information.", loaderType))
                             .build())
@@ -2664,7 +2711,9 @@ public class Instance extends MinecraftVersion {
 
     private LoaderVersion showLoaderVersionSelector(LoaderType loaderType) {
         ProgressDialog<List<LoaderVersion>> progressDialog = new ProgressDialog<>(
+                // #. {0} is the loader (Forge/Fabric/Quilt)
                 GetText.tr("Checking For {0} Versions", loaderType), 0,
+                // #. {0} is the loader (Forge/Fabric/Quilt)
                 GetText.tr("Checking For {0} Versions", loaderType));
         progressDialog.addThread(new Thread(() -> {
             if (loaderType == LoaderType.FABRIC) {
@@ -2683,10 +2732,12 @@ public class Instance extends MinecraftVersion {
         List<LoaderVersion> loaderVersions = progressDialog.getReturnValue();
 
         if (loaderVersions == null || loaderVersions.size() == 0) {
+            // #. {0} is the loader (Forge/Fabric/Quilt)
             DialogManager.okDialog().setTitle(GetText.tr("No Versions Available For {0}", loaderType))
                     .setContent(new HTMLBuilder().center()
-                            .text(GetText.tr("{0} has not been {1} as there are no versions available.", loaderType,
-                                    launcher.loaderVersion == null ? GetText.tr("installed") : GetText.tr("changed")))
+                            // #. {0} is the loader (Forge/Fabric/Quilt)
+                            .text(GetText.tr("{0} has not been installed/updated as there are no versions available.",
+                                    loaderType))
                             .build())
                     .setType(DialogManager.ERROR).show();
             return null;
@@ -2740,6 +2791,7 @@ public class Instance extends MinecraftVersion {
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
 
         Box box = Box.createHorizontalBox();
+        // #. {0} is the loader (Forge/Fabric/Quilt)
         box.add(new JLabel(GetText.tr("Select {0} Version To Install", loaderType)));
         box.add(Box.createHorizontalGlue());
 
@@ -2749,7 +2801,9 @@ public class Instance extends MinecraftVersion {
         panel.add(Box.createVerticalStrut(20));
 
         int ret = JOptionPane.showConfirmDialog(App.launcher.getParent(), panel,
+                // #. {0} is the loader (Forge/Fabric/Quilt)
                 launcher.loaderVersion == null ? GetText.tr("Installing {0}", loaderType)
+                        // #. {0} is the loader (Forge/Fabric/Quilt)
                         : GetText.tr("Changing {0} Version", loaderType),
                 JOptionPane.OK_CANCEL_OPTION, JOptionPane.INFORMATION_MESSAGE);
 
@@ -2785,13 +2839,17 @@ public class Instance extends MinecraftVersion {
         if (success) {
             App.launcher.reloadInstancesPanel();
 
+            // #. {0} is the loader (Forge/Fabric/Quilt)
             DialogManager.okDialog().setTitle(GetText.tr("{0} Removed", loaderType))
                     .setContent(new HTMLBuilder().center()
+                            // #. {0} is the loader (Forge/Fabric/Quilt)
                             .text(GetText.tr("{0} has been removed from this instance.", loaderType)).build())
                     .setType(DialogManager.INFO).show();
         } else {
+            // #. {0} is the loader (Forge/Fabric/Quilt)
             DialogManager.okDialog().setTitle(GetText.tr("{0} Not Removed", loaderType))
                     .setContent(new HTMLBuilder().center().text(
+                            // #. {0} is the loader (Forge/Fabric/Quilt)
                             GetText.tr("{0} has not been removed. Check the console for more information.", loaderType))
                             .build())
                     .setType(DialogManager.ERROR).show();
