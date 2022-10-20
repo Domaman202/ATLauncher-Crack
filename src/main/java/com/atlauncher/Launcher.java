@@ -92,6 +92,9 @@ public class Launcher {
 
     public void loadEverything() {
         PerformanceManager.start();
+        if (hasUpdatedFiles()) {
+            downloadUpdatedFiles(); // Downloads updated files on the server
+        }
 
         ConfigManager.loadConfig(); // Load the config
 
@@ -199,6 +202,31 @@ public class Launcher {
         LogManager.info("Finished downloading updated files!");
     }
 
+    public boolean checkForUpdatedFiles() {
+        this.launcherFiles = null;
+
+        App.TASKPOOL.execute(() -> {
+            checkForExternalPackUpdates();
+        });
+
+        return hasUpdatedFiles();
+    }
+
+    /**
+     * This checks the servers hashes.json file and looks for new/updated files that
+     * differ from what the user has
+     */
+    public boolean hasUpdatedFiles() {
+        LogManager.info("Checking for updated files!");
+        List<com.atlauncher.network.Download> downloads = getLauncherFiles();
+
+        if (downloads == null) {
+            return false;
+        }
+
+        return downloads.stream().anyMatch(com.atlauncher.network.Download::needToDownload);
+    }
+
     public void checkForExternalPackUpdates() {
         if (updateThread != null && updateThread.isAlive()) {
             updateThread.interrupt();
@@ -226,6 +254,9 @@ public class Launcher {
     }
 
     public void updateData(boolean force) {
+        if (checkForUpdatedFiles()) {
+            reloadLauncherData();
+        }
 
         MinecraftManager.loadMinecraftVersions(); // Load info about the different Minecraft versions
         MinecraftManager.loadJavaRuntimes(force); // Load info about the different java runtimes
@@ -240,6 +271,9 @@ public class Launcher {
         dialog.setResizable(false);
         dialog.add(new JLabel(GetText.tr("Updating Launcher. Please Wait")));
         App.TASKPOOL.execute(() -> {
+            if (hasUpdatedFiles()) {
+                downloadUpdatedFiles(); // Downloads updated files on the server
+            }
             checkForExternalPackUpdates();
 
             ConfigManager.loadConfig(); // Load the config

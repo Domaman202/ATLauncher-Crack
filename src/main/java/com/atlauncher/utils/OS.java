@@ -48,6 +48,7 @@ import java.util.stream.Collectors;
 
 import com.atlauncher.App;
 import com.atlauncher.FileSystem;
+import com.atlauncher.Update;
 import com.atlauncher.constants.Constants;
 import com.atlauncher.managers.LogManager;
 import com.atlauncher.managers.PerformanceManager;
@@ -483,7 +484,7 @@ public enum OS {
      * @param args a List of arguments to pass when starting the launcher
      */
     public static void restartLauncher(List<String> args) {
-        File thisFile = new File(OS.class.getProtectionDomain().getCodeSource().getLocation().getPath());
+        File thisFile = new File(Update.class.getProtectionDomain().getCodeSource().getLocation().getPath());
         String path = null;
         try {
             path = thisFile.getCanonicalPath();
