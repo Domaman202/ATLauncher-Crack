@@ -291,6 +291,9 @@ public class Launcher {
         dialog.setVisible(true);
     }
 
+    private void checkForLauncherUpdate() {
+        LogManager.debug("Finished checking for launcher update");
+    }
     /**
      * Sets the main parent JFrame reference for the Launcher
      *
