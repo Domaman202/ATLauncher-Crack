@@ -143,6 +143,10 @@ public class MojangAccount extends AbstractAccount {
     }
 
     @Override
+    public void changeSkinPreCheck() {
+    }
+
+    @Override
     public String getSkinUrl() {
         StringBuilder response;
         try {
@@ -222,6 +226,7 @@ public class MojangAccount extends AbstractAccount {
             if (!this.remember) {
                 JPanel panel = new JPanel();
                 panel.setLayout(new BorderLayout());
+                // #. {0} is the Minecraft username
                 JLabel passwordLabel = new JLabel(GetText.tr("Enter password for {0}", this.minecraftUsername));
 
                 JPasswordField passwordField = new JPasswordField();

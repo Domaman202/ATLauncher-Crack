@@ -73,6 +73,7 @@ public class GeneralSettingsTab extends AbstractSettingsTab {
     private final JCheckBox rememberWindowSizePosition;
     private final JCheckBox useNativeFilePicker;
     private final JCheckBox useRecycleBin;
+    private final JCheckBox enableArmSupport;
 
     public GeneralSettingsTab() {
         // Language
@@ -92,7 +93,9 @@ public class GeneralSettingsTab extends AbstractSettingsTab {
         JPanel languagePanel = new JPanel();
         languagePanel.setLayout(new BoxLayout(languagePanel, BoxLayout.X_AXIS));
 
-        language = new JComboBox<>(Language.locales.stream().map(Locale::getDisplayName).toArray(String[]::new));
+        language = new JComboBox<>(
+                Language.locales.stream().filter(l -> l == Locale.ENGLISH || Language.languages.containsValue(l))
+                        .map(Locale::getDisplayName).toArray(String[]::new));
         language.setSelectedItem(Language.selected);
         languagePanel.add(language);
 
@@ -398,6 +401,7 @@ public class GeneralSettingsTab extends AbstractSettingsTab {
         if (App.settings.enableDiscordIntegration) {
             enableDiscordIntegration.setSelected(true);
         }
+        enableDiscordIntegration.setEnabled(!OS.isArm());
         add(enableDiscordIntegration, gbc);
 
         // Enable Feral Gamemode
@@ -510,6 +514,26 @@ public class GeneralSettingsTab extends AbstractSettingsTab {
         useRecycleBin = new JCheckBox();
         useRecycleBin.setSelected(App.settings.useRecycleBin);
         add(useRecycleBin, gbc);
+
+        // Enable ARM Support
+
+        gbc.gridx = 0;
+        gbc.gridy++;
+        gbc.insets = UIConstants.LABEL_INSETS;
+        gbc.anchor = GridBagConstraints.BASELINE_TRAILING;
+        JLabelWithHover enableArmSupportLabel = new JLabelWithHover(GetText.tr("Enable ARM Support?"), HELP_ICON,
+                new HTMLBuilder().center().split(100)
+                        .text(GetText
+                                .tr("Support for ARM devices is still experimental. If you experience issues on an ARM based device, please turn this off."))
+                        .build());
+        add(enableArmSupportLabel, gbc);
+
+        gbc.gridx++;
+        gbc.insets = UIConstants.CHECKBOX_FIELD_INSETS;
+        gbc.anchor = GridBagConstraints.BASELINE_LEADING;
+        enableArmSupport = new JCheckBox();
+        enableArmSupport.setSelected(App.settings.enableArmSupport);
+        add(enableArmSupport, gbc);
     }
 
     @SuppressWarnings("unchecked")
@@ -522,6 +546,10 @@ public class GeneralSettingsTab extends AbstractSettingsTab {
     @SuppressWarnings("unchecked")
     public boolean themeChanged() {
         return !((ComboItem<String>) theme.getSelectedItem()).getValue().equalsIgnoreCase(App.settings.theme);
+    }
+
+    public boolean languageChanged() {
+        return !((String) language.getSelectedItem()).equalsIgnoreCase(App.settings.language);
     }
 
     public boolean needToReloadInstancesPanel() {
@@ -572,6 +600,7 @@ public class GeneralSettingsTab extends AbstractSettingsTab {
 
         App.settings.useNativeFilePicker = useNativeFilePicker.isSelected();
         App.settings.useRecycleBin = useRecycleBin.isSelected();
+        App.settings.enableArmSupport = enableArmSupport.isSelected();
     }
 
     @Override

@@ -50,6 +50,7 @@ import com.atlauncher.managers.ConfigManager;
 import com.atlauncher.managers.CurseForgeUpdateManager;
 import com.atlauncher.managers.DialogManager;
 import com.atlauncher.managers.InstanceManager;
+import com.atlauncher.managers.LWJGLManager;
 import com.atlauncher.managers.LogManager;
 import com.atlauncher.managers.MinecraftManager;
 import com.atlauncher.managers.ModpacksChUpdateManager;
@@ -100,6 +101,7 @@ public class Launcher {
         NewsManager.loadNews(); // Load the news
 
         MinecraftManager.loadMinecraftVersions(); // Load info about the different Minecraft versions
+        LWJGLManager.loadLWJGLVersions(); // Load info about the different LWJGL versions
 
         // Load info about the different java runtimes
         App.TASKPOOL.execute(() -> {
@@ -256,7 +258,7 @@ public class Launcher {
             reloadLauncherData();
         }
 
-        MinecraftManager.loadMinecraftVersions(force); // Load info about the different Minecraft versions
+        MinecraftManager.loadMinecraftVersions(); // Load info about the different Minecraft versions
         MinecraftManager.loadJavaRuntimes(force); // Load info about the different java runtimes
     }
 
@@ -289,6 +291,9 @@ public class Launcher {
         dialog.setVisible(true);
     }
 
+    private void checkForLauncherUpdate() {
+        LogManager.debug("Finished checking for launcher update");
+    }
     /**
      * Sets the main parent JFrame reference for the Launcher
      *

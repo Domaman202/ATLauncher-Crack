@@ -71,12 +71,13 @@ public class Settings {
     public boolean keepLauncherOpen = true;
     public boolean enableConsole = true;
     public boolean enableTrayMenu = true;
-    public boolean enableDiscordIntegration = true;
+    public boolean enableDiscordIntegration = !OS.isArm();
     public boolean enableFeralGamemode = OS.isLinux() && Utils.executableInPath("gamemoderun");
     private boolean disableAddModRestrictions = false;
     public boolean disableCustomFonts = false;
     public boolean useNativeFilePicker = OS.isMac();
     public boolean useRecycleBin = true;
+    public boolean enableArmSupport = true;
 
     // Mods
     public ModPlatform defaultModPlatform = ModPlatform.CURSEFORGE;
@@ -96,7 +97,7 @@ public class Settings {
     public String javaParameters = Constants.DEFAULT_JAVA_PARAMETERS;
     public boolean maximiseMinecraft = false;
     public boolean ignoreJavaOnInstanceLaunch = false;
-    public boolean useJavaProvidedByMinecraft = true;
+    public boolean useJavaProvidedByMinecraft = !OS.isArm() || OS.isMacArm();
     public boolean disableLegacyLaunching = false;
     public boolean useSystemGlfw = false;
     public boolean useSystemOpenAl = false;
@@ -116,7 +117,6 @@ public class Settings {
     public boolean enableLogs = true;
     public boolean enableAnalytics = true;
     public String analyticsClientId = UUID.randomUUID().toString();
-    public boolean enableOpenEyeReporting = true;
 
     // Backups
     public boolean enableAutomaticBackupAfterLaunch = false;
@@ -261,11 +261,6 @@ public class Settings {
         String importedEnableAnalytics = properties.getProperty("enableanalytics");
         if (importedEnableAnalytics != null) {
             enableAnalytics = Boolean.parseBoolean(importedEnableAnalytics);
-        }
-
-        String importedEnableOpenEyeReporting = properties.getProperty("enableopeneyereporting");
-        if (importedEnableOpenEyeReporting != null) {
-            enableOpenEyeReporting = Boolean.parseBoolean(importedEnableOpenEyeReporting);
         }
 
         String importedLastAccount = properties.getProperty("lastaccount");

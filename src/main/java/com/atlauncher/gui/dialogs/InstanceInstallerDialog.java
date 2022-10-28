@@ -40,6 +40,7 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
@@ -102,6 +103,7 @@ import com.atlauncher.utils.CurseForgeApi;
 import com.atlauncher.utils.ModrinthApi;
 import com.atlauncher.utils.TechnicApi;
 import com.atlauncher.utils.Utils;
+import com.atlauncher.utils.WindowUtils;
 
 import okhttp3.CacheControl;
 
@@ -215,7 +217,6 @@ public class InstanceInstallerDialog extends JDialog {
             handleInstanceInstall(object);
         }
 
-        setSize(450, 240);
         setLocationRelativeTo(parent);
         setLayout(new BorderLayout());
         setResizable(false);
@@ -232,6 +233,7 @@ public class InstanceInstallerDialog extends JDialog {
 
         // Middle Panel Stuff
         middle = new JPanel();
+        middle.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
         middle.setLayout(new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
 
@@ -398,6 +400,9 @@ public class InstanceInstallerDialog extends JDialog {
         add(top, BorderLayout.NORTH);
         add(middle, BorderLayout.CENTER);
         add(bottom, BorderLayout.SOUTH);
+
+        WindowUtils.resizeForContent(this);
+
         setVisible(true);
     }
 
@@ -818,10 +823,11 @@ public class InstanceInstallerDialog extends JDialog {
 
         isReinstall = true; // We're reinstalling
 
-        // #. {0} is the name of the pack the user is installing
         if (isUpdate) {
+            // #. {0} is the name of the instance the user is updating
             setTitle(GetText.tr("Updating {0}", instance.launcher.name));
         } else {
+            // #. {0} is the name of the instance the user is reinstalling
             setTitle(GetText.tr("Reinstalling {0}", instance.launcher.name));
         }
     }
@@ -947,19 +953,22 @@ public class InstanceInstallerDialog extends JDialog {
                 return;
             }
 
-            loaderVersionLabel.setText(GetText.tr("Fabric Version") + ": ");
+            // #. {0} is the loader (Fabric/Forge/Quilt)
+            loaderVersionLabel.setText(GetText.tr("{0} Version", "Fabric") + ": ");
         } else if (item.loaderType != null && item.loaderType.equalsIgnoreCase("forge")) {
             if (ConfigManager.getConfigItem("loaders.forge.enabled", true) == false) {
                 return;
             }
 
-            loaderVersionLabel.setText(GetText.tr("Forge Version") + ": ");
+            // #. {0} is the loader (Fabric/Forge/Quilt)
+            loaderVersionLabel.setText(GetText.tr("{0} Version", "Forge") + ": ");
         } else if (item.loaderType != null && item.loaderType.equalsIgnoreCase("quilt")) {
             if (ConfigManager.getConfigItem("loaders.quilt.enabled", false) == false) {
                 return;
             }
 
-            loaderVersionLabel.setText(GetText.tr("Quilt Version") + ": ");
+            // #. {0} is the loader (Fabric/Forge/Quilt)
+            loaderVersionLabel.setText(GetText.tr("{0} Version", "Quilt") + ": ");
         } else {
             loaderVersionLabel.setText(GetText.tr("Loader Version") + ": ");
         }
