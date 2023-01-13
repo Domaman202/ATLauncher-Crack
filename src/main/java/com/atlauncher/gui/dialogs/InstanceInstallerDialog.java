@@ -78,6 +78,7 @@ import com.atlauncher.data.minecraft.VersionManifestVersionType;
 import com.atlauncher.data.minecraft.loaders.LoaderVersion;
 import com.atlauncher.data.minecraft.loaders.fabric.FabricLoader;
 import com.atlauncher.data.minecraft.loaders.forge.ForgeLoader;
+import com.atlauncher.data.minecraft.loaders.legacyfabric.LegacyFabricLoader;
 import com.atlauncher.data.minecraft.loaders.quilt.QuiltLoader;
 import com.atlauncher.data.modpacksch.ModpacksChPackLink;
 import com.atlauncher.data.modpacksch.ModpacksChPackLinkType;
@@ -541,6 +542,7 @@ public class InstanceInstallerDialog extends JDialog {
                     packVersion.version = v.name;
                     packVersion.hasLoader = true;
                     packVersion._modpacksChId = v.id;
+                    packVersion._modpacksChType = v.type;
                     return packVersion;
                 }).filter(pv -> pv != null).collect(Collectors.toList());
 
@@ -795,7 +797,7 @@ public class InstanceInstallerDialog extends JDialog {
                 ModpacksChPackManifest packManifest = com.atlauncher.network.Download.build()
                         .setUrl(String.format("%s/modpack/%d", Constants.MODPACKS_CH_API_URL,
                                 instance.launcher.modpacksChPackManifest.id))
-                        .cached(new CacheControl.Builder().maxStale(1, TimeUnit.HOURS).build())
+                        .cached(new CacheControl.Builder().maxStale(10, TimeUnit.MINUTES).build())
                         .asClass(ModpacksChPackManifest.class);
                 dialog.setReturnValue(packManifest);
                 dialog.close();
@@ -962,6 +964,13 @@ public class InstanceInstallerDialog extends JDialog {
 
             // #. {0} is the loader (Fabric/Forge/Quilt)
             loaderVersionLabel.setText(GetText.tr("{0} Version", "Forge") + ": ");
+        } else if (item.loaderType != null && item.loaderType.equalsIgnoreCase("legacyfabric")) {
+            if (ConfigManager.getConfigItem("loaders.legacyfabric.enabled", true) == false) {
+                return;
+            }
+
+            // #. {0} is the loader (Fabric/Forge/Quilt)
+            loaderVersionLabel.setText(GetText.tr("{0} Version", "Legacy Fabric") + ": ");
         } else if (item.loaderType != null && item.loaderType.equalsIgnoreCase("quilt")) {
             if (ConfigManager.getConfigItem("loaders.quilt.enabled", false) == false) {
                 return;
@@ -993,6 +1002,8 @@ public class InstanceInstallerDialog extends JDialog {
                     loaderVersions.addAll(FabricLoader.getChoosableVersions(item.minecraftVersion.id));
                 } else if (this.instance.launcher.loaderVersion.isForge()) {
                     loaderVersions.addAll(ForgeLoader.getChoosableVersions(item.minecraftVersion.id));
+                } else if (this.instance.launcher.loaderVersion.isLegacyFabric()) {
+                    loaderVersions.addAll(LegacyFabricLoader.getChoosableVersions(item.minecraftVersion.id));
                 } else if (this.instance.launcher.loaderVersion.isQuilt()) {
                     loaderVersions.addAll(QuiltLoader.getChoosableVersions(item.minecraftVersion.id));
                 } else {

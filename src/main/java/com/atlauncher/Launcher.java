@@ -101,12 +101,8 @@ public class Launcher {
         NewsManager.loadNews(); // Load the news
 
         MinecraftManager.loadMinecraftVersions(); // Load info about the different Minecraft versions
+        MinecraftManager.loadJavaRuntimes(); // Load info about the different java runtimes
         LWJGLManager.loadLWJGLVersions(); // Load info about the different LWJGL versions
-
-        // Load info about the different java runtimes
-        App.TASKPOOL.execute(() -> {
-            MinecraftManager.loadJavaRuntimes();
-        });
 
         AccountManager.loadAccounts(); // Load the saved Accounts
 
@@ -259,7 +255,7 @@ public class Launcher {
         }
 
         MinecraftManager.loadMinecraftVersions(); // Load info about the different Minecraft versions
-        MinecraftManager.loadJavaRuntimes(force); // Load info about the different java runtimes
+        MinecraftManager.loadJavaRuntimes(); // Load info about the different java runtimes
     }
 
     public void reloadLauncherData() {
@@ -332,9 +328,7 @@ public class Launcher {
      * Reloads the panel used for Instances
      */
     public void reloadInstancesPanel() {
-        if (instancesPanel != null) {
-            this.instancesPanel.reload(); // Reload the instances panel
-        }
+        InstanceManager.post();
     }
 
     public void setServersPanel(ServersTab serversPanel) {
@@ -342,9 +336,7 @@ public class Launcher {
     }
 
     public void reloadServersPanel() {
-        if (serversPanel != null) {
-            this.serversPanel.reload(); // Reload the servers panel
-        }
+        ServerManager.post();
     }
 
     /**

@@ -15,10 +15,19 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package com.atlauncher.gui.tabs.instances;
+package com.atlauncher.data.minecraft.loaders.legacyfabric;
 
-import java.util.EventListener;
+import java.util.List;
 
-public interface InstancesSearchEventListener extends EventListener {
-    void onSearch(final InstancesSearchEvent event);
+import com.atlauncher.annot.Json;
+
+@Json
+public class LegacyFabricMetaProfile {
+    public String id;
+    public String time;
+    public String releaseTime;
+    public String type;
+    public String mainClass;
+    public String inheritsFrom;
+    public List<LegacyFabricLibrary> libraries;
 }

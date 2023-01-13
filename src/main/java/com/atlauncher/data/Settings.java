@@ -95,9 +95,10 @@ public class Settings {
     public int windowHeight = 480;
     public String javaPath;
     public String javaParameters = Constants.DEFAULT_JAVA_PARAMETERS;
+    public String baseJavaInstallFolder = null;
     public boolean maximiseMinecraft = false;
     public boolean ignoreJavaOnInstanceLaunch = false;
-    public boolean useJavaProvidedByMinecraft = !OS.isArm() || OS.isMacArm();
+    public boolean useJavaProvidedByMinecraft = true;
     public boolean disableLegacyLaunching = false;
     public boolean useSystemGlfw = false;
     public boolean useSystemOpenAl = false;
@@ -304,6 +305,8 @@ public class Settings {
 
         validateConcurrentConnections();
 
+        validateConnectionTimeout();
+
         validateDateFormat();
 
         validateInstanceTitleFormat();
@@ -475,10 +478,18 @@ public class Settings {
     }
 
     private void validateConcurrentConnections() {
-        if (concurrentConnections < 1) {
+        if (concurrentConnections < 1 || concurrentConnections > 100) {
             LogManager.warn("Tried to set the number of concurrent connections to " + concurrentConnections
-                    + " which is not valid! Must be 1 or more. Setting back to default of 8!");
+                    + " which is not valid! Must be between 1 and 100. Setting back to default of 8!");
             concurrentConnections = 8;
+        }
+    }
+
+    private void validateConnectionTimeout() {
+        if (connectionTimeout < 1 || connectionTimeout > 600) {
+            LogManager.warn("Tried to set the number of connection timeout to " + connectionTimeout
+                    + " which is not valid! Must be between 1 and 600. Setting back to default of 30!");
+            connectionTimeout = 30;
         }
     }
 
