@@ -378,25 +378,32 @@ public class DisableableMod implements Serializable {
                     }
                 }
 
-                // filter out mods that are explicitely for Forge/Fabric and not our loader
+                // filter out files not for our loader
                 curseForgeFilesStream = curseForgeFilesStream.filter(cf -> {
-                    if (cf.gameVersions.contains("Forge") && instance.launcher.loaderVersion != null
-                            && !instance.launcher.loaderVersion.isForge()) {
-                        return false;
+                    if (cf.gameVersions.contains("Fabric") && instance.launcher.loaderVersion != null
+                            && (instance.launcher.loaderVersion.isFabric()
+                                    || instance.launcher.loaderVersion.isLegacyFabric()
+                                    || instance.launcher.loaderVersion.isQuilt())) {
+                        return true;
                     }
 
-                    if (cf.gameVersions.contains("Fabric") && instance.launcher.loaderVersion != null
-                            && !instance.launcher.loaderVersion.isFabric()
-                            && !instance.launcher.loaderVersion.isQuilt()) {
-                        return false;
+                    if (cf.gameVersions.contains("Forge") && instance.launcher.loaderVersion != null
+                            && instance.launcher.loaderVersion.isForge()) {
+                        return true;
                     }
 
                     if (cf.gameVersions.contains("Quilt") && instance.launcher.loaderVersion != null
-                            && !instance.launcher.loaderVersion.isQuilt()) {
-                        return false;
+                            && instance.launcher.loaderVersion.isQuilt()) {
+                        return true;
                     }
 
-                    return true;
+                    // if there's no loaders, assume the mod is untagged so we should show it
+                    if (!cf.gameVersions.contains("Fabric") && !cf.gameVersions.contains("Forge")
+                            && !cf.gameVersions.contains("Quilt")) {
+                        return true;
+                    }
+
+                    return false;
                 });
 
                 if (curseForgeFilesStream.noneMatch(file -> file.id > curseForgeFileId)) {
@@ -492,7 +499,7 @@ public class DisableableMod implements Serializable {
             }));
             dialog.start();
 
-            new CurseForgeProjectFileSelectorDialog(parent, dialog.getReturnValue(), instance, curseForgeFileId);
+            new CurseForgeProjectFileSelectorDialog(parent, dialog.getReturnValue(), instance, curseForgeFileId, false);
         } else if (platform == ModPlatform.MODRINTH || (platform == null && isFromModrinth()
                 && (!isFromCurseForge() || App.settings.defaultModPlatform == ModPlatform.MODRINTH))) {
             ProgressDialog<ModrinthProject> dialog = new ProgressDialog<>(
@@ -506,7 +513,7 @@ public class DisableableMod implements Serializable {
             }));
             dialog.start();
 
-            new ModrinthVersionSelectorDialog(parent, dialog.getReturnValue(), instance, modrinthVersion.id);
+            new ModrinthVersionSelectorDialog(parent, dialog.getReturnValue(), instance, modrinthVersion.id, false);
         }
 
         return true;

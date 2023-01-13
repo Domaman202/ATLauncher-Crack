@@ -90,6 +90,16 @@ public class ModrinthApi {
         return null;
     }
 
+    public static ModrinthSearchResult searchResourcePacks(List<String> gameVersions, String query, int page,
+            String sort) {
+        return searchModrinth(gameVersions, query, page, sort, null, ModrinthProjectType.RESOURCEPACK);
+    }
+
+    public static ModrinthSearchResult searchShaders(List<String> gameVersions, String query, int page,
+            String sort) {
+        return searchModrinth(gameVersions, query, page, sort, null, ModrinthProjectType.SHADER);
+    }
+
     public static ModrinthSearchResult searchModsForForge(List<String> gameVersions, String query, int page,
             String sort) {
         return searchModrinth(gameVersions, query, page, sort, Arrays.asList("forge"), ModrinthProjectType.MOD);
@@ -268,7 +278,8 @@ public class ModrinthApi {
             List<ModrinthProject> projects = getProjects(projectIds);
 
             if (projects != null) {
-                return projects.stream().distinct().collect(Collectors.toMap(p -> p.id, p -> p, (existing, replacement) -> existing));
+                return projects.stream().distinct()
+                        .collect(Collectors.toMap(p -> p.id, p -> p, (existing, replacement) -> existing));
             }
         } catch (Throwable t) {
             LogManager.logStackTrace("Error trying to get Modrinth projects as map", t);

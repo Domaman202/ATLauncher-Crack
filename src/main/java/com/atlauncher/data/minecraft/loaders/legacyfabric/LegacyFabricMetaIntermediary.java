@@ -15,10 +15,10 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package com.atlauncher.gui.tabs.instances;
+package com.atlauncher.data.minecraft.loaders.legacyfabric;
 
-import java.util.EventListener;
-
-public interface InstancesSortEventListener extends EventListener {
-    void onSort(final InstancesSortEvent event);
+public class LegacyFabricMetaIntermediary {
+    public String maven;
+    public String version;
+    public boolean stable;
 }
