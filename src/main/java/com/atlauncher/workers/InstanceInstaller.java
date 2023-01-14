@@ -529,7 +529,13 @@ public class InstanceInstaller extends SwingWorker<Boolean, Void> implements Net
                 loaderMeta.put("minecraft", packVersion.minecraft);
                 loaderMeta.put("loader", fabricVersionString);
                 packVersion.loader.metadata = loaderMeta;
-                packVersion.loader.className = "com.atlauncher.data.minecraft.loaders.fabric.FabricLoader";
+
+                // not technically supported, no examples, but should be right
+                if (MinecraftManager.getMinecraftVersion(packVersion.minecraft).is1132OrOlder()) {
+                    packVersion.loader.className = "com.atlauncher.data.minecraft.loaders.legacyfabric.LegacyFabricLoader";
+                } else {
+                    packVersion.loader.className = "com.atlauncher.data.minecraft.loaders.fabric.FabricLoader";
+                }
             } else {
                 throw new Exception("Loader of id " + loaderVersion.id + " is unknown.");
             }
@@ -881,7 +887,13 @@ public class InstanceInstaller extends SwingWorker<Boolean, Void> implements Net
             loaderMeta.put("minecraft", packVersion.minecraft);
             loaderMeta.put("loader", fabricVersionString);
             packVersion.loader.metadata = loaderMeta;
-            packVersion.loader.className = "com.atlauncher.data.minecraft.loaders.fabric.FabricLoader";
+
+            // not technically supported, no examples, but should be right
+            if (this.version.minecraftVersion.is1132OrOlder()) {
+                packVersion.loader.className = "com.atlauncher.data.minecraft.loaders.legacyfabric.LegacyFabricLoader";
+            } else {
+                packVersion.loader.className = "com.atlauncher.data.minecraft.loaders.fabric.FabricLoader";
+            }
         } else {
             throw new Exception("Unknown modloader with name of " + modloaderTarget.name);
         }
@@ -1033,10 +1045,12 @@ public class InstanceInstaller extends SwingWorker<Boolean, Void> implements Net
                                     })
                                     .findFirst();
 
-                    int curseProjectId = ((file.curseforge == null || file.curseforge.project == null || file.curseforge.file == null) && modInfo.isPresent() && modInfo.get() != null
+                    int curseProjectId = ((file.curseforge == null || file.curseforge.project == null
+                            || file.curseforge.file == null) && modInfo.isPresent() && modInfo.get() != null
                             && modInfo.get().curseProject != null) ? modInfo.get().curseProject
                                     : file.curseforge.project;
-                    int curseFileId = ((file.curseforge == null || file.curseforge.project == null || file.curseforge.file == null) && modInfo.isPresent() && modInfo.get() != null
+                    int curseFileId = ((file.curseforge == null || file.curseforge.project == null
+                            || file.curseforge.file == null) && modInfo.isPresent() && modInfo.get() != null
                             && modInfo.get().curseFile != null) ? modInfo.get().curseFile : file.curseforge.file;
 
                     CurseForgeProject curseForgeProject = Optional
@@ -1279,7 +1293,13 @@ public class InstanceInstaller extends SwingWorker<Boolean, Void> implements Net
                     loaderMeta.put("minecraft", packVersion.minecraft);
                     loaderMeta.put("loader", fabricVersionString);
                     packVersion.loader.metadata = loaderMeta;
-                    packVersion.loader.className = "com.atlauncher.data.minecraft.loaders.fabric.FabricLoader";
+
+                    // not technically supported, no examples, but should be right
+                    if (MinecraftManager.getMinecraftVersion(packVersion.minecraft).is1132OrOlder()) {
+                        packVersion.loader.className = "com.atlauncher.data.minecraft.loaders.legacyfabric.LegacyFabricLoader";
+                    } else {
+                        packVersion.loader.className = "com.atlauncher.data.minecraft.loaders.fabric.FabricLoader";
+                    }
                 }
             }
         }
@@ -1322,7 +1342,13 @@ public class InstanceInstaller extends SwingWorker<Boolean, Void> implements Net
                 loaderMeta.put("minecraft", packVersion.minecraft);
                 loaderMeta.put("loader", modrinthManifest.dependencies.get("fabric-loader"));
                 packVersion.loader.metadata = loaderMeta;
-                packVersion.loader.className = "com.atlauncher.data.minecraft.loaders.fabric.FabricLoader";
+
+                // not technically supported, 1 example which seems to work
+                if (this.version.minecraftVersion.is1132OrOlder()) {
+                    packVersion.loader.className = "com.atlauncher.data.minecraft.loaders.legacyfabric.LegacyFabricLoader";
+                } else {
+                    packVersion.loader.className = "com.atlauncher.data.minecraft.loaders.fabric.FabricLoader";
+                }
             } else if (modrinthManifest.dependencies.containsKey("quilt-loader")) {
                 Map<String, Object> loaderMeta = new HashMap<>();
                 loaderMeta.put("minecraft", packVersion.minecraft);
@@ -1463,7 +1489,13 @@ public class InstanceInstaller extends SwingWorker<Boolean, Void> implements Net
             loaderMeta.put("minecraft", minecraftVersion);
             loaderMeta.put("loader", fabricVersionString);
             packVersion.loader.metadata = loaderMeta;
-            packVersion.loader.className = "com.atlauncher.data.minecraft.loaders.fabric.FabricLoader";
+
+            // should probably look for the patch, but this is sound logic
+            if (MinecraftManager.getMinecraftVersion(minecraftVersion).is1132OrOlder()) {
+                packVersion.loader.className = "com.atlauncher.data.minecraft.loaders.legacyfabric.LegacyFabricLoader";
+            } else {
+                packVersion.loader.className = "com.atlauncher.data.minecraft.loaders.fabric.FabricLoader";
+            }
         } else if (quiltLoaderComponent != null) {
             String quiltVersionString = quiltLoaderComponent.version;
 
@@ -1537,6 +1569,13 @@ public class InstanceInstaller extends SwingWorker<Boolean, Void> implements Net
             loaderMeta.put("loader", loaderVersion.version);
             packVersion.loader.metadata = loaderMeta;
             packVersion.loader.className = "com.atlauncher.data.minecraft.loaders.fabric.FabricLoader";
+        } else if (loaderVersion != null && loaderVersion.isLegacyFabric()) {
+            packVersion.loader = new com.atlauncher.data.json.Loader();
+            Map<String, Object> loaderMeta = new HashMap<>();
+            loaderMeta.put("minecraft", version.minecraftVersion.id);
+            loaderMeta.put("loader", loaderVersion.version);
+            packVersion.loader.metadata = loaderMeta;
+            packVersion.loader.className = "com.atlauncher.data.minecraft.loaders.legacyfabric.LegacyFabricLoader";
         } else if (loaderVersion != null && loaderVersion.isQuilt()) {
             packVersion.loader = new com.atlauncher.data.json.Loader();
             Map<String, Object> loaderMeta = new HashMap<>();
@@ -2008,8 +2047,7 @@ public class InstanceInstaller extends SwingWorker<Boolean, Void> implements Net
         new Thread(() -> {
             try {
                 Path javaPath = Paths.get(OS.getJavaHome());
-                if (minecraftVersion.javaVersion != null && (!OS.isArm() || OS.isMacArm())
-                        && App.settings.useJavaProvidedByMinecraft) {
+                if (minecraftVersion.javaVersion != null && App.settings.useJavaProvidedByMinecraft) {
                     Path runtimeDirectory = FileSystem.MINECRAFT_RUNTIMES
                             .resolve(minecraftVersion.javaVersion.component)
                             .resolve(JavaRuntimes.getSystem()).resolve(minecraftVersion.javaVersion.component);
@@ -2482,21 +2520,15 @@ public class InstanceInstaller extends SwingWorker<Boolean, Void> implements Net
         addPercent(5);
 
         if (minecraftVersion.javaVersion == null || Data.JAVA_RUNTIMES == null
-                || (OS.isArm() && !OS.isMacArm()) || !App.settings.useJavaProvidedByMinecraft) {
+                || !App.settings.useJavaProvidedByMinecraft) {
             return;
         }
 
         Map<String, List<JavaRuntime>> runtimesForSystem = Data.JAVA_RUNTIMES.getForSystem();
         String runtimeSystemString = JavaRuntimes.getSystem();
 
-        // if the runtime isn't found, try a force refresh of them
-        if (!runtimesForSystem.containsKey(minecraftVersion.javaVersion.component)) {
-            MinecraftManager.loadJavaRuntimes(true);
-
-            runtimesForSystem = Data.JAVA_RUNTIMES.getForSystem();
-        }
-
-        if (runtimesForSystem.containsKey(minecraftVersion.javaVersion.component)) {
+        if (runtimesForSystem.containsKey(minecraftVersion.javaVersion.component)
+                && runtimesForSystem.get(minecraftVersion.javaVersion.component).size() != 0) {
             fireTask(GetText.tr("Downloading Java Runtime {0}", minecraftVersion.javaVersion.majorVersion));
             fireSubProgressUnknown();
 

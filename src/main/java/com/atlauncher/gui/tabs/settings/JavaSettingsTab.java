@@ -89,6 +89,7 @@ public class JavaSettingsTab extends AbstractSettingsTab implements Relocalizati
     private final JCheckBox ignoreJavaOnInstanceLaunch;
     private final JLabelWithHover useJavaProvidedByMinecraftLabel;
     private final JCheckBox useJavaProvidedByMinecraft;
+    private final JTextField baseJavaInstallFolder;
     private final JLabelWithHover disableLegacyLaunchingLabel;
     private final JCheckBox disableLegacyLaunching;
     private final JLabelWithHover useSystemGlfwLabel;
@@ -206,11 +207,16 @@ public class JavaSettingsTab extends AbstractSettingsTab implements Relocalizati
 
                 if ((Integer) s.getValue() > 8192 && !maximumMemoryEightGBWarningShown) {
                     maximumMemoryEightGBWarningShown = true;
-                    DialogManager.okDialog().setTitle(GetText.tr("Warning"))
+                    int ret = DialogManager.okDialog().setTitle(GetText.tr("Warning"))
                             .setType(DialogManager.WARNING)
                             .setContent(GetText.tr(
                                     "Setting maximum memory above 8GB is not recommended for most modpacks and can cause issues."))
+                            .addOption(GetText.tr("More Explanation"))
                             .show();
+
+                    if (ret == 1) {
+                        OS.openWebBrowser("https://atl.pw/allocatetoomuchram");
+                    }
                 } else if ((OS.getMaximumRam() != 0 && OS.getMaximumRam() < 16384)
                         && (Integer) s.getValue() > (OS.getMaximumRam() / 2)
                         && !maximumMemoryHalfWarningShown) {
@@ -430,8 +436,7 @@ public class JavaSettingsTab extends AbstractSettingsTab implements Relocalizati
         javaPathPanel.add(Box.createVerticalStrut(5));
         javaPathPanel.add(javaPathPanelBottom);
 
-        boolean isUsingMinecraftProvidedJava = (!OS.isArm() || OS.isMacArm())
-                && App.settings.useJavaProvidedByMinecraft;
+        boolean isUsingMinecraftProvidedJava = App.settings.useJavaProvidedByMinecraft;
         javaMinecraftProvidedLabel.setVisible(isUsingMinecraftProvidedJava);
         javaPathDummy.setVisible(isUsingMinecraftProvidedJava);
         javaPathLabel.setVisible(!isUsingMinecraftProvidedJava);
@@ -476,6 +481,53 @@ public class JavaSettingsTab extends AbstractSettingsTab implements Relocalizati
 
         add(javaParametersPanel, gbc);
 
+        // Base Java Install Folder
+
+        gbc.gridx = 0;
+        gbc.gridy++;
+        gbc.gridwidth = 1;
+        gbc.insets = UIConstants.LABEL_INSETS;
+        gbc.anchor = GridBagConstraints.BASELINE_TRAILING;
+        JLabelWithHover baseJavaInstallFolderLabel = new JLabelWithHover(GetText.tr("Java Install Location") + ":",
+                HELP_ICON,
+                new HTMLBuilder().center().split(100).text(GetText.tr(
+                        "This setting allows you to specify a common location that you install all your Java installs to. This helps find your installed Java installs easier if you install them all within 1 folder."))
+                        .build());
+        add(baseJavaInstallFolderLabel, gbc);
+
+        gbc.gridx++;
+        gbc.insets = UIConstants.LABEL_INSETS;
+        gbc.anchor = GridBagConstraints.BASELINE_LEADING;
+        JPanel baseJavaInstallFolderPanel = new JPanel();
+        baseJavaInstallFolderPanel.setLayout(new BoxLayout(baseJavaInstallFolderPanel, BoxLayout.X_AXIS));
+
+        baseJavaInstallFolder = new JTextField(32);
+        baseJavaInstallFolder.setText(App.settings.baseJavaInstallFolder);
+        JButton baseJavaInstallFolderResetButton = new JButton(GetText.tr("Reset"));
+        baseJavaInstallFolderResetButton.addActionListener(e -> {
+            baseJavaInstallFolder.setText("");
+        });
+        JButton baseJavaInstallFolderBrowseButton = new JButton(GetText.tr("Browse"));
+        baseJavaInstallFolderBrowseButton.addActionListener(e -> {
+            JFileChooser chooser = new JFileChooser();
+            chooser.setCurrentDirectory(new File(baseJavaInstallFolder.getText()));
+            chooser.setDialogTitle(GetText.tr("Select"));
+            chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+            chooser.setAcceptAllFileFilterUsed(false);
+
+            if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
+                baseJavaInstallFolder.setText(chooser.getSelectedFile().getAbsolutePath());
+            }
+        });
+
+        baseJavaInstallFolderPanel.add(baseJavaInstallFolder);
+        baseJavaInstallFolderPanel.add(Box.createHorizontalStrut(5));
+        baseJavaInstallFolderPanel.add(baseJavaInstallFolderResetButton);
+        baseJavaInstallFolderPanel.add(Box.createHorizontalStrut(5));
+        baseJavaInstallFolderPanel.add(baseJavaInstallFolderBrowseButton);
+
+        add(baseJavaInstallFolderPanel, gbc);
+
         // Start Minecraft Maximised
 
         gbc.gridx = 0;
@@ -504,7 +556,7 @@ public class JavaSettingsTab extends AbstractSettingsTab implements Relocalizati
         gbc.anchor = GridBagConstraints.BASELINE_TRAILING;
         ignoreJavaOnInstanceLaunchLabel = new JLabelWithHover(GetText.tr("Ignore Java Checks On Launch") + "?",
                 HELP_ICON, GetText.tr(
-                        "This enables ignoring errors when launching a pack that you don't have a compatable Java version for."));
+                        "This enables ignoring errors when launching a pack that you don't have a compatible Java version for."));
         add(ignoreJavaOnInstanceLaunchLabel, gbc);
 
         gbc.gridx++;
@@ -525,7 +577,7 @@ public class JavaSettingsTab extends AbstractSettingsTab implements Relocalizati
         useJavaProvidedByMinecraftLabel = new JLabelWithHover(GetText.tr("Use Java Provided By Minecraft") + "?",
                 HELP_ICON,
                 new HTMLBuilder().center().text(GetText.tr(
-                        "This allows you to enable/disable using the version of Java provided by the version of Minecraft you're running.<br/><br/>It's highly recommended to not disable this, unless you know what you're doing.<br/><br/>This setting cannot be changed if using an ARM based computer as it's not compatable and will not be used."))
+                        "This allows you to enable/disable using the version of Java provided by the version of Minecraft you're running.<br/><br/>It's highly recommended to not disable this, unless you know what you're doing."))
                         .build());
         add(useJavaProvidedByMinecraftLabel, gbc);
 
@@ -534,7 +586,6 @@ public class JavaSettingsTab extends AbstractSettingsTab implements Relocalizati
         gbc.anchor = GridBagConstraints.BASELINE_LEADING;
         useJavaProvidedByMinecraft = new JCheckBox();
         useJavaProvidedByMinecraft.setSelected(App.settings.useJavaProvidedByMinecraft);
-        useJavaProvidedByMinecraft.setEnabled(!OS.isArm() || OS.isMacArm());
         useJavaProvidedByMinecraft.addItemListener(new ItemListener() {
             @Override
             public void itemStateChanged(ItemEvent e) {
@@ -650,6 +701,8 @@ public class JavaSettingsTab extends AbstractSettingsTab implements Relocalizati
         App.settings.maximiseMinecraft = startMinecraftMaximised.isSelected();
         App.settings.ignoreJavaOnInstanceLaunch = ignoreJavaOnInstanceLaunch.isSelected();
         App.settings.useJavaProvidedByMinecraft = useJavaProvidedByMinecraft.isSelected();
+        App.settings.baseJavaInstallFolder = baseJavaInstallFolder.getText().isEmpty() ? null
+                : baseJavaInstallFolder.getText();
         App.settings.disableLegacyLaunching = disableLegacyLaunching.isSelected();
         App.settings.useSystemGlfw = useSystemGlfw.isSelected();
         App.settings.useSystemOpenAl = useSystemOpenAl.isSelected();
@@ -708,7 +761,7 @@ public class JavaSettingsTab extends AbstractSettingsTab implements Relocalizati
 
         this.ignoreJavaOnInstanceLaunchLabel.setText(GetText.tr("Ignore Java Checks On Launch") + "?");
         this.ignoreJavaOnInstanceLaunchLabel.setToolTipText(GetText.tr(
-                "This enables ignoring errors when launching a pack that you don't have a compatable Java version for."));
+                "This enables ignoring errors when launching a pack that you don't have a compatible Java version for."));
 
         this.useJavaProvidedByMinecraftLabel.setText(GetText.tr("Use Java Provided By Minecraft") + "?");
         this.useJavaProvidedByMinecraftLabel.setToolTipText(new HTMLBuilder().center().text(GetText.tr(

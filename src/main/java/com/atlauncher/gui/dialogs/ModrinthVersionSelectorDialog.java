@@ -47,6 +47,7 @@ import com.atlauncher.data.modrinth.ModrinthDependency;
 import com.atlauncher.data.modrinth.ModrinthDependencyType;
 import com.atlauncher.data.modrinth.ModrinthFile;
 import com.atlauncher.data.modrinth.ModrinthProject;
+import com.atlauncher.data.modrinth.ModrinthProjectType;
 import com.atlauncher.data.modrinth.ModrinthVersion;
 import com.atlauncher.exceptions.InvalidMinecraftVersion;
 import com.atlauncher.gui.card.ModrinthProjectDependencyCard;
@@ -65,6 +66,7 @@ public class ModrinthVersionSelectorDialog extends JDialog {
     private final ModrinthProject mod;
     private final Instance instance;
     private String installedVersionId = null;
+    private boolean selectNewest = true;
 
     private final JPanel dependenciesPanel = new JPanel(new FlowLayout());
     private JScrollPane scrollPane;
@@ -116,6 +118,18 @@ public class ModrinthVersionSelectorDialog extends JDialog {
         setupComponents();
     }
 
+    public ModrinthVersionSelectorDialog(Window parent, ModrinthProject mod, Instance instance,
+            String installedVersionId, boolean selectNewest) {
+        super(parent, ModalityType.DOCUMENT_MODAL);
+
+        this.mod = mod;
+        this.instance = instance;
+        this.installedVersionId = installedVersionId;
+        this.selectNewest = selectNewest;
+
+        setupComponents();
+    }
+
     public void reloadDependenciesPanel() {
         if (versionsDropdown.getSelectedItem() == null) {
             return;
@@ -140,6 +154,14 @@ public class ModrinthVersionSelectorDialog extends JDialog {
                                                 && installedMod.isFromCurseForge()
                                                 && installedMod
                                                         .getCurseForgeFileId() == Constants.CURSEFORGE_FABRIC_MOD_ID) {
+                                            return true;
+                                        }
+
+                                        // don't show Modrinth dependency when grabbed from CurseForge
+                                        if (dependency.projectId.equals(Constants.MODRINTH_LEGACY_FABRIC_MOD_ID)
+                                                && installedMod.isFromCurseForge()
+                                                && installedMod
+                                                        .getCurseForgeFileId() == Constants.CURSEFORGE_LEGACY_FABRIC_MOD_ID) {
                                             return true;
                                         }
 
@@ -345,12 +367,13 @@ public class ModrinthVersionSelectorDialog extends JDialog {
                     .sorted(Comparator.comparing((ModrinthVersion version) -> version.datePublished).reversed());
 
             if (App.settings.addModRestriction != AddModRestriction.NONE
-                    && this.instance.launcher.loaderVersion != null) {
+                    && this.instance.launcher.loaderVersion != null && mod.projectType == ModrinthProjectType.MOD) {
                 modrinthVersionsStream = modrinthVersionsStream
-                        .filter(v -> this.instance.launcher.loaderVersion.isFabric() ? v.loaders.contains("fabric")
-                                : (this.instance.launcher.loaderVersion.isQuilt()
-                                        ? (v.loaders.contains("quilt") || v.loaders.contains("fabric"))
-                                        : v.loaders.contains("forge")));
+                        .filter(v -> (this.instance.launcher.loaderVersion.isFabric()
+                                || this.instance.launcher.loaderVersion.isLegacyFabric()) ? v.loaders.contains("fabric")
+                                        : (this.instance.launcher.loaderVersion.isQuilt()
+                                                ? (v.loaders.contains("quilt") || v.loaders.contains("fabric"))
+                                                : v.loaders.contains("forge")));
             }
 
             if (App.settings.addModRestriction == AddModRestriction.STRICT) {
@@ -391,7 +414,9 @@ public class ModrinthVersionSelectorDialog extends JDialog {
                         .filter(f -> f.id.equalsIgnoreCase(this.installedVersionId)).findFirst().orElse(null);
 
                 if (installedFile != null) {
-                    versionsDropdown.setSelectedItem(installedFile);
+                    if (!selectNewest) {
+                        versionsDropdown.setSelectedItem(installedFile);
+                    }
 
                     // #. {0} is the name of the mod that the user already has installed
                     installedJLabel.setText(GetText.tr("The version currently installed is {0}", installedFile.name));

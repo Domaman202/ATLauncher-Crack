@@ -24,6 +24,7 @@ import java.util.stream.Collectors;
 
 import com.atlauncher.App;
 import com.atlauncher.data.LauncherVersion;
+import com.atlauncher.utils.OS;
 
 public class Constants {
     static {
@@ -40,7 +41,8 @@ public class Constants {
         }
 
         VERSION = new LauncherVersion(Integer.parseInt(versionParts[0]), Integer.parseInt(versionParts[1]),
-                Integer.parseInt(versionParts[2]), Integer.parseInt(versionParts[3]), stream);
+                Integer.parseInt(versionParts[2]), Integer.parseInt(versionParts[3]), stream,
+                OS.getRunningProgramHashCode());
     }
 
     // Launcher config
@@ -57,6 +59,7 @@ public class Constants {
     public static String BASE_LAUNCHER_PROTOCOL = "https://";
     public static String BASE_LAUNCHER_DOMAIN = "atlauncher.com";
     public static String API_BASE_URL = BASE_LAUNCHER_PROTOCOL + "api." + BASE_LAUNCHER_DOMAIN + "/v1/launcher/";
+    public static String GRAPHQL_ENDPOINT = BASE_LAUNCHER_PROTOCOL + "api." + BASE_LAUNCHER_DOMAIN + "/v2/graphql";
     public static String API_HOST = "api." + BASE_LAUNCHER_DOMAIN;
     public static String PASTE_CHECK_URL = BASE_LAUNCHER_PROTOCOL + "paste." + BASE_LAUNCHER_DOMAIN;
     public static String PASTE_HOST = "paste." + BASE_LAUNCHER_DOMAIN;
@@ -80,6 +83,7 @@ public class Constants {
     public static final int CURSEFORGE_FABRIC_MODLOADER_ID = 4;
     public static final int CURSEFORGE_PAGINATION_SIZE = 20;
     public static final int CURSEFORGE_FABRIC_MOD_ID = 306612;
+    public static final int CURSEFORGE_LEGACY_FABRIC_MOD_ID = 400281;
     public static final int CURSEFORGE_JUMPLOADER_MOD_ID = 361988;
     public static final int CURSEFORGE_MODS_SECTION_ID = 6;
     public static final int CURSEFORGE_MODPACKS_SECTION_ID = 4471;
@@ -90,6 +94,7 @@ public class Constants {
     public static final String MODRINTH_API_URL = "https://api.modrinth.com/v2";
     public static final String MODRINTH_HOST = "api.modrinth.com";
     public static final String MODRINTH_FABRIC_MOD_ID = "P7dR8mSH";
+    public static final String MODRINTH_LEGACY_FABRIC_MOD_ID = "9CJED7xi";
     public static final String MODRINTH_QSL_MOD_ID = "qvIfYCYJ";
     public static final int MODRINTH_PAGINATION_SIZE = 20;
 
@@ -114,6 +119,10 @@ public class Constants {
     public static final String FABRIC_MAVEN = "https://maven.fabricmc.net/";
     public static final String FABRIC_HOST = "maven.fabricmc.net";
 
+    // Legacy Fabric domains, endpoints, etc
+    public static final String LEGACY_FABRIC_MAVEN = "https://maven.legacyfabric.net/";
+    public static final String LEGACY_FABRIC_HOST = "maven.legacyfabric.net";
+
     // Quilt domains, endpoints, etc
     public static final String QUILT_MAVEN = "https://maven.quiltmc.org/repository/release/";
     public static final String QUILT_HOST = "maven.quiltmc.org";
@@ -133,12 +142,13 @@ public class Constants {
     public static final String[] DATE_FORMATS = { "dd/MM/yyyy", "MM/dd/yyyy", "yyyy/MM/dd", "dd MMMM yyyy",
             "dd-MM-yyyy", "MM-dd-yyyy", "yyyy-MM-dd" };
     // instance name, pack name, pack version, minecraft version
-    public static final String[] INSTANCE_TITLE_FORMATS = { "%1$s (%2$s %3$s)", "%1$s", "%1$s (%4$s)" };
+    public static final String[] INSTANCE_TITLE_FORMATS = { "%1$s (%2$s %3$s)", "%1$s", "%1$s (%4$s)", "%1$s (%3$s)" };
     public static final String[] SCREEN_RESOLUTIONS = { "854x480", "1280x720", "1366x768", "1600x900", "1920x1080",
             "2560x1440", "3440x1440", "3840x2160" };
     public static final String DEFAULT_JAVA_PARAMETERS = "-XX:+UnlockExperimentalVMOptions -XX:+UseG1GC -XX:G1NewSizePercent=20 -XX:G1ReservePercent=20 -XX:MaxGCPauseMillis=50 -XX:G1HeapRegionSize=32M";
 
     // Custom for ATLauncher Microsoft login constants
+    // if you fork or modify this launcher, you must not use this Client ID
     public static final String MICROSOFT_LOGIN_CLIENT_ID = "90890812-00d1-48a8-8d3f-38465ef43b58";
     public static final int MICROSOFT_LOGIN_REDIRECT_PORT = 28562;
     public static final String MICROSOFT_LOGIN_REDIRECT_URL = "http://127.0.0.1:" + MICROSOFT_LOGIN_REDIRECT_PORT;
