@@ -263,8 +263,6 @@ public class MCLauncher {
         }
         arguments.add(path);
 
-        arguments.add("-XX:-OmitStackTraceInFastThrow");
-
         arguments.add("-Xms" + initialMemory + "M");
 
         if (OS.getMaximumRam() != 0 && maximumMemory < instance.getMemory()) {

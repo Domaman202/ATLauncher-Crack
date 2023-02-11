@@ -3,12 +3,16 @@
 This changelog only contains the changes that are unreleased. For changes for individual releases, please visit the
 [releases](https://github.com/ATLauncher/ATLauncher/releases) page on GitHub.
 
-## 3.4.24.1
+## 3.4.28.0
 
 ### New Features
+- Add ability to override the runtime version per instance
+- Add in a unified modpack search to search across multiple platforms at once [#720]
+- Add category filtering when adding mods/shaders/worlds/resource packs
+- List the timeout and concurrent connection settings when downloads fail
 
 ### Fixes
-- Issue with modlist allowing adding mods multiple times [#702]
-- Issue with mods now showing from CurseForge when not tagged with a loader
+- Remove old OmitStackTraceInFastThrow JVM arg
+- Don't allow installing non modpacks by ID in pack browser tabs
 
 ### Misc
