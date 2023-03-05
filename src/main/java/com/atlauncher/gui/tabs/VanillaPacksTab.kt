@@ -31,6 +31,7 @@ import com.atlauncher.viewmodel.base.IVanillaPacksViewModel
 import com.atlauncher.viewmodel.impl.VanillaPacksViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import org.mini2Dx.gettext.GetText
@@ -82,7 +83,7 @@ class VanillaPacksTab : JPanel(BorderLayout()), Tab, RelocalizationListener {
     private fun getCreateInstanceText() = GetText.tr("Create Instance")
     private val createInstanceButton = JButton(getCreateInstanceText())
     private val viewModel: IVanillaPacksViewModel = VanillaPacksViewModel()
-    private val scope = CoroutineScope(Dispatchers.Main)
+    private val scope = GlobalScope
 
     init {
         name = "vanillaPacksPanel"
