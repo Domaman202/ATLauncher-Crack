@@ -40,7 +40,9 @@ public class Authentication {
         auth.setUsername(username);
         auth.setPassword(password);
 
-        if (auth.canLogIn()) {
+        if (password == null) {
+            response.setAuth(auth);
+        } else if (auth.canLogIn()) {
             try {
                 auth.logIn();
                 response.setAuth(auth);

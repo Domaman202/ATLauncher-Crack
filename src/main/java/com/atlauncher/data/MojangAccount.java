@@ -23,7 +23,9 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.UUID;
 
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -42,6 +44,8 @@ import com.atlauncher.managers.LogManager;
 import com.atlauncher.utils.Authentication;
 import com.atlauncher.utils.MojangAPIUtils;
 import com.atlauncher.utils.Utils;
+import com.mojang.authlib.UserAuthentication;
+import com.mojang.util.UUIDTypeAdapter;
 
 public class MojangAccount extends AbstractAccount {
     /**
@@ -76,9 +80,25 @@ public class MojangAccount extends AbstractAccount {
 
     public MojangAccount(String username, String password, LoginResponse response, Boolean remember,
             String clientToken) {
-        this(username, password, response.getAuth().getSelectedProfile().getName(),
-                response.getAuth().getSelectedProfile().getId().toString(), remember, clientToken,
-                response.getAuth().saveForStorage());
+//        this(username, password, response.getAuth().getSelectedProfile().getName(),
+//                response.getAuth().getSelectedProfile().getId().toString(), remember, clientToken,
+//                response.getAuth().saveForStorage());
+        this.username = username;
+        if (remember) {
+            this.password = password;
+            this.encryptedPassword = Utils.encrypt(password);
+        }
+        UserAuthentication auth = response.getAuth();
+        if (auth.getAvailableProfiles() == null) {
+            this.minecraftUsername = username;
+            this.uuid = UUID.nameUUIDFromBytes(("OfflinePlayer:" + username).getBytes(StandardCharsets.UTF_8)).toString();
+        } else {
+            this.minecraftUsername = auth.getSelectedProfile().getName();
+            this.uuid = auth.getSelectedProfile().getId().toString();
+            this.store = auth.saveForStorage();
+        }
+        this.remember = remember;
+        this.clientToken = clientToken;
     }
 
     public MojangAccount(String username, String password, String minecraftUsername, String uuid, Boolean remember,
