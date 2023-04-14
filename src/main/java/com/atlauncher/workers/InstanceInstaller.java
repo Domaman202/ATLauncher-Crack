@@ -835,12 +835,18 @@ public class InstanceInstaller extends SwingWorker<Boolean, Void> implements Net
         fireTask(GetText.tr("Extracting Manifest"));
         fireSubProgressUnknown();
 
-        modrinthManifest = Gsons.MINECRAFT.fromJson(
-                new String(ArchiveUtils.getFile(manifestFile, "modrinth.index.json")),
-                ModrinthModpackManifest.class);
         modrinthExtractedPath = this.temp.resolve("modrinthimport");
-
         ArchiveUtils.extract(manifestFile, modrinthExtractedPath);
+
+        try (FileReader fileReader = new FileReader(modrinthExtractedPath.resolve("modrinth.index.json").toFile())) {
+            modrinthManifest = Gsons.MINECRAFT.fromJson(fileReader, ModrinthModpackManifest.class);
+        } catch (Exception e) {
+            LogManager.logStackTrace("Failed to read modrinth.index.json file", e);
+            Files.delete(manifestFile);
+            Files.delete(modrinthExtractedPath);
+            throw e;
+        }
+
         Files.delete(manifestFile);
 
         generatePackVersionFromModrinthManifest();
@@ -1997,6 +2003,31 @@ public class InstanceInstaller extends SwingWorker<Boolean, Void> implements Net
                         curseForgeExtractedPath
                                 .resolve(Optional.ofNullable(curseForgeManifest.overrides).orElse("overrides")
                                         + "/mods/" + packVersion.minecraft))) {
+                    this.modsInstalled.addAll(list.filter(p -> !Files.isDirectory(p))
+                            .filter(p -> p.toString().toLowerCase().endsWith(".jar")
+                                    || p.toString().toLowerCase().endsWith(".zip"))
+                            .map(p -> convertPathToDisableableMod(p, Type.dependency)).collect(Collectors.toList()));
+                } catch (IOException e) {
+                    LogManager.logStackTrace(e);
+                }
+            }
+        }
+
+        if (this.modrinthManifest != null) {
+            if (Files.exists(modrinthExtractedPath.resolve("overrides/mods"))) {
+                try (Stream<Path> list = Files.list(modrinthExtractedPath.resolve("overrides/mods"))) {
+                    this.modsInstalled.addAll(list.filter(p -> !Files.isDirectory(p))
+                            .filter(p -> p.toString().toLowerCase().endsWith(".jar")
+                                    || p.toString().toLowerCase().endsWith(".zip"))
+                            .map(p -> convertPathToDisableableMod(p, Type.mods)).collect(Collectors.toList()));
+                } catch (IOException e) {
+                    LogManager.logStackTrace(e);
+                }
+            }
+
+            if (Files.exists(modrinthExtractedPath.resolve("overrides/mods/" + packVersion.minecraft))) {
+                try (Stream<Path> list = Files
+                        .list(modrinthExtractedPath.resolve("overrides/mods/" + packVersion.minecraft))) {
                     this.modsInstalled.addAll(list.filter(p -> !Files.isDirectory(p))
                             .filter(p -> p.toString().toLowerCase().endsWith(".jar")
                                     || p.toString().toLowerCase().endsWith(".zip"))

@@ -755,8 +755,13 @@ public class Instance extends MinecraftVersion {
                         : l)
                 .forEach(library -> {
                     if (library.hasNativeForOS()) {
-                        if ((library.name.contains("glfw") && useSystemGlfw)
-                                || (library.name.contains("openal") && useSystemOpenAl)) {
+                        if (library.name.contains("glfw") && useSystemGlfw) {
+                            LogManager.warn("useSystemGlfw was enabled, not using glfw natives from Minecraft");
+                            return;
+                        }
+
+                        if (library.name.contains("openal") && useSystemOpenAl) {
+                            LogManager.warn("useSystemOpenAl was enabled, not using openal natives from Minecraft");
                             return;
                         }
 
@@ -957,8 +962,8 @@ public class Instance extends MinecraftVersion {
                     App.launcher.getParent().setVisible(false);
                 }
 
-                LogManager.info("Launching pack " + this.launcher.pack + " " + this.launcher.version + " for "
-                        + "Minecraft " + this.id);
+                LogManager.info(String.format("Launching pack %s %s (%s) for Minecraft %s", this.launcher.pack,
+                        this.launcher.version, getPlatformNameForLogging(), this.id));
 
                 Process process = null;
 
@@ -1135,6 +1140,11 @@ public class Instance extends MinecraftVersion {
                     if (line.contains(
                             "has been compiled by a more recent version of the Java Runtime (class file version 60.0)")) {
                         detectedError = MinecraftError.NEED_TO_USE_JAVA_16_OR_NEWER;
+                    }
+
+                    if (line.contains(
+                            "has been compiled by a more recent version of the Java Runtime (class file version 61.0)")) {
+                        detectedError = MinecraftError.NEED_TO_USE_JAVA_17_OR_NEWER;
                     }
 
                     if (line.contains(
@@ -2466,6 +2476,42 @@ public class Instance extends MinecraftVersion {
                         && ConfigManager.getConfigItem("platforms.modrinth.modpacksEnabled", true) == true));
     }
 
+    public String getPlatformNameForLogging() {
+        if (isCurseForgePack()) {
+            return "CurseForge";
+        }
+
+        if (isModpacksChPack()) {
+            return "ModpacksCh";
+        }
+
+        if (isTechnicSolderPack()) {
+            return "TechnicSolder";
+        }
+
+        if (isTechnicPack()) {
+            return "Technic";
+        }
+
+        if (isModrinthPack()) {
+            return "Modrinth";
+        }
+
+        if (isModrinthImport()) {
+            return "ModrinthImport";
+        }
+
+        if (isMultiMcImport()) {
+            return "MultiMcImport";
+        }
+
+        if (isVanillaInstance()) {
+            return "Vanilla";
+        }
+
+        return "ATLauncher";
+    }
+
     public String getAnalyticsCategory() {
         if (isCurseForgePack()) {
             return "CurseForgeInstance";
@@ -2500,38 +2546,6 @@ public class Instance extends MinecraftVersion {
         }
 
         return "Instance";
-    }
-
-    public boolean hasWebsite() {
-        if (isCurseForgePack()) {
-            return launcher.curseForgeProject.hasWebsiteUrl();
-        }
-
-        if (isModpacksChPack()) {
-            return launcher.modpacksChPackManifest.hasTag("FTB");
-        }
-
-        return isModrinthPack() || isTechnicPack();
-    }
-
-    public String getWebsiteUrl() {
-        if (isCurseForgePack() && launcher.curseForgeProject.hasWebsiteUrl()) {
-            return launcher.curseForgeProject.getWebsiteUrl();
-        }
-
-        if (isModpacksChPack() && launcher.modpacksChPackManifest.hasTag("FTB")) {
-            return launcher.modpacksChPackManifest.getWebsiteUrl();
-        }
-
-        if (isModrinthPack()) {
-            return String.format("https://modrinth.com/modpack/%s", launcher.modrinthProject.slug);
-        }
-
-        if (isTechnicPack()) {
-            return launcher.technicModpack.platformUrl;
-        }
-
-        return null;
     }
 
     public void update() {
@@ -3248,5 +3262,94 @@ public class Instance extends MinecraftVersion {
             save();
         }
         PerformanceManager.end("Instance::scanMissingMods - CheckForRemovedMods");
+    }
+
+    public boolean showGetHelpButton() {
+        if (getPack() != null || isModrinthPack() || isCurseForgePack()) {
+            return getDiscordInviteUrl() != null || getSupportUrl() != null || getWikiUrl() != null
+                    || getSourceUrl() != null;
+        }
+
+        return false;
+    }
+
+    public String getDiscordInviteUrl() {
+        if (getPack() != null) {
+            return getPack().discordInviteURL;
+        }
+
+        if (isModrinthPack()) {
+            return launcher.modrinthProject.discordUrl;
+        }
+
+        return null;
+    }
+
+    public String getSupportUrl() {
+        if (getPack() != null) {
+            return getPack().supportURL;
+        }
+
+        if (isModrinthPack()) {
+            return launcher.modrinthProject.issuesUrl;
+        }
+
+        if (isCurseForgePack() && launcher.curseForgeProject.hasIssuesUrl()) {
+            return launcher.curseForgeProject.getIssuesUrl();
+        }
+
+        return null;
+    }
+
+    public boolean hasWebsite() {
+        if (isCurseForgePack()) {
+            return launcher.curseForgeProject.hasWebsiteUrl();
+        }
+
+        if (isModpacksChPack()) {
+            return launcher.modpacksChPackManifest.hasTag("FTB");
+        }
+
+        return isModrinthPack() || isTechnicPack();
+    }
+
+    public String getWebsiteUrl() {
+        if (isCurseForgePack() && launcher.curseForgeProject.hasWebsiteUrl()) {
+            return launcher.curseForgeProject.getWebsiteUrl();
+        }
+
+        if (isModpacksChPack() && launcher.modpacksChPackManifest.hasTag("FTB")) {
+            return launcher.modpacksChPackManifest.getWebsiteUrl();
+        }
+
+        if (isModrinthPack()) {
+            return String.format("https://modrinth.com/modpack/%s", launcher.modrinthProject.slug);
+        }
+
+        if (isTechnicPack()) {
+            return launcher.technicModpack.platformUrl;
+        }
+
+        return null;
+    }
+
+    public String getWikiUrl() {
+        if (isModrinthPack()) {
+            return launcher.modrinthProject.wikiUrl;
+        }
+
+        if (isCurseForgePack() && launcher.curseForgeProject.hasWikiUrl()) {
+            return launcher.curseForgeProject.getWikiUrl();
+        }
+
+        return null;
+    }
+
+    public String getSourceUrl() {
+        if (isModrinthPack()) {
+            return launcher.modrinthProject.sourceUrl;
+        }
+
+        return null;
     }
 }
