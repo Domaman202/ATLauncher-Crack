@@ -89,8 +89,7 @@ jobs:
           path: dist/*
   release:
     runs-on: ubuntu-latest
-    needs: [test, build]
-    if: ${{ github.ref == 'refs/heads/master' && !endsWith(needs.build.outputs.version, '.Beta') }}
+    needs: [build]
     permissions:
       contents: write
     steps:
@@ -124,18 +123,6 @@ jobs:
           cat fixed-changelog.md >> $GITHUB_ENV
           echo 'EOF' >> $GITHUB_ENV
 
-    #   - name: Create ATLauncher Version
-    #     uses: ATLauncher/release-atlauncher-action@master
-    #     timeout-minutes: 30
-    #     with:
-    #       api-key: ${{ secrets.ATLAUNCHER_API_KEY }}
-    #       version: ${{ needs.build.outputs.clean-version }}
-    #       changelog: ${{ env.cleaned-changelog }}
-    #       files: |
-    #         ./ATLauncher/ATLauncher-${{ needs.build.outputs.clean-version }}.exe
-    #         ./ATLauncher/ATLauncher-${{ needs.build.outputs.clean-version }}.zip
-    #         ./ATLauncher/ATLauncher-${{ needs.build.outputs.clean-version }}.jar
-
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
@@ -150,20 +137,3 @@ jobs:
             ./ATLauncher/ATLauncher-${{ needs.build.outputs.clean-version }}.exe
             ./ATLauncher/ATLauncher-${{ needs.build.outputs.clean-version }}.zip
             ./ATLauncher/ATLauncher-${{ needs.build.outputs.clean-version }}.jar
-
-    #   - name: Create Sentry release
-    #     uses: getsentry/action-release@v1
-    #     env:
-    #       SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-    #       SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-    #       SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
-    #     with:
-    #       environment: production
-    #       version: "${{ needs.build.outputs.clean-version }}"
-
-    #   - name: Package up AUR versions
-    #     uses: peter-evans/repository-dispatch@v1
-    #     with:
-    #       token: ${{ secrets.BOT_GITHUB_TOKEN }}
-    #       event-type: aur-publish
-    #       client-payload: '{"version": "${{ needs.build.outputs.clean-version }}"}'

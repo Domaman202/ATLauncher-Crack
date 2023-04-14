@@ -47,10 +47,23 @@ public class Authentication {
             protected String getUsername() {
                 return username;
             }
+        };
 
-            @Override
-            public PropertyMap getUserProperties() {
-                return new PropertyMap();
+        if (password == null) {
+            response.setAuth(response.auth);
+        } else if (response.auth.canLogIn()) {
+            try {
+                response.auth.logIn();
+                response.setAuth(response.auth);
+            } catch (AuthenticationException e) {
+                if (e.getMessage().contains("410")) {
+                    response.setErrorMessage(GetText.tr(
+                            "Account has been migrated to a Microsoft account. Please use the 'Login with Microsoft' button instead."));
+                } else {
+                    response.setErrorMessage(e.getMessage());
+                }
+
+                LogManager.error("Authentication failed");
             }
         };
 

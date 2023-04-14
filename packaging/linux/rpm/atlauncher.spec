@@ -1,5 +1,5 @@
 Name:           atlauncher
-Version:        1.2
+Version:        1.3
 Release:        1%{?dist}
 Summary:        A launcher for Minecraft which integrates multiple different modpacks to allow you to download and install modpacks easily and quickly.
 
@@ -12,7 +12,8 @@ BuildRequires:  libappstream-glib
 BuildRequires:  desktop-file-utils
 
 Requires:       wget
-Requires:       java >= 1:1.8.0
+Requires:       java >= 1:17
+Requires:       xrandr
 Provides:       atlauncher
 
 %description

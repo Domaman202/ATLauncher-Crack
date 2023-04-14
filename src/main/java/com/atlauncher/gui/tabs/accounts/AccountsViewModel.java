@@ -206,7 +206,7 @@ public class AccountsViewModel implements IAccountsViewModel {
     @NotNull
     @Override
     public LoginPostResult loginPost() {
-//        if (loginResponse != null && loginResponse.hasAuth() && loginResponse.isValidAuth()) {
+        if (loginResponse != null && loginResponse.hasAuth()) {
             if (selectedAccountIndex == -1) {
                 addNewAccount(loginResponse);
                 invalidateClientToken();
@@ -219,6 +219,8 @@ public class AccountsViewModel implements IAccountsViewModel {
 //        } else {
 //            return new LoginPostResult.Error(loginResponse != null ? loginResponse.getErrorMessage() : null);
 //        }
+        }
+        return new LoginPostResult.Added();
     }
 
     @Override

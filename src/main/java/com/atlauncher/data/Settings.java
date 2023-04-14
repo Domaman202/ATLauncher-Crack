@@ -35,6 +35,7 @@ import java.util.UUID;
 import com.atlauncher.FileSystem;
 import com.atlauncher.Gsons;
 import com.atlauncher.constants.Constants;
+import com.atlauncher.managers.ConfigManager;
 import com.atlauncher.managers.LogManager;
 import com.atlauncher.utils.OS;
 import com.atlauncher.utils.Timestamper;
@@ -105,7 +106,7 @@ public class Settings {
 
     // Network
     public int concurrentConnections = 8;
-    public int connectionTimeout = 30;
+    public int connectionTimeout = 60;
     public boolean dontUseHttp2 = false;
     public boolean enableProxy = false;
     public String proxyHost = "";
@@ -391,16 +392,18 @@ public class Settings {
         boolean needToSave = false;
         int systemMemory = OS.getMaximumRam();
 
-        if (systemMemory != 0 && initialMemory > systemMemory) {
-            LogManager.warn("Tried to allocate " + initialMemory + "MB for initial memory but only " + systemMemory
-                    + "MB is available to use!");
-            initialMemory = 512;
-            needToSave = true;
-        } else if (initialMemory > maximumMemory) {
-            LogManager.warn("Tried to allocate " + initialMemory + "MB for initial memory which is more than "
-                    + maximumMemory + "MB set for the maximum memory!");
-            initialMemory = 512;
-            needToSave = true;
+        if (ConfigManager.getConfigItem("removeInitialMemoryOption", false) == false) {
+            if (systemMemory != 0 && initialMemory > systemMemory) {
+                LogManager.warn("Tried to allocate " + initialMemory + "MB for initial memory but only " + systemMemory
+                        + "MB is available to use!");
+                initialMemory = 512;
+                needToSave = true;
+            } else if (initialMemory > maximumMemory) {
+                LogManager.warn("Tried to allocate " + initialMemory + "MB for initial memory which is more than "
+                        + maximumMemory + "MB set for the maximum memory!");
+                initialMemory = 512;
+                needToSave = true;
+            }
         }
 
         if (systemMemory != 0 && maximumMemory > systemMemory) {
@@ -488,8 +491,8 @@ public class Settings {
     private void validateConnectionTimeout() {
         if (connectionTimeout < 1 || connectionTimeout > 600) {
             LogManager.warn("Tried to set the number of connection timeout to " + connectionTimeout
-                    + " which is not valid! Must be between 1 and 600. Setting back to default of 30!");
-            connectionTimeout = 30;
+                    + " which is not valid! Must be between 1 and 600. Setting back to default of 60!");
+            connectionTimeout = 60;
         }
     }
 

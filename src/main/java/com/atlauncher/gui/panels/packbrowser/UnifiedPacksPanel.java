@@ -19,91 +19,111 @@ package com.atlauncher.gui.panels.packbrowser;
 
 import java.awt.GridBagConstraints;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 import javax.swing.JPanel;
 
-import org.joda.time.format.ISODateTimeFormat;
 import org.mini2Dx.gettext.GetText;
 
+import com.atlauncher.builders.HTMLBuilder;
 import com.atlauncher.constants.UIConstants;
-import com.atlauncher.data.Pack;
 import com.atlauncher.data.minecraft.VersionManifestVersion;
 import com.atlauncher.data.minecraft.VersionManifestVersionType;
+import com.atlauncher.graphql.UnifiedModPackHomeQuery;
+import com.atlauncher.graphql.UnifiedModPackSearchQuery;
+import com.atlauncher.graphql.fragment.UnifiedModPackResultsFragment;
 import com.atlauncher.gui.card.NilCard;
-import com.atlauncher.gui.card.packbrowser.ATLauncherPackCard;
-import com.atlauncher.managers.PackManager;
+import com.atlauncher.gui.card.packbrowser.UnifiedPackCard;
+import com.atlauncher.network.GraphqlClient;
 
-public class ATLauncherFeaturedPacksPanel extends PackBrowserPlatformPanel {
-    private final List<Pack> packs = new LinkedList<>();
-    private final List<ATLauncherPackCard> cards = new LinkedList<>();
-
-    private void loadPacksToShow(String minecraftVersion, String sort, boolean sortDescending, String searchText) {
-        List<Pack> packs = PackManager.getPacksSortedPositionally(true, false);
-
-        this.packs.addAll(packs.stream().filter(Pack::canInstall).filter(pack -> {
-            if (minecraftVersion != null) {
-                return pack.versions.stream().anyMatch(pv -> pv.minecraftVersion.id.equals(minecraftVersion));
-            }
-
-            return true;
-        }).collect(Collectors.toList()));
-    }
+public class UnifiedPacksPanel extends PackBrowserPlatformPanel {
+    GridBagConstraints gbc = new GridBagConstraints();
 
     @Override
     protected void loadPacks(JPanel contentPanel, String minecraftVersion, String category, String sort,
             boolean sortDescending, String search, int page) {
-        contentPanel.removeAll();
-        this.packs.clear();
-        this.cards.clear();
-        loadPacksToShow(minecraftVersion, sort, sortDescending, search);
+        if (search.length() == 1) {
+            contentPanel.removeAll();
+            contentPanel.add(
+                    new NilCard(new HTMLBuilder().text(GetText
+                            .tr("To find a pack, search for one at the top.<br/><br/>Alternatively choose a modpack platform on the left hand side."))
+                            .build()),
+                    gbc);
+            return;
+        }
 
-        loadMorePacks(contentPanel, minecraftVersion, category, sort, sortDescending, search, page);
-    }
+        List<UnifiedModPackResultsFragment> items = new ArrayList<>();
+        if (search.isEmpty() || search.length() == 0) {
+            UnifiedModPackHomeQuery.Data response = GraphqlClient
+                    .callAndWait(new UnifiedModPackHomeQuery());
 
-    @Override
-    public void loadMorePacks(JPanel contentPanel, String minecraftVersion, String category, String sort,
-            boolean sortDescending, String search,
-            int page) {
-        this.packs.stream().forEach(pack -> this.cards.add(new ATLauncherPackCard(pack, true)));
+            if (response != null && response.unifiedModPackHome() != null) {
+                items.addAll(
+                        response.unifiedModPackHome().stream().map(i -> i.fragments().unifiedModPackResultsFragment())
+                                .collect(Collectors.toList()));
+            }
 
-        GridBagConstraints gbc = new GridBagConstraints();
+        } else {
+            UnifiedModPackSearchQuery.Data response = GraphqlClient
+                    .callAndWait(new UnifiedModPackSearchQuery(search));
+
+            if (response != null && response.unifiedModPackSearch() != null) {
+                items.addAll(
+                        response.unifiedModPackSearch().stream().map(i -> i.fragments().unifiedModPackResultsFragment())
+                                .collect(Collectors.toList()));
+            }
+        }
+
+        if (items.size() == 0) {
+            contentPanel.removeAll();
+            contentPanel.add(
+                    new NilCard(new HTMLBuilder().text(GetText
+                            .tr("There are no packs to display.<br/><br/>Try another search query or choose a platform on the left hand side."))
+                            .build()),
+                    gbc);
+            return;
+        }
+
         gbc.gridx = 0;
         gbc.gridy = 0;
         gbc.weightx = 1.0;
         gbc.insets = UIConstants.FIELD_INSETS;
         gbc.fill = GridBagConstraints.BOTH;
 
-        int count = 0;
-        for (ATLauncherPackCard card : this.cards) {
+        List<UnifiedPackCard> cards = items.stream()
+                .map(p -> new UnifiedPackCard(p))
+                .collect(Collectors.toList());
+
+        contentPanel.removeAll();
+
+        for (UnifiedPackCard card : cards) {
             contentPanel.add(card, gbc);
             gbc.gridy++;
-            count++;
         }
+    }
 
-        if (count == 0) {
-            contentPanel.add(new NilCard(GetText.tr("There are no packs to display.")), gbc);
-        }
+    @Override
+    public void loadMorePacks(JPanel contentPanel, String minecraftVersion, String category, String sort,
+            boolean sortDescending, String search, int page) {
+        // no pagination
     }
 
     @Override
     public String getPlatformName() {
-        return "ATLauncher Featured";
+        return "UnifiedModPackSearch";
     }
 
     @Override
     public String getAnalyticsCategory() {
-        return "FeaturedPack";
+        return "UnifiedPack";
     }
 
     @Override
     public boolean supportsSearch() {
-        return false;
+        return true;
     }
 
     @Override
@@ -123,17 +143,12 @@ public class ATLauncherFeaturedPacksPanel extends PackBrowserPlatformPanel {
 
     @Override
     public Map<String, String> getSortFields() {
-        Map<String, String> sortFields = new LinkedHashMap<>();
-
-        return sortFields;
+        return new LinkedHashMap<>();
     }
 
     @Override
     public Map<String, Boolean> getSortFieldsDefaultOrder() {
-        // Sort field / if in descending order
-        Map<String, Boolean> sortFieldsOrder = new LinkedHashMap<>();
-
-        return sortFieldsOrder;
+        return new LinkedHashMap<>();
     }
 
     @Override
@@ -155,16 +170,9 @@ public class ATLauncherFeaturedPacksPanel extends PackBrowserPlatformPanel {
 
     @Override
     public List<VersionManifestVersion> getSupportedMinecraftVersionsForFiltering() {
-        List<VersionManifestVersion> minecraftVersions = new ArrayList<>();
+        List<VersionManifestVersion> supportedTypes = new ArrayList<>();
 
-        PackManager.getPacks().stream().forEach(p -> {
-            minecraftVersions
-                    .addAll(p.versions.stream().map(v -> v.minecraftVersion).distinct().collect(Collectors.toList()));
-        });
-
-        return minecraftVersions.stream().distinct().sorted(Comparator.comparingLong((VersionManifestVersion mv) -> {
-            return ISODateTimeFormat.dateTimeParser().parseDateTime(mv.releaseTime).getMillis() / 1000;
-        }).reversed()).collect(Collectors.toList());
+        return supportedTypes;
     }
 
     public boolean supportsManualAdding() {

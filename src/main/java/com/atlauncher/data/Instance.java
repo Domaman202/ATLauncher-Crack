@@ -125,6 +125,11 @@ import com.atlauncher.data.technic.TechnicSolderModpack;
 import com.atlauncher.exceptions.CommandException;
 import com.atlauncher.exceptions.InvalidMinecraftVersion;
 import com.atlauncher.exceptions.InvalidPack;
+import com.atlauncher.graphql.AddPackActionMutation;
+import com.atlauncher.graphql.AddPackTimePlayedMutation;
+import com.atlauncher.graphql.type.AddPackActionInput;
+import com.atlauncher.graphql.type.AddPackTimePlayedInput;
+import com.atlauncher.graphql.type.PackLogAction;
 import com.atlauncher.gui.dialogs.InstanceInstallerDialog;
 import com.atlauncher.gui.dialogs.ProgressDialog;
 import com.atlauncher.gui.dialogs.RenameInstanceDialog;
@@ -144,6 +149,7 @@ import com.atlauncher.managers.TechnicModpackUpdateManager;
 import com.atlauncher.mclauncher.MCLauncher;
 import com.atlauncher.network.Analytics;
 import com.atlauncher.network.DownloadPool;
+import com.atlauncher.network.GraphqlClient;
 import com.atlauncher.utils.ArchiveUtils;
 import com.atlauncher.utils.ComboItem;
 import com.atlauncher.utils.CommandExecutor;
@@ -406,6 +412,11 @@ public class Instance extends MinecraftVersion {
         }
     }
 
+    public void ignoreAllUpdates() {
+        this.launcher.ignoreAllUpdates = true;
+        this.save();
+    }
+
     public boolean hasLatestUpdateBeenIgnored() {
         if (launcher.vanillaInstance) {
             return false;
@@ -441,6 +452,10 @@ public class Instance extends MinecraftVersion {
     }
 
     private boolean hasUpdateBeenIgnored(String version) {
+        if (this.launcher.ignoreAllUpdates) {
+            return true;
+        }
+
         if (version == null || this.launcher.ignoredUpdates.size() == 0) {
             return false;
         }
@@ -610,26 +625,29 @@ public class Instance extends MinecraftVersion {
             Map<String, List<JavaRuntime>> runtimesForSystem = Data.JAVA_RUNTIMES.getForSystem();
             String runtimeSystemString = JavaRuntimes.getSystem();
 
-            if (runtimesForSystem.containsKey(javaVersion.component)
-                    && runtimesForSystem.get(javaVersion.component).size() != 0) {
-                // #. {0} is the version of Java were downloading
-                progressDialog.setLabel(GetText.tr("Downloading Java Runtime {0}", javaVersion.majorVersion));
+            String runtimeToUse = Optional.ofNullable(launcher.javaRuntimeOverride).orElse(javaVersion.component);
 
-                JavaRuntime runtimeToDownload = runtimesForSystem.get(javaVersion.component).get(0);
+            if (runtimesForSystem.containsKey(runtimeToUse)
+                    && runtimesForSystem.get(runtimeToUse).size() != 0) {
+                // #. {0} is the version of Java were downloading
+                progressDialog.setLabel(GetText.tr("Downloading Java Runtime {0}",
+                        runtimesForSystem.get(runtimeToUse).get(0).version.name));
+
+                JavaRuntime runtimeToDownload = runtimesForSystem.get(runtimeToUse).get(0);
 
                 try {
                     JavaRuntimeManifest javaRuntimeManifest = com.atlauncher.network.Download.build()
                             .setUrl(runtimeToDownload.manifest.url).size(runtimeToDownload.manifest.size)
                             .hash(runtimeToDownload.manifest.sha1).downloadTo(FileSystem.MINECRAFT_RUNTIMES
-                                    .resolve(javaVersion.component).resolve("manifest.json"))
+                                    .resolve(runtimeToUse).resolve("manifest.json"))
                             .asClassWithThrow(JavaRuntimeManifest.class);
 
                     DownloadPool pool = new DownloadPool();
 
                     // create root directory
-                    Path runtimeSystemDirectory = FileSystem.MINECRAFT_RUNTIMES.resolve(javaVersion.component)
+                    Path runtimeSystemDirectory = FileSystem.MINECRAFT_RUNTIMES.resolve(runtimeToUse)
                             .resolve(runtimeSystemString);
-                    Path runtimeDirectory = runtimeSystemDirectory.resolve(javaVersion.component);
+                    Path runtimeDirectory = runtimeSystemDirectory.resolve(runtimeToUse);
                     FileUtils.createDirectory(runtimeDirectory);
 
                     // create all the directories
@@ -661,7 +679,7 @@ public class Instance extends MinecraftVersion {
                     // doing that)
                     Files.write(runtimeSystemDirectory.resolve(".version"),
                             runtimeToDownload.version.name.getBytes(StandardCharsets.UTF_8));
-                    // Files.write(runtimeSystemDirectory.resolve(javaVersion.component
+                    // Files.write(runtimeSystemDirectory.resolve(runtimeToUse
                     // + ".sha1"), runtimeToDownload.version.name.getBytes(StandardCharsets.UTF_8));
                 } catch (IOException e) {
                     LogManager.logStackTrace("Failed to download Java runtime", e);
@@ -737,8 +755,13 @@ public class Instance extends MinecraftVersion {
                         : l)
                 .forEach(library -> {
                     if (library.hasNativeForOS()) {
-                        if ((library.name.contains("glfw") && useSystemGlfw)
-                                || (library.name.contains("openal") && useSystemOpenAl)) {
+                        if (library.name.contains("glfw") && useSystemGlfw) {
+                            LogManager.warn("useSystemGlfw was enabled, not using glfw natives from Minecraft");
+                            return;
+                        }
+
+                        if (library.name.contains("openal") && useSystemOpenAl) {
+                            LogManager.warn("useSystemOpenAl was enabled, not using openal natives from Minecraft");
                             return;
                         }
 
@@ -939,8 +962,8 @@ public class Instance extends MinecraftVersion {
                     App.launcher.getParent().setVisible(false);
                 }
 
-                LogManager.info("Launching pack " + this.launcher.pack + " " + this.launcher.version + " for "
-                        + "Minecraft " + this.id);
+                LogManager.info(String.format("Launching pack %s %s (%s) for Minecraft %s", this.launcher.pack,
+                        this.launcher.version, getPlatformNameForLogging(), this.id));
 
                 Process process = null;
 
@@ -1120,6 +1143,11 @@ public class Instance extends MinecraftVersion {
                     }
 
                     if (line.contains(
+                            "has been compiled by a more recent version of the Java Runtime (class file version 61.0)")) {
+                        detectedError = MinecraftError.NEED_TO_USE_JAVA_17_OR_NEWER;
+                    }
+
+                    if (line.contains(
                             "class jdk.internal.loader.ClassLoaders$AppClassLoader cannot be cast to class")) {
                         detectedError = MinecraftError.USING_NEWER_JAVA_THAN_8;
                     }
@@ -1280,31 +1308,44 @@ public class Instance extends MinecraftVersion {
         }
     }
 
-    public String addPlay(String version) {
-        Map<String, Object> request = new HashMap<>();
+    public void addPlay(String version) {
+        if (ConfigManager.getConfigItem("useGraphql.packActions", false) == true) {
+            GraphqlClient
+                    .mutateAndWait(
+                            new AddPackActionMutation(AddPackActionInput.builder().packId(Integer.toString(
+                                    this.getPack().id))
+                                    .version(version).action(PackLogAction.PLAY).build()));
+        } else {
+            Map<String, Object> request = new HashMap<>();
 
-        request.put("version", version);
+            request.put("version", version);
 
-        try {
-            return Utils.sendAPICall("pack/" + this.getPack().getSafeName() + "/play", request);
-        } catch (IOException e) {
-            LogManager.logStackTrace(e);
+            try {
+                Utils.sendAPICall("pack/" + this.getPack().getSafeName() + "/play", request);
+            } catch (IOException e) {
+                LogManager.logStackTrace(e);
+            }
         }
-        return "Play Not Added!";
     }
 
-    public String addTimePlayed(int time, String version) {
-        Map<String, Object> request = new HashMap<>();
+    public void addTimePlayed(int time, String version) {
+        if (ConfigManager.getConfigItem("useGraphql.packActions", false) == true) {
+            GraphqlClient
+                    .mutateAndWait(
+                            new AddPackTimePlayedMutation(AddPackTimePlayedInput.builder().packId(Integer.toString(
+                                    this.getPack().id)).version(version).time(time).build()));
+        } else {
+            Map<String, Object> request = new HashMap<>();
 
-        request.put("version", version);
-        request.put("time", time);
+            request.put("version", version);
+            request.put("time", time);
 
-        try {
-            return Utils.sendAPICall("pack/" + this.getPack().getSafeName() + "/timeplayed/", request);
-        } catch (IOException e) {
-            LogManager.logStackTrace(e);
+            try {
+                Utils.sendAPICall("pack/" + this.getPack().getSafeName() + "/timeplayed/", request);
+            } catch (IOException e) {
+                LogManager.logStackTrace(e);
+            }
         }
-        return "Leaderboard Time Not Added!";
     }
 
     public DisableableMod getDisableableModByCurseModId(int curseModId) {
@@ -1664,32 +1705,38 @@ public class Instance extends MinecraftVersion {
 
         manifest.components = new ArrayList<>();
 
-        // lwjgl 3
-        MultiMCComponent lwjgl3Component = new MultiMCComponent();
-        lwjgl3Component.cachedName = "LWJGL 3";
-        lwjgl3Component.cachedVersion = "3.2.2";
-        lwjgl3Component.cachedVolatile = true;
-        lwjgl3Component.dependencyOnly = true;
-        lwjgl3Component.uid = "org.lwjgl3";
-        lwjgl3Component.version = "3.2.2";
-        manifest.components.add(lwjgl3Component);
+        Optional<Library> lwjgl3Version = libraries.stream().filter(l -> l.name.contains("org.lwjgl:lwjgl:"))
+                .findFirst();
 
         // minecraft
         MultiMCComponent minecraftComponent = new MultiMCComponent();
         minecraftComponent.cachedName = "Minecraft";
-
-        minecraftComponent.cachedRequires = new ArrayList<>();
-        MultiMCRequire lwjgl3Require = new MultiMCRequire();
-        lwjgl3Require.equals = "3.2.2";
-        lwjgl3Require.suggests = "3.2.2";
-        lwjgl3Require.uid = "org.lwjgl3";
-        minecraftComponent.cachedRequires.add(lwjgl3Require);
-
+        minecraftComponent.important = true;
         minecraftComponent.cachedVersion = id;
-        minecraftComponent.cachedVolatile = true;
-        minecraftComponent.dependencyOnly = true;
-        minecraftComponent.uid = "org.lwjgl3";
-        minecraftComponent.version = "3.2.2";
+        minecraftComponent.uid = "net.minecraft";
+        minecraftComponent.version = id;
+
+        if (lwjgl3Version.isPresent()) {
+            String lwjgl3VersionString = lwjgl3Version.get().name.replace("org.lwjgl:lwjgl:", "");
+
+            // lwjgl 3
+            MultiMCComponent lwjgl3Component = new MultiMCComponent();
+            lwjgl3Component.cachedName = "LWJGL 3";
+            lwjgl3Component.cachedVersion = lwjgl3VersionString;
+            lwjgl3Component.cachedVolatile = true;
+            lwjgl3Component.dependencyOnly = true;
+            lwjgl3Component.uid = "org.lwjgl3";
+            lwjgl3Component.version = lwjgl3VersionString;
+            manifest.components.add(lwjgl3Component);
+
+            minecraftComponent.cachedRequires = new ArrayList<>();
+            MultiMCRequire lwjgl3Require = new MultiMCRequire();
+            lwjgl3Require.equals = lwjgl3VersionString;
+            lwjgl3Require.suggests = lwjgl3VersionString;
+            lwjgl3Require.uid = "org.lwjgl3";
+            minecraftComponent.cachedRequires.add(lwjgl3Require);
+        }
+
         manifest.components.add(minecraftComponent);
 
         // fabric loader
@@ -1746,9 +1793,16 @@ public class Instance extends MinecraftVersion {
 
         // quilt loader
         if (launcher.loaderVersion.type.equals("Quilt")) {
+            String hashedName = "org.quiltmc.hashed";
+            String cachedName = "Hashed Mappings";
+            if (ConfigManager.getConfigItem("loaders.quilt.switchHashedForIntermediary", true) == false) {
+                hashedName = "net.fabricmc.intermediary";
+                cachedName = "Intermediary Mappings";
+            }
+
             // mappings
             MultiMCComponent quiltMappingsComponent = new MultiMCComponent();
-            quiltMappingsComponent.cachedName = "Hashed Mappings";
+            quiltMappingsComponent.cachedName = cachedName;
 
             quiltMappingsComponent.cachedRequires = new ArrayList<>();
             MultiMCRequire minecraftRequire = new MultiMCRequire();
@@ -1759,17 +1813,17 @@ public class Instance extends MinecraftVersion {
             quiltMappingsComponent.cachedVersion = id;
             quiltMappingsComponent.cachedVolatile = true;
             quiltMappingsComponent.dependencyOnly = true;
-            quiltMappingsComponent.uid = "org.quiltmc.hashed";
+            quiltMappingsComponent.uid = hashedName;
             quiltMappingsComponent.version = id;
             manifest.components.add(quiltMappingsComponent);
 
             // loader
             MultiMCComponent quiltLoaderComponent = new MultiMCComponent();
-            quiltLoaderComponent.cachedName = "Fabric Loader";
+            quiltLoaderComponent.cachedName = "Quilt Loader";
 
             quiltLoaderComponent.cachedRequires = new ArrayList<>();
             MultiMCRequire hashedRequire = new MultiMCRequire();
-            hashedRequire.uid = "org.quiltmc.hashed";
+            hashedRequire.uid = hashedName;
             quiltLoaderComponent.cachedRequires.add(hashedRequire);
 
             quiltLoaderComponent.cachedVersion = launcher.loaderVersion.version;
@@ -1851,8 +1905,12 @@ public class Instance extends MinecraftVersion {
         instanceCfg.setProperty("MCLaunchMethod", "LauncherPart");
         instanceCfg.setProperty("MaxMemAlloc",
                 Optional.ofNullable(launcher.maximumMemory).orElse(App.settings.maximumMemory) + "");
-        instanceCfg.setProperty("MinMemAlloc",
-                Optional.ofNullable(launcher.initialMemory).orElse(App.settings.initialMemory) + "");
+
+        if (ConfigManager.getConfigItem("removeInitialMemoryOption", false) == false) {
+            instanceCfg.setProperty("MinMemAlloc",
+                    Optional.ofNullable(launcher.initialMemory).orElse(App.settings.initialMemory) + "");
+        }
+
         instanceCfg.setProperty("MinecraftWinHeight", App.settings.windowHeight + "");
         instanceCfg.setProperty("MinecraftWinWidth", App.settings.windowWidth + "");
         instanceCfg.setProperty("OverrideCommands",
@@ -2418,6 +2476,42 @@ public class Instance extends MinecraftVersion {
                         && ConfigManager.getConfigItem("platforms.modrinth.modpacksEnabled", true) == true));
     }
 
+    public String getPlatformNameForLogging() {
+        if (isCurseForgePack()) {
+            return "CurseForge";
+        }
+
+        if (isModpacksChPack()) {
+            return "ModpacksCh";
+        }
+
+        if (isTechnicSolderPack()) {
+            return "TechnicSolder";
+        }
+
+        if (isTechnicPack()) {
+            return "Technic";
+        }
+
+        if (isModrinthPack()) {
+            return "Modrinth";
+        }
+
+        if (isModrinthImport()) {
+            return "ModrinthImport";
+        }
+
+        if (isMultiMcImport()) {
+            return "MultiMcImport";
+        }
+
+        if (isVanillaInstance()) {
+            return "Vanilla";
+        }
+
+        return "ATLauncher";
+    }
+
     public String getAnalyticsCategory() {
         if (isCurseForgePack()) {
             return "CurseForgeInstance";
@@ -2452,38 +2546,6 @@ public class Instance extends MinecraftVersion {
         }
 
         return "Instance";
-    }
-
-    public boolean hasWebsite() {
-        if (isCurseForgePack()) {
-            return launcher.curseForgeProject.hasWebsiteUrl();
-        }
-
-        if (isModpacksChPack()) {
-            return launcher.modpacksChPackManifest.hasTag("FTB");
-        }
-
-        return isModrinthPack() || isTechnicPack();
-    }
-
-    public String getWebsiteUrl() {
-        if (isCurseForgePack() && launcher.curseForgeProject.hasWebsiteUrl()) {
-            return launcher.curseForgeProject.getWebsiteUrl();
-        }
-
-        if (isModpacksChPack() && launcher.modpacksChPackManifest.hasTag("FTB")) {
-            return launcher.modpacksChPackManifest.getWebsiteUrl();
-        }
-
-        if (isModrinthPack()) {
-            return String.format("https://modrinth.com/modpack/%s", launcher.modrinthProject.slug);
-        }
-
-        if (isTechnicPack()) {
-            return launcher.technicModpack.platformUrl;
-        }
-
-        return null;
     }
 
     public void update() {
@@ -2947,13 +3009,14 @@ public class Instance extends MinecraftVersion {
         // are we using Mojangs provided runtime?
         if (isUsingJavaRuntime()) {
             Map<String, List<JavaRuntime>> runtimesForSystem = Data.JAVA_RUNTIMES.getForSystem();
+            String runtimeToUse = Optional.ofNullable(launcher.javaRuntimeOverride).orElse(javaVersion.component);
 
             // make sure the runtime is available in the data set (so it's not disabled
             // remotely)
-            if (runtimesForSystem.containsKey(javaVersion.component)
-                    && runtimesForSystem.get(javaVersion.component).size() != 0) {
-                Path runtimeDirectory = FileSystem.MINECRAFT_RUNTIMES.resolve(javaVersion.component)
-                        .resolve(JavaRuntimes.getSystem()).resolve(javaVersion.component);
+            if (runtimesForSystem.containsKey(runtimeToUse)
+                    && runtimesForSystem.get(runtimeToUse).size() != 0) {
+                Path runtimeDirectory = FileSystem.MINECRAFT_RUNTIMES.resolve(runtimeToUse)
+                        .resolve(JavaRuntimes.getSystem()).resolve(runtimeToUse);
 
                 if (OS.isMac()) {
                     runtimeDirectory = runtimeDirectory.resolve("jre.bundle/Contents/Home");
@@ -2961,8 +3024,13 @@ public class Instance extends MinecraftVersion {
 
                 if (Files.isDirectory(runtimeDirectory)) {
                     javaPath = runtimeDirectory.toAbsolutePath().toString();
-                    LogManager.info(String.format("Using Java runtime %s (major version %d) at path %s",
-                            javaVersion.component, javaVersion.majorVersion, javaPath));
+                    if (launcher.javaRuntimeOverride != null) {
+                        LogManager.info(String.format("Using overriden Java runtime %s (Java %s) at path %s",
+                                runtimeToUse, runtimesForSystem.get(runtimeToUse).get(0).version.name, javaPath));
+                    } else {
+                        LogManager.info(String.format("Using Java runtime %s (Java %s) at path %s",
+                                runtimeToUse, runtimesForSystem.get(runtimeToUse).get(0).version.name, javaPath));
+                    }
                 }
             }
         }
@@ -3007,6 +3075,10 @@ public class Instance extends MinecraftVersion {
         // find the mods that have been added by the user manually
         for (Path path : Arrays.asList(ROOT.resolve("mods"), ROOT.resolve("disabledmods"),
                 ROOT.resolve("resourcepacks"), ROOT.resolve("jarmods"))) {
+            if (!Files.exists(path)) {
+                continue;
+            }
+
             com.atlauncher.data.Type fileType = path.equals(ROOT.resolve("resourcepacks"))
                     ? com.atlauncher.data.Type.resourcepack
                     : (path.equals(ROOT.resolve("jarmods")) ? com.atlauncher.data.Type.jar
@@ -3190,5 +3262,94 @@ public class Instance extends MinecraftVersion {
             save();
         }
         PerformanceManager.end("Instance::scanMissingMods - CheckForRemovedMods");
+    }
+
+    public boolean showGetHelpButton() {
+        if (getPack() != null || isModrinthPack() || isCurseForgePack()) {
+            return getDiscordInviteUrl() != null || getSupportUrl() != null || getWikiUrl() != null
+                    || getSourceUrl() != null;
+        }
+
+        return false;
+    }
+
+    public String getDiscordInviteUrl() {
+        if (getPack() != null) {
+            return getPack().discordInviteURL;
+        }
+
+        if (isModrinthPack()) {
+            return launcher.modrinthProject.discordUrl;
+        }
+
+        return null;
+    }
+
+    public String getSupportUrl() {
+        if (getPack() != null) {
+            return getPack().supportURL;
+        }
+
+        if (isModrinthPack()) {
+            return launcher.modrinthProject.issuesUrl;
+        }
+
+        if (isCurseForgePack() && launcher.curseForgeProject.hasIssuesUrl()) {
+            return launcher.curseForgeProject.getIssuesUrl();
+        }
+
+        return null;
+    }
+
+    public boolean hasWebsite() {
+        if (isCurseForgePack()) {
+            return launcher.curseForgeProject.hasWebsiteUrl();
+        }
+
+        if (isModpacksChPack()) {
+            return launcher.modpacksChPackManifest.hasTag("FTB");
+        }
+
+        return isModrinthPack() || isTechnicPack();
+    }
+
+    public String getWebsiteUrl() {
+        if (isCurseForgePack() && launcher.curseForgeProject.hasWebsiteUrl()) {
+            return launcher.curseForgeProject.getWebsiteUrl();
+        }
+
+        if (isModpacksChPack() && launcher.modpacksChPackManifest.hasTag("FTB")) {
+            return launcher.modpacksChPackManifest.getWebsiteUrl();
+        }
+
+        if (isModrinthPack()) {
+            return String.format("https://modrinth.com/modpack/%s", launcher.modrinthProject.slug);
+        }
+
+        if (isTechnicPack()) {
+            return launcher.technicModpack.platformUrl;
+        }
+
+        return null;
+    }
+
+    public String getWikiUrl() {
+        if (isModrinthPack()) {
+            return launcher.modrinthProject.wikiUrl;
+        }
+
+        if (isCurseForgePack() && launcher.curseForgeProject.hasWikiUrl()) {
+            return launcher.curseForgeProject.getWikiUrl();
+        }
+
+        return null;
+    }
+
+    public String getSourceUrl() {
+        if (isModrinthPack()) {
+            return launcher.modrinthProject.sourceUrl;
+        }
+
+        return null;
     }
 }

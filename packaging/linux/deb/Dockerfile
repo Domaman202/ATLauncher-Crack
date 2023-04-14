@@ -1,10 +1,10 @@
-FROM debian:10
+FROM debian:11
 LABEL maintainer="ryan.dowling@atlauncher.com"
 
 # add in all the files
 ADD deb/control /work/atlauncher/DEBIAN/control
 ADD deb/postrm /work/atlauncher/DEBIAN/postrm
-ADD _common/atlauncher /work/atlauncher/usr/bin/atlauncher
+ADD deb/atlauncher /work/atlauncher/usr/bin/atlauncher
 ADD _common/atlauncher.desktop /work/atlauncher/usr/share/applications/atlauncher.desktop
 ADD _common/atlauncher.metainfo.xml /work/atlauncher/usr/share/metainfo/atlauncher.metainfo.xml
 ADD _common/atlauncher.png /work/atlauncher/usr/share/pixmaps/atlauncher.png

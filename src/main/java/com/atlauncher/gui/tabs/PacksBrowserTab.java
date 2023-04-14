@@ -47,10 +47,11 @@ import com.atlauncher.App;
 import com.atlauncher.builders.HTMLBuilder;
 import com.atlauncher.data.minecraft.VersionManifestVersion;
 import com.atlauncher.evnt.listener.RelocalizationListener;
+import com.atlauncher.evnt.listener.TabChangeListener;
 import com.atlauncher.evnt.listener.ThemeListener;
 import com.atlauncher.evnt.manager.RelocalizationManager;
+import com.atlauncher.evnt.manager.TabChangeManager;
 import com.atlauncher.evnt.manager.ThemeManager;
-import com.atlauncher.gui.panels.packbrowser.ATLauncherFeaturedPacksPanel;
 import com.atlauncher.gui.panels.packbrowser.ATLauncherPacksPanel;
 import com.atlauncher.gui.panels.packbrowser.CurseForgePacksPanel;
 import com.atlauncher.gui.panels.packbrowser.FTBPacksPanel;
@@ -58,6 +59,7 @@ import com.atlauncher.gui.panels.packbrowser.ModrinthPacksPanel;
 import com.atlauncher.gui.panels.packbrowser.PackBrowserPlatformPanel;
 import com.atlauncher.gui.panels.packbrowser.PacksBrowserTabTitlePanel;
 import com.atlauncher.gui.panels.packbrowser.TechnicPacksPanel;
+import com.atlauncher.gui.panels.packbrowser.UnifiedPacksPanel;
 import com.atlauncher.managers.ConfigManager;
 import com.atlauncher.managers.DialogManager;
 import com.atlauncher.managers.MinecraftManager;
@@ -67,7 +69,8 @@ import com.atlauncher.utils.Utils;
 import com.formdev.flatlaf.icons.FlatSearchIcon;
 
 @SuppressWarnings("serial")
-public final class PacksBrowserTab extends JPanel implements Tab, RelocalizationListener, ThemeListener {
+public final class PacksBrowserTab extends JPanel
+        implements Tab, RelocalizationListener, ThemeListener, TabChangeListener {
     private final JPanel actionsPanel = new JPanel();
 
     private final JPanel minecraftVersionPanel = new JPanel();
@@ -93,8 +96,8 @@ public final class PacksBrowserTab extends JPanel implements Tab, Relocalization
     private final JLabel platformMessageJLabel = new JLabel();
 
     private final JTabbedPane platformTabbedPane = new JTabbedPane();
+    private final PackBrowserPlatformPanel unifiedPacksPanel = new UnifiedPacksPanel();
     private final PackBrowserPlatformPanel atlauncherPacksPanel = new ATLauncherPacksPanel();
-    private final PackBrowserPlatformPanel atlauncherFeaturedPacksPanel = new ATLauncherFeaturedPacksPanel();
     private final PackBrowserPlatformPanel curseForgePacksPanel = new CurseForgePacksPanel();
     private final PackBrowserPlatformPanel ftbPacksPanel = new FTBPacksPanel();
     private final PackBrowserPlatformPanel modrinthPacksPanel = new ModrinthPacksPanel();
@@ -103,6 +106,7 @@ public final class PacksBrowserTab extends JPanel implements Tab, Relocalization
     private JScrollPane scrollPane;
     private final JPanel contentPanel = new JPanel();
 
+    private boolean loaded = false;
     private boolean loading = false;
     private int page = 1;
 
@@ -267,12 +271,13 @@ public final class PacksBrowserTab extends JPanel implements Tab, Relocalization
 
         int index = 0;
 
+        if (ConfigManager.getConfigItem("useGraphql.unifiedModPacks", false) == true) {
+            platformTabbedPane.add(unifiedPacksPanel);
+            platformTabbedPane.setTabComponentAt(index++, new PacksBrowserTabTitlePanel("Search"));
+        }
+
         platformTabbedPane.add(atlauncherPacksPanel);
         platformTabbedPane.setTabComponentAt(index++, new PacksBrowserTabTitlePanel("ATLauncher"));
-
-        platformTabbedPane.add(atlauncherFeaturedPacksPanel);
-        platformTabbedPane.setTabComponentAt(index++,
-                new PacksBrowserTabTitlePanel("ATLauncher Featured", "atlauncher"));
 
         if (ConfigManager.getConfigItem("platforms.curseforge.modpacksEnabled", true) == true) {
             platformTabbedPane.add(curseForgePacksPanel);
@@ -299,13 +304,16 @@ public final class PacksBrowserTab extends JPanel implements Tab, Relocalization
                     .getSelectedComponent();
 
             // send analytics page view
-            Analytics.sendScreenView(selectedPanel.getPlatformName() + " Platform Packs");
+            if (selectedPanel.getPlatformName().equals("UnifiedModPackSearch")) {
+                Analytics.sendScreenView("Unified ModPack Search");
+            } else {
+                Analytics.sendScreenView(selectedPanel.getPlatformName() + " Platform Packs");
+            }
 
             afterTabChange();
         });
 
-        // add default state
-        afterTabChange();
+        TabChangeManager.addListener(this);
 
         add(platformTabbedPane, BorderLayout.CENTER);
     }
@@ -460,6 +468,7 @@ public final class PacksBrowserTab extends JPanel implements Tab, Relocalization
     }
 
     private void load(boolean scrollToTop) {
+        loaded = true;
         PackBrowserPlatformPanel selectedPanel = (PackBrowserPlatformPanel) platformTabbedPane.getSelectedComponent();
 
         new Thread(() -> {
@@ -514,7 +523,10 @@ public final class PacksBrowserTab extends JPanel implements Tab, Relocalization
 
     @Override
     public String getAnalyticsScreenViewName() {
-        // since this is the default, this is the main view name
+        if (ConfigManager.getConfigItem("useGraphql.unifiedModPacks", false) == true) {
+            return "Unified ModPack Search";
+        }
+
         return "ATLauncher Platform Packs";
     }
 
@@ -530,5 +542,12 @@ public final class PacksBrowserTab extends JPanel implements Tab, Relocalization
     public void onThemeChange() {
         ascendingSortButton.setIcon(Utils.getIconImage(App.THEME.getIconPath("ascending")));
         descendingSortButton.setIcon(Utils.getIconImage(App.THEME.getIconPath("descending")));
+    }
+
+    @Override
+    public void onTabChange(int tabIndex) {
+        if (tabIndex == 2 && !loaded) {
+            afterTabChange();
+        }
     }
 }
