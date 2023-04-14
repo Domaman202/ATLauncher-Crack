@@ -89,8 +89,7 @@ jobs:
           path: dist/*
   release:
     runs-on: ubuntu-latest
-    needs: [test, build]
-    if: ${{ github.ref == 'refs/heads/master' && !endsWith(needs.build.outputs.version, '.Beta') }}
+    needs: [build]
     permissions:
       contents: write
     steps:
@@ -124,18 +123,6 @@ jobs:
           cat fixed-changelog.md >> $GITHUB_ENV
           echo 'EOF' >> $GITHUB_ENV
 
-    #   - name: Create ATLauncher Version
-    #     uses: ATLauncher/release-atlauncher-action@master
-    #     timeout-minutes: 30
-    #     with:
-    #       api-key: ${{ secrets.ATLAUNCHER_API_KEY }}
-    #       version: ${{ needs.build.outputs.clean-version }}
-    #       changelog: ${{ env.cleaned-changelog }}
-    #       files: |
-    #         ./ATLauncher/ATLauncher-${{ needs.build.outputs.clean-version }}.exe
-    #         ./ATLauncher/ATLauncher-${{ needs.build.outputs.clean-version }}.zip
-    #         ./ATLauncher/ATLauncher-${{ needs.build.outputs.clean-version }}.jar
-
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
@@ -151,19 +138,27 @@ jobs:
             ./ATLauncher/ATLauncher-${{ needs.build.outputs.clean-version }}.zip
             ./ATLauncher/ATLauncher-${{ needs.build.outputs.clean-version }}.jar
 
-    #   - name: Create Sentry release
-    #     uses: getsentry/action-release@v1
-    #     env:
-    #       SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-    #       SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-    #       SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
-    #     with:
-    #       environment: production
-    #       version: "${{ needs.build.outputs.clean-version }}"
+      - name: Update version
+        run: |
+          NEW_VERSION=`echo ${{ needs.build.outputs.clean-version }} | perl -pe 's/^((\d+\.)*)(\d+)(.*)$/$1.($3+1).$4/e'`
+          cat <<EOF > CHANGELOG.md
+          # Changelog
 
-    #   - name: Package up AUR versions
-    #     uses: peter-evans/repository-dispatch@v1
-    #     with:
-    #       token: ${{ secrets.BOT_GITHUB_TOKEN }}
-    #       event-type: aur-publish
-    #       client-payload: '{"version": "${{ needs.build.outputs.clean-version }}"}'
+          This changelog only contains the changes that are unreleased. For changes for individual releases, please visit the
+          [releases](https://github.com/ATLauncher/ATLauncher/releases) page on GitHub.
+
+          ## $NEW_VERSION
+
+          ### New Features
+
+          ### Fixes
+
+          ### Misc
+          EOF
+          echo "${NEW_VERSION}.Beta" > src/main/resources/version
+
+      - name: Commit new version/CHANGELOG file
+        uses: EndBug/add-and-commit@v7.0.0
+        with:
+          add: 'CHANGELOG.md src/main/resources/version'
+          message: 'chore: bump version'

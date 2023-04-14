@@ -36,6 +36,7 @@ import com.atlauncher.data.MojangAccount;
 import com.atlauncher.data.minecraft.Library;
 import com.atlauncher.data.minecraft.LoggingClient;
 import com.atlauncher.data.minecraft.PropertyMapSerializer;
+import com.atlauncher.managers.ConfigManager;
 import com.atlauncher.managers.LWJGLManager;
 import com.atlauncher.managers.LogManager;
 import com.atlauncher.network.ErrorReporting;
@@ -172,7 +173,6 @@ public class MCLauncher {
         ErrorReporting.recordInstancePlay(instance.getPackName(), instance.getVersion(), instance.getLoaderVersion(),
                 2);
 
-        int initialMemory = Optional.ofNullable(instance.launcher.initialMemory).orElse(App.settings.initialMemory);
         int maximumMemory = Optional.ofNullable(instance.launcher.maximumMemory).orElse(App.settings.maximumMemory);
         int permGen = Optional.ofNullable(instance.launcher.permGen).orElse(App.settings.metaspace);
         String javaArguments = Optional.ofNullable(instance.launcher.javaArguments).orElse(App.settings.javaParameters);
@@ -263,9 +263,10 @@ public class MCLauncher {
         }
         arguments.add(path);
 
-        arguments.add("-XX:-OmitStackTraceInFastThrow");
-
-        arguments.add("-Xms" + initialMemory + "M");
+        if (ConfigManager.getConfigItem("removeInitialMemoryOption", false) == false) {
+            int initialMemory = Optional.ofNullable(instance.launcher.initialMemory).orElse(App.settings.initialMemory);
+            arguments.add("-Xms" + initialMemory + "M");
+        }
 
         if (OS.getMaximumRam() != 0 && maximumMemory < instance.getMemory()) {
             if ((OS.getMaximumRam() / 2) < instance.getMemory()) {

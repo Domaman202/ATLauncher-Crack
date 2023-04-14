@@ -1,12 +1,12 @@
 # ATLauncher
 
-![Application](https://github.com/ATLauncher/ATLauncher/workflows/Application/badge.svg?branch=master)
-[![Discord](https://discordapp.com/api/guilds/117047818136322057/embed.png?style=shield)](https://atl.pw/discord)
+[![Originaal software discord](https://discordapp.com/api/guilds/117047818136322057/embed.png?style=shield)](https://atl.pw/discord)
 
 ## What is it
 
 ATLauncher is a launcher for Minecraft which integrates multiple different modpacks to allow you to download and install
-modpacks easily and quickly.
+modpacks easily and quickly. 
+This version have no licence check. For test perposes only. Not affiliated with ATLuncher team.
 
 ## Links
 
@@ -18,19 +18,17 @@ modpacks easily and quickly.
 
 ## Contributing to ATLauncher
 
-Take a look at [CONTRIBUTING.md](CONTRIBUTING.md)
-
-## Testing
-
-Please see the [TESTING.md](TESTING.md) file for information on how we write tests.
+Go to [ATLauncher/ATLauncher](https://github.com/ATLauncher/ATLauncher)
 
 ## Prerequisites
 
-In order to build ATLauncher, you will need any Java version 8 or above. Java 8 is recommended since we compile to Java
-8 compatability regardless.
+If you whant to build ATL by hand, you will need any Java version 8 or above. Java 8 is recommended since we compile to Java
+8 compatability regardless. 
 
 Everything else that's needed for the project is provided by Gradle, and accessed using the Gradle wrapper which can be
 invoked by using `./gradlew`.
+
+If you do not whant to bother, just go and grub prebuilt version from relese page. 
 
 ## Building
 
@@ -57,9 +55,9 @@ spewed in the root directory and are instead contained within a gitignored folde
 
 ## Using an IDE
 
-This project is mainly setup and developed to use [VSCode](https://code.visualstudio.com/) for development. You're free
+~~This project is mainly setup and developed to use [VSCode](https://code.visualstudio.com/) for development. You're free
 to use any other IDE that you're accustomed to (if any), but by using VSCode, you get the benefit of predefined tasks
-and launch commands as well as a list of extensions recommended for the project.
+and launch commands as well as a list of extensions recommended for the project.~~ VSCode no longer works well after the upgrade to be part Kotlin. Until fixed, it's recommended to use IntelliJ.
 
 We also provide some base project files for [IntelliJ IDEA](https://www.jetbrains.com/idea/) so that if you use that,
 you should get access to our base project files which contain correct launch tasks for testing the application as well
