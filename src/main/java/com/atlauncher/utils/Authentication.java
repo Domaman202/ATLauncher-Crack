@@ -47,13 +47,14 @@ public class Authentication {
             protected String getUsername() {
                 return username;
             }
+        };
 
         if (password == null) {
-            response.setAuth(auth);
-        } else if (auth.canLogIn()) {
+            response.setAuth(response.auth);
+        } else if (response.auth.canLogIn()) {
             try {
-                auth.logIn();
-                response.setAuth(auth);
+                response.auth.logIn();
+                response.setAuth(response.auth);
             } catch (AuthenticationException e) {
                 if (e.getMessage().contains("410")) {
                     response.setErrorMessage(GetText.tr(

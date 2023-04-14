@@ -219,6 +219,8 @@ public class AccountsViewModel implements IAccountsViewModel {
 //        } else {
 //            return new LoginPostResult.Error(loginResponse != null ? loginResponse.getErrorMessage() : null);
 //        }
+        }
+        return new LoginPostResult.Added();
     }
 
     @Override
