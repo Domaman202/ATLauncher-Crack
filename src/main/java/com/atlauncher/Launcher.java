@@ -25,6 +25,7 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.net.URLDecoder;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -40,10 +41,11 @@ import com.atlauncher.builders.HTMLBuilder;
 import com.atlauncher.constants.Constants;
 import com.atlauncher.data.DownloadableFile;
 import com.atlauncher.data.LauncherVersion;
+import com.atlauncher.graphql.AddLauncherLaunchMutation;
+import com.atlauncher.graphql.type.AddLauncherLaunchInput;
+import com.atlauncher.graphql.type.LauncherJavaVersionInput;
 import com.atlauncher.gui.dialogs.ProgressDialog;
-import com.atlauncher.gui.tabs.InstancesTab;
 import com.atlauncher.gui.tabs.PacksBrowserTab;
-import com.atlauncher.gui.tabs.ServersTab;
 import com.atlauncher.gui.tabs.news.NewsTab;
 import com.atlauncher.managers.AccountManager;
 import com.atlauncher.managers.ConfigManager;
@@ -62,6 +64,7 @@ import com.atlauncher.managers.ServerManager;
 import com.atlauncher.managers.TechnicModpackUpdateManager;
 import com.atlauncher.network.Analytics;
 import com.atlauncher.network.DownloadPool;
+import com.atlauncher.network.GraphqlClient;
 import com.atlauncher.utils.Java;
 import com.atlauncher.utils.OS;
 import com.google.gson.JsonIOException;
@@ -78,8 +81,6 @@ public class Launcher {
 
     // UI things
     private JFrame parent; // Parent JFrame of the actual Launcher
-    private InstancesTab instancesPanel; // The instances panel
-    private ServersTab serversPanel; // The instances panel
     private NewsTab newsPanel; // The news panel
     private PacksBrowserTab packsBrowserPanel; // The packs browser panel
 
@@ -96,11 +97,25 @@ public class Launcher {
             downloadUpdatedFiles(); // Downloads updated files on the server
         }
 
-        checkForLauncherUpdate();
-
         ConfigManager.loadConfig(); // Load the config
 
         NewsManager.loadNews(); // Load the news
+
+        if (App.settings.enableAnalytics && ConfigManager.getConfigItem("useGraphql.launcherLaunch", false) == true) {
+            App.TASKPOOL.execute(() -> {
+                GraphqlClient.mutate(new AddLauncherLaunchMutation(
+                        AddLauncherLaunchInput.builder().version(Constants.VERSION.toStringForLogging())
+                                .hash(Constants.VERSION.getSha1Revision().toString())
+                                .installMethod(OS.getInstallMethod())
+                                .javaVersion(LauncherJavaVersionInput.builder().raw(Java.getLauncherJavaVersion())
+                                        .majorVersion(Integer.toString(Java.getLauncherJavaVersionNumber()))
+                                        .bitness(Java.is64Bit() ? 64 : 32)
+                                        .usingJreDir(OS.isWindows() && OS.usingExe()
+                                                && Files.exists(FileSystem.BASE_DIR.resolve("jre")))
+                                        .build())
+                                .build()));
+            });
+        }
 
         MinecraftManager.loadMinecraftVersions(); // Load info about the different Minecraft versions
         MinecraftManager.loadJavaRuntimes(); // Load info about the different java runtimes
@@ -150,85 +165,6 @@ public class Launcher {
         }
 
         return this.latestLauncherVersion != null && Constants.VERSION.needsUpdate(this.latestLauncherVersion);
-    }
-
-    public void downloadUpdate() {
-        try {
-            File thisFile = new File(Update.class.getProtectionDomain().getCodeSource().getLocation().getPath());
-            String path = thisFile.getCanonicalPath();
-            path = URLDecoder.decode(path, "UTF-8");
-            String toget;
-            String saveAs = thisFile.getName();
-            if (path.contains(".exe")) {
-                toget = "exe";
-            } else {
-                toget = "jar";
-            }
-            File newFile = FileSystem.TEMP.resolve(saveAs).toFile();
-            LogManager.info("Downloading Launcher Update");
-            Analytics.sendEvent("Update", "Launcher");
-
-            ProgressDialog<Boolean> progressDialog = new ProgressDialog<>(GetText.tr("Downloading Launcher Update"), 1,
-                    GetText.tr("Downloading Launcher Update"));
-            progressDialog.addThread(new Thread(() -> {
-                com.atlauncher.network.Download download = com.atlauncher.network.Download.build()
-                        .setUrl(String.format("%s/%s.%s", Constants.DOWNLOAD_SERVER, Constants.LAUNCHER_NAME, toget))
-                        .withHttpClient(Network.createProgressClient(progressDialog)).downloadTo(newFile.toPath());
-
-                progressDialog.setTotalBytes(download.getFilesize());
-
-                try {
-                    download.downloadFile();
-                } catch (IOException e) {
-                    LogManager.logStackTrace("Failed to download update", e);
-                    progressDialog.setReturnValue(false);
-                    progressDialog.close();
-                    return;
-                }
-
-                progressDialog.setReturnValue(true);
-                progressDialog.doneTask();
-                progressDialog.close();
-            }));
-            progressDialog.start();
-
-            if (progressDialog.getReturnValue()) {
-                runUpdate(path, newFile.getAbsolutePath());
-            }
-        } catch (IOException e) {
-            LogManager.logStackTrace(e);
-        }
-    }
-
-    public void runUpdate(String currentPath, String temporaryUpdatePath) {
-        List<String> arguments = new ArrayList<>();
-
-        String path = System.getProperty("java.home") + File.separator + "bin" + File.separator + "java";
-        if (OS.isWindows()) {
-            path += "w";
-        }
-        arguments.add(path);
-        arguments.add("-cp");
-        arguments.add(temporaryUpdatePath);
-        arguments.add("com.atlauncher.Update");
-        arguments.add(currentPath);
-        arguments.add(temporaryUpdatePath);
-
-        // pass in all the original arguments
-        arguments.addAll(Arrays.asList(App.PASSED_ARGS));
-
-        ProcessBuilder processBuilder = new ProcessBuilder();
-        processBuilder.command(arguments);
-
-        LogManager.info("Running launcher update with command " + arguments);
-
-        try {
-            processBuilder.start();
-        } catch (IOException e) {
-            LogManager.logStackTrace(e);
-        }
-
-        System.exit(0);
     }
 
     /**
@@ -351,7 +287,6 @@ public class Launcher {
             if (hasUpdatedFiles()) {
                 downloadUpdatedFiles(); // Downloads updated files on the server
             }
-            checkForLauncherUpdate();
             checkForExternalPackUpdates();
 
             ConfigManager.loadConfig(); // Load the config
@@ -370,42 +305,8 @@ public class Launcher {
     }
 
     private void checkForLauncherUpdate() {
-        PerformanceManager.start();
-
-        LogManager.debug("Checking for launcher update");
-        if (launcherHasUpdate()) {
-            if (App.noLauncherUpdate) {
-                int ret = DialogManager.okDialog().setTitle("Launcher Update Available")
-                        .setContent(new HTMLBuilder().center().split(80).text(GetText.tr(
-                                "An update to the launcher is available. Please update via your package manager or manually by visiting https://atlauncher.com/downloads to get the latest features and bug fixes."))
-                                .build())
-                        .addOption(GetText.tr("Visit Downloads Page")).setType(DialogManager.INFO).show();
-
-                if (ret == 1) {
-                    OS.openWebBrowser("https://atlauncher.com/downloads");
-                }
-
-                return;
-            }
-
-            if (!App.wasUpdated) {
-                downloadUpdate(); // Update the Launcher
-            } else {
-                DialogManager.okDialog().setTitle("Update Failed!")
-                        .setContent(new HTMLBuilder().center()
-                                .text(GetText.tr("Update failed. Please click Ok to close "
-                                        + "the launcher and open up the downloads page.<br/><br/>Download "
-                                        + "the update and replace the old exe/jar file."))
-                                .build())
-                        .setType(DialogManager.ERROR).show();
-                OS.openWebBrowser("https://atlauncher.com/downloads");
-                System.exit(0);
-            }
-        }
         LogManager.debug("Finished checking for launcher update");
-        PerformanceManager.end();
     }
-
     /**
      * Sets the main parent JFrame reference for the Launcher
      *
@@ -432,23 +333,10 @@ public class Launcher {
     }
 
     /**
-     * Sets the panel used for Instances
-     *
-     * @param instancesPanel Instances Panel
-     */
-    public void setInstancesPanel(InstancesTab instancesPanel) {
-        this.instancesPanel = instancesPanel;
-    }
-
-    /**
      * Reloads the panel used for Instances
      */
     public void reloadInstancesPanel() {
         InstanceManager.post();
-    }
-
-    public void setServersPanel(ServersTab serversPanel) {
-        this.serversPanel = serversPanel;
     }
 
     public void reloadServersPanel() {

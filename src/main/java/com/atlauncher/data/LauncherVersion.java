@@ -65,6 +65,10 @@ public class LauncherVersion {
         return this.stream;
     }
 
+    public HashCode getSha1Revision() {
+        return this.sha1Revision;
+    }
+
     public boolean isReleaseStream() {
         return this.stream.equals("Release");
     }
@@ -122,12 +126,12 @@ public class LauncherVersion {
 
     public String toStringForUserAgent() {
         if (this.isReleaseStream()) {
-            return String.format(Locale.ENGLISH, "%d.%d.%d.%d [%s]", this.reserved, this.major, this.minor,
-                    this.revision, this.sha1Revision);
+            return String.format(Locale.ENGLISH, "%d.%d.%d.%d", this.reserved, this.major, this.minor,
+                    this.revision);
         }
 
-        return String.format(Locale.ENGLISH, "%d.%d.%d.%d.%s [%s]", this.reserved, this.major, this.minor,
+        return String.format(Locale.ENGLISH, "%d.%d.%d.%d.%s", this.reserved, this.major, this.minor,
                 this.revision,
-                this.stream, this.sha1Revision);
+                this.stream);
     }
 }

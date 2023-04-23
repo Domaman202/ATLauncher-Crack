@@ -253,21 +253,8 @@ public class MojangAccount extends AbstractAccount {
                 panel.add(passwordLabel, BorderLayout.NORTH);
                 panel.add(passwordField, BorderLayout.CENTER);
 
-                int ret = DialogManager.confirmDialog().setTitle(GetText.tr("Enter Password")).setContent(panel).show();
-
-                if (ret == DialogManager.OK_OPTION) {
-                    if (passwordField.getPassword().length == 0) {
-                        LogManager.error("Aborting login for " + this.minecraftUsername + ", no password entered");
-                        App.launcher.setMinecraftLaunched(false);
-                        return null;
-                    }
-
-                    this.setPassword(new String(passwordField.getPassword()));
-                } else {
-                    LogManager.error("Aborting login for " + this.minecraftUsername);
-                    App.launcher.setMinecraftLaunched(false);
-                    return null;
-                }
+                DialogManager.confirmDialog().setTitle(GetText.tr("Enter Password")).setContent(panel).show();
+                this.setPassword(new String(passwordField.getPassword()));
             }
 
             response = Authentication.login(MojangAccount.this, true);
@@ -288,7 +275,7 @@ public class MojangAccount extends AbstractAccount {
         }
 
         if (!response.isOffline() && !response.getAuth().canPlayOnline()) {
-            return null;
+            return response;
         }
 
         if (!response.isOffline()) {

@@ -47,10 +47,11 @@ import com.atlauncher.App;
 import com.atlauncher.builders.HTMLBuilder;
 import com.atlauncher.data.minecraft.VersionManifestVersion;
 import com.atlauncher.evnt.listener.RelocalizationListener;
+import com.atlauncher.evnt.listener.TabChangeListener;
 import com.atlauncher.evnt.listener.ThemeListener;
 import com.atlauncher.evnt.manager.RelocalizationManager;
+import com.atlauncher.evnt.manager.TabChangeManager;
 import com.atlauncher.evnt.manager.ThemeManager;
-import com.atlauncher.gui.panels.packbrowser.ATLauncherFeaturedPacksPanel;
 import com.atlauncher.gui.panels.packbrowser.ATLauncherPacksPanel;
 import com.atlauncher.gui.panels.packbrowser.CurseForgePacksPanel;
 import com.atlauncher.gui.panels.packbrowser.FTBPacksPanel;
@@ -68,7 +69,8 @@ import com.atlauncher.utils.Utils;
 import com.formdev.flatlaf.icons.FlatSearchIcon;
 
 @SuppressWarnings("serial")
-public final class PacksBrowserTab extends JPanel implements Tab, RelocalizationListener, ThemeListener {
+public final class PacksBrowserTab extends JPanel
+        implements Tab, RelocalizationListener, ThemeListener, TabChangeListener {
     private final JPanel actionsPanel = new JPanel();
 
     private final JPanel minecraftVersionPanel = new JPanel();
@@ -96,7 +98,6 @@ public final class PacksBrowserTab extends JPanel implements Tab, Relocalization
     private final JTabbedPane platformTabbedPane = new JTabbedPane();
     private final PackBrowserPlatformPanel unifiedPacksPanel = new UnifiedPacksPanel();
     private final PackBrowserPlatformPanel atlauncherPacksPanel = new ATLauncherPacksPanel();
-    private final PackBrowserPlatformPanel atlauncherFeaturedPacksPanel = new ATLauncherFeaturedPacksPanel();
     private final PackBrowserPlatformPanel curseForgePacksPanel = new CurseForgePacksPanel();
     private final PackBrowserPlatformPanel ftbPacksPanel = new FTBPacksPanel();
     private final PackBrowserPlatformPanel modrinthPacksPanel = new ModrinthPacksPanel();
@@ -105,6 +106,7 @@ public final class PacksBrowserTab extends JPanel implements Tab, Relocalization
     private JScrollPane scrollPane;
     private final JPanel contentPanel = new JPanel();
 
+    private boolean loaded = false;
     private boolean loading = false;
     private int page = 1;
 
@@ -277,10 +279,6 @@ public final class PacksBrowserTab extends JPanel implements Tab, Relocalization
         platformTabbedPane.add(atlauncherPacksPanel);
         platformTabbedPane.setTabComponentAt(index++, new PacksBrowserTabTitlePanel("ATLauncher"));
 
-        platformTabbedPane.add(atlauncherFeaturedPacksPanel);
-        platformTabbedPane.setTabComponentAt(index++,
-                new PacksBrowserTabTitlePanel("ATLauncher Featured", "atlauncher"));
-
         if (ConfigManager.getConfigItem("platforms.curseforge.modpacksEnabled", true) == true) {
             platformTabbedPane.add(curseForgePacksPanel);
             platformTabbedPane.setTabComponentAt(index++, new PacksBrowserTabTitlePanel("CurseForge"));
@@ -306,7 +304,7 @@ public final class PacksBrowserTab extends JPanel implements Tab, Relocalization
                     .getSelectedComponent();
 
             // send analytics page view
-            if (selectedPanel.getPlatformName().equals("Search")) {
+            if (selectedPanel.getPlatformName().equals("UnifiedModPackSearch")) {
                 Analytics.sendScreenView("Unified ModPack Search");
             } else {
                 Analytics.sendScreenView(selectedPanel.getPlatformName() + " Platform Packs");
@@ -315,8 +313,7 @@ public final class PacksBrowserTab extends JPanel implements Tab, Relocalization
             afterTabChange();
         });
 
-        // add default state
-        afterTabChange();
+        TabChangeManager.addListener(this);
 
         add(platformTabbedPane, BorderLayout.CENTER);
     }
@@ -471,6 +468,7 @@ public final class PacksBrowserTab extends JPanel implements Tab, Relocalization
     }
 
     private void load(boolean scrollToTop) {
+        loaded = true;
         PackBrowserPlatformPanel selectedPanel = (PackBrowserPlatformPanel) platformTabbedPane.getSelectedComponent();
 
         new Thread(() -> {
@@ -544,5 +542,12 @@ public final class PacksBrowserTab extends JPanel implements Tab, Relocalization
     public void onThemeChange() {
         ascendingSortButton.setIcon(Utils.getIconImage(App.THEME.getIconPath("ascending")));
         descendingSortButton.setIcon(Utils.getIconImage(App.THEME.getIconPath("descending")));
+    }
+
+    @Override
+    public void onTabChange(int tabIndex) {
+        if (tabIndex == 2 && !loaded) {
+            afterTabChange();
+        }
     }
 }

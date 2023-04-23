@@ -22,11 +22,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 import com.atlauncher.App;
 import com.atlauncher.FileSystem;
@@ -224,7 +220,8 @@ public class MCLauncher {
         if (binFolder.exists() && libraryFiles != null && libraryFiles.length != 0) {
             for (File file : libraryFiles) {
                 if (!file.getName().equalsIgnoreCase("minecraft.jar")
-                        && !file.getName().equalsIgnoreCase("modpack.jar")) {
+                        && !file.getName().equalsIgnoreCase("modpack.jar")
+                        && (file.getName().endsWith(".jar") || file.getName().endsWith(".zip"))) {
                     LogManager.info("Added in custom library " + file.getName());
 
                     cpb.append(file);
@@ -425,7 +422,7 @@ public class MCLauncher {
         argument = argument.replace("${assets_root}", FileSystem.ASSETS.toAbsolutePath().toString());
         argument = argument.replace("${assets_index_name}", instance.getAssets());
         argument = argument.replace("${auth_uuid}", UUIDTypeAdapter.fromUUID(account.getRealUUID()));
-        argument = argument.replace("${auth_access_token}", account.getAccessToken());
+        argument = argument.replace("${auth_access_token}", Objects.toString(account.getAccessToken()));
         argument = argument.replace("${version_type}", instance.type.getValue());
         argument = argument.replace("${launcher_name}", Constants.LAUNCHER_NAME);
         argument = argument.replace("${launcher_version}", Constants.VERSION.toStringForLogging());
@@ -455,7 +452,7 @@ public class MCLauncher {
         if (props != null) {
             argsString = argsString.replace(props, "REDACTED");
         }
-        argsString = argsString.replace(account.getAccessToken(), "REDACTED");
+        argsString = argsString.replace(Objects.toString(account.getAccessToken()), "REDACTED");
         argsString = argsString.replace(account.getSessionToken(), "REDACTED");
 
         return argsString;
