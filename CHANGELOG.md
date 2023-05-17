@@ -12,6 +12,8 @@ This changelog only contains the changes that are unreleased. For changes for in
 - Issue with mod files with invalid characters causing Edit Mods screen to not open
 - Issue with loading in some dates from JSON
 - Issue with opening instance settings on some systems
+- Make sure accounts valid before loading in to fix NPE
+- Issues with unicode characters breaking instances and not showing properly
 
 ### Misc
 - Consolodate GSON configs
