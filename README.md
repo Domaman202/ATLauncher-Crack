@@ -4,6 +4,7 @@ https://discord.gg/WNEDhYXBKr
 # ГАЙД
 
 1. Скачиваем оба лаунчера (наш и оф. версию)
+
 https://github.com/ATLauncher/ATLauncher/releases/tag/v3.4.28.1
 
 https://github.com/Domaman202/ATLauncher-Crack/releases/tag/3.4.28.6-work
@@ -17,6 +18,7 @@ https://github.com/Domaman202/ATLauncher-Crack/releases/tag/3.4.28.6-work
 # GUIDE
 
 1. Download both launchers (our and off. version)
+   
 https://github.com/ATLauncher/ATLauncher/releases/tag/v3.4.28.1
 
 https://github.com/Domaman202/ATLauncher-Crack/releases/tag/3.4.28.6-work
