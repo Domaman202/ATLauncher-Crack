@@ -8,8 +8,8 @@
 
 1. Cкачайте две версии лаунчера (исправленную и официальную):
 
-https://github.com/Domaman202/ATLauncher-Crack/releases/tag/3.4.28.6-work  
-https://github.com/ATLauncher/ATLauncher/releases/tag/v3.4.28.1  
+    [https://github.com/Domaman202/ATLauncher-Crack/releases/tag/3.4.28.6-work](https://github.com/Domaman202/ATLauncher-Crack/releases/tag/3.4.28.6-work)  
+    [https://github.com/ATLauncher/ATLauncher/releases/tag/v3.4.28.1](https://github.com/ATLauncher/ATLauncher/releases/tag/v3.4.28.1)  
 
 2. Поместите оба файла в одну папку (**обязательно**)
 3. Откройте ATLauncher-3.4.28.1.jar (официальный)
@@ -19,15 +19,15 @@ https://github.com/ATLauncher/ATLauncher/releases/tag/v3.4.28.1
 7. Запускайте модпак без подтверждения лицензии
 
 **Установка модпаков производится только через официальную версию потому что я не стал изучать код и отрубил всё нафиг.**
-
-<details><summary>English</summary>
+<hr>
+<details><summary>ENGLISH 🇬🇧</summary>
 
 ## How to use
 
 1. Download both versions of launchers (fixed and official): 
    
-https://github.com/Domaman202/ATLauncher-Crack/releases/tag/3.4.28.6-work
-https://github.com/ATLauncher/ATLauncher/releases/tag/v3.4.28.1
+    [https://github.com/Domaman202/ATLauncher-Crack/releases/tag/3.4.28.6-work](https://github.com/Domaman202/ATLauncher-Crack/releases/tag/3.4.28.6-work)  
+    [https://github.com/ATLauncher/ATLauncher/releases/tag/v3.4.28.1](https://github.com/ATLauncher/ATLauncher/releases/tag/v3.4.28.1)  
 
 2. Put both files in the same directory (**important**)
 3. Open ATLauncher-3.4.28.1.jar (official)
