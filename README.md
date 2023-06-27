@@ -1,7 +1,8 @@
-# ATLauncher No More by Domaman202
+# ATLauncher No More "No Account Selected" by Domaman202
 
-Support:
-https://discord.gg/WNEDhYXBKr
+## Discord
+
+[![](https://dcbadge.vercel.app/api/server/WNEDhYXBKr)](https://discord.gg/WNEDhYXBKr)
 
 ## Как применять
 
@@ -18,6 +19,12 @@ https://github.com/ATLauncher/ATLauncher/releases/tag/v3.4.28.1
 7. Запускайте модпак без подтверждения лицензии
 
 **Установка модпаков производится только через официальную версию потому что я не стал изучать код и отрубил всё нафиг.**
+
+<hr>
+
+## Discord
+
+[![](https://dcbadge.vercel.app/api/server/WNEDhYXBKr)](https://discord.gg/WNEDhYXBKr)
 
 ## How to use
 
