@@ -1,8 +1,8 @@
-# ATLauncher No More "No Account Selected" by Domaman202
+# ATLauncher No More "No Account Selected"
 
 ## Discord
 
-[![](https://dcbadge.vercel.app/api/server/WNEDhYXBKr)](https://discord.gg/WNEDhYXBKr)
+[![](https://camo.githubusercontent.com/39a8097dbf6bd69dcd5d4bad1858e61d5846528d53e4d26a9934721fd33fb3f7/68747470733a2f2f646362616467652e76657263656c2e6170702f6170692f7365727665722f7a6b7370664677714467)](https://discord.gg/WNEDhYXBKr)
 
 ## Как применять
 
@@ -20,11 +20,7 @@ https://github.com/ATLauncher/ATLauncher/releases/tag/v3.4.28.1
 
 **Установка модпаков производится только через официальную версию потому что я не стал изучать код и отрубил всё нафиг.**
 
-<hr>
-
-## Discord
-
-[![](https://dcbadge.vercel.app/api/server/WNEDhYXBKr)](https://discord.gg/WNEDhYXBKr)
+<details><summary>English</summary>
 
 ## How to use
 
@@ -41,3 +37,5 @@ https://github.com/ATLauncher/ATLauncher/releases/tag/v3.4.28.1
 7. Run modpack without license checks
 
 **Installing modpacks is performed only through official version because I didn't read much code and cut off everything.**
+
+</details>
