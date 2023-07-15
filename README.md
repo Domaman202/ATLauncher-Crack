@@ -24,6 +24,6 @@
 
 TODO:
 
-- [] Translate README into Eanglish 
-- [] Упростить процедуру установки 
-- [] Заставить кряк работать с последними версиями ATLuncher 
+- [ ] Translate README into Eanglish 
+- [ ] Упростить процедуру установки 
+- [ ] Заставить кряк работать с последними версиями ATLuncher 
