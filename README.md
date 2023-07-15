@@ -14,7 +14,6 @@
 3. Скачайте скрипты для вашей ОС:
    
     [Windows](https://github.com/Domaman202/ATLauncher-Crack/tree/master/scripts/windows)
-   
     [Linux](https://github.com/Domaman202/ATLauncher-Crack/tree/master/scripts/Linux)
 
 5. Поместите все файлы (скрипты и лаунчеры) в одну папку.
