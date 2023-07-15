@@ -6,17 +6,15 @@
 
 ## Как применять
 
-1. Cкачайте две версии лаунчера (исправленную и официальную):
+1. Cкачайте две версии лаунчера:
 
-    [https://github.com/Domaman202/ATLauncher-Crack/releases/tag/3.4.28.6-work](https://github.com/Domaman202/ATLauncher-Crack/releases/tag/3.4.28.6-work)  
-    [https://github.com/ATLauncher/ATLauncher/releases/tag/v3.4.28.1](https://github.com/ATLauncher/ATLauncher/releases/tag/v3.4.28.1)  
+    [Версия 28.2](https://github.com/Domaman202/ATLauncher-Crack/releases/download/v3.4.28.7/ATLauncher-3.4.28.2.jar)  
+    [Версия 28.1](https://github.com/Domaman202/ATLauncher-Crack/releases/download/v3.4.28.7/ATLauncher-3.4.28.1.jar)  
 
-2. Поместите оба файла в одну папку (**обязательно**)
-3. Откройте ATLauncher-3.4.28.1.jar (официальный)
-4. Установите интересующий вас модпак и закройте лаунчер
-5. Откройте ATLauncher-3.4.28.3.jar (исправленный)
-6. Добавьте оффлайн аккаунт, для этого введите любимый ник и нажмите "Добавить" либо "Add"
-7. Запускайте модпак без подтверждения лицензии
+2. Поместите все файлы в одну папку
+3.  
+8. Добавьте оффлайн аккаунт, для этого введите любимый ник и нажмите "Добавить" либо "Add"
+9. Запускайте модпак без подтверждения лицензии
 
 **Установка модпаков производится только через официальную версию потому что я не стал изучать код и отрубил всё нафиг.**
 <hr>
