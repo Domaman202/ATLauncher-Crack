@@ -9,31 +9,14 @@
 1. Cкачайте две версии лаунчера:
 
     [Версия 28.2](https://github.com/Domaman202/ATLauncher-Crack/releases/download/v3.4.28.7/ATLauncher-3.4.28.2.jar)  
-    [Версия 28.1](https://github.com/Domaman202/ATLauncher-Crack/releases/download/v3.4.28.7/ATLauncher-3.4.28.1.jar)  
-
-2. Поместите все файлы в одну папку
-3.  
-8. Добавьте оффлайн аккаунт, для этого введите любимый ник и нажмите "Добавить" либо "Add"
-9. Запускайте модпак без подтверждения лицензии
-
-**Установка модпаков производится только через официальную версию потому что я не стал изучать код и отрубил всё нафиг.**
-<hr>
-<details><summary>ENGLISH 🇬🇧</summary>
-
-## How to use
-
-1. Download both versions of launchers (fixed and official): 
+    [Версия 28.1](https://github.com/Domaman202/ATLauncher-Crack/releases/download/v3.4.28.7/ATLauncher-3.4.28.1.jar)
    
-    [https://github.com/Domaman202/ATLauncher-Crack/releases/tag/3.4.28.6-work](https://github.com/Domaman202/ATLauncher-Crack/releases/tag/3.4.28.6-work)  
-    [https://github.com/ATLauncher/ATLauncher/releases/tag/v3.4.28.1](https://github.com/ATLauncher/ATLauncher/releases/tag/v3.4.28.1)  
+3. Скачайте скрипты для вашей ОС:
+   
+    [Windows](https://github.com/Domaman202/ATLauncher-Crack/tree/master/scripts/windows)
+    [Linux](https://github.com/Domaman202/ATLauncher-Crack/tree/master/scripts/Linux)
 
-2. Put both files in the same directory (**important**)
-3. Open ATLauncher-3.4.28.1.jar (official)
-4. Install interesting modpack and close the launcher
-5. Open ATLauncher-3.4.28.3.jar (fixed)
-6. Add offline account: simply put any nickname you like and press "Add"
-7. Run modpack without license checks
-
-**Installing modpacks is performed only through official version because I didn't read much code and cut off everything.**
-
-</details>
+4. Поместите все файлы (скрипты и лаунчеры) в одну папку.
+5. Запустите скипт "account".
+6. Откроется лаунчер. Добавте в нём аккаунт и закройте программу.
+7. Теперь вы можете играть - для этого достаточно заустить скрипт "play" - все функции лаунчера, за исключением добавления оффлан-аккаунтов, будут доступны.
