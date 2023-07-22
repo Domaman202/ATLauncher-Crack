@@ -1,3 +1,0 @@
-mutation AddPackTimePlayed($input: AddPackTimePlayedInput!) {
-    addPackTimePlayed(input: $input)
-}

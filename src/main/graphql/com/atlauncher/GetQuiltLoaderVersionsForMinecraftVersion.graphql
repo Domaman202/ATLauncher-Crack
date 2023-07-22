@@ -1,8 +1,0 @@
-query GetQuiltLoaderVersionsForMinecraftVersion($minecraftVersion: String!) {
-    loaderVersions(minecraftVersion: $minecraftVersion) {
-        quilt {
-            version
-            stable
-        }
-    }
-}
