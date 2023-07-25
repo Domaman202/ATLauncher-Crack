@@ -6,16 +6,8 @@
 
 ## Как применять
 
-1. Cкачайте лаунчер:
-
-    [https://github.com/Domaman202/ATLauncher-Crack/releases/tag/v3.4.28.8](https://github.com/Domaman202/ATLauncher-Crack/releases/tag/v3.4.28.8) 
-
-2. `java -jar ATLauncher.jar --no-launcher-update --debug`
+Смотри: https://github.com/Domaman202/ATLauncher-Crack/releases/tag/v3.4.28.9
 
 ## How to use
 
-1. Download launcher:
-
-    [https://github.com/Domaman202/ATLauncher-Crack/releases/tag/v3.4.28.8](https://github.com/Domaman202/ATLauncher-Crack/releases/tag/v3.4.28.8)
-
-2. `java -jar ATLauncher.jar --no-launcher-update --debug`
+Check: https://github.com/Domaman202/ATLauncher-Crack/releases/tag/v3.4.28.9
