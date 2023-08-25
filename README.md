@@ -6,8 +6,8 @@
 
 ## Как применять
 
-Смотри: https://github.com/Domaman202/ATLauncher-Crack/releases/tag/v3.4.28.9
+Смотри: https://github.com/Domaman202/ATLauncher-Crack/releases/tag/v3.4.28.10
 
 ## How to use
 
-Check: https://github.com/Domaman202/ATLauncher-Crack/releases/tag/v3.4.28.9
+Check: https://github.com/Domaman202/ATLauncher-Crack/releases/tag/v3.4.28.10
