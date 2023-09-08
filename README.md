@@ -6,14 +6,14 @@
 
 ## Как применять
 
-Смотри:
+Смотри:<br>
 [https://github.com/Domaman202/ATLauncher-Crack/releases/tag/v3.4.28.10](https://github.com/Domaman202/ATLauncher-Crack/releases/tag/v3.4.28.11)<br>
-или
+Или<br>
 [Демострация на YouTube](https://youtu.be/tI19qyjDq6k)
 
 ## How to use
 
-Check:
+Check:<br>
 [https://github.com/Domaman202/ATLauncher-Crack/releases/tag/v3.4.28.10](https://github.com/Domaman202/ATLauncher-Crack/releases/tag/v3.4.28.11)<br>
-or
+Or<br>
 [Demo on YouTube](https://youtu.be/tI19qyjDq6k)
