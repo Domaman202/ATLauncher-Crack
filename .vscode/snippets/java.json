@@ -1,9 +1,0 @@
-{
-  "LogManager_Log": {
-    "prefix": "logmanager",
-    "body": [
-      "LogManager.${1|debug,debugObject,warn,logStackTrace,info,error|}(${2:\"Test\"});"
-    ],
-    "description": "Log a debug message to the ATLauncher console"
-  }
-}
