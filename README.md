@@ -14,6 +14,8 @@
 3. Вводишь свой ник
 4. Радуешься жизни!
 
+[Видео с наглядной демонстрацией](https://www.youtube.com/watch?v=pYYzYiKed6g).
+
 # EN
 
 ### What is this?
@@ -29,3 +31,5 @@ It's simple
 2. Wait a bit for the original ATL to download
 3. Enter your username
 4. Enjoy!
+
+[Video with visual demonstration](https://www.youtube.com/watch?v=pYYzYiKed6g).
