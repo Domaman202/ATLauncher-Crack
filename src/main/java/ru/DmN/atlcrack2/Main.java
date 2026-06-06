@@ -34,18 +34,15 @@ public class Main {
     }
 
     private static void initProxy() {
-        try {
-            if (new java.util.Scanner(new URL("http://ip-api.com/json/").openStream(), "UTF-8").useDelimiter("\\A").next().contains("\"countryCode\":\"RU\"")) {
-                System.out.println("Обнаружен Российский IP - подключаем вам прокси!");
-                Proxy proxy = new Proxy(Proxy.Type.HTTP, new InetSocketAddress("193.35.17.153", 8888));
-                Network.CLIENT = Network.CLIENT.newBuilder().proxy(proxy).build();
-                Network.GRAPHQL_CLIENT = Network.GRAPHQL_CLIENT.newBuilder().proxy(proxy).build();
-                Network.CACHED_CLIENT = Network.CACHED_CLIENT.newBuilder().proxy(proxy).build();
-                return;
-            }
-        } catch (IOException ignored) {
+        if (Bootstrap.checkIsRussianIP()) {
+            System.out.println("Обнаружен Российский IP - подключаем вам прокси!");
+            Proxy proxy = Bootstrap.createProxy();
+            Network.CLIENT = Network.CLIENT.newBuilder().proxy(proxy).build();
+            Network.GRAPHQL_CLIENT = Network.GRAPHQL_CLIENT.newBuilder().proxy(proxy).build();
+            Network.CACHED_CLIENT = Network.CACHED_CLIENT.newBuilder().proxy(proxy).build();
+        } else {
+            System.out.println("Russian ip not detected - no proxy.");
         }
-        System.out.println("Russian ip not detected - no proxy.");
     }
 
     private static void runAppMain(String[] args) {
