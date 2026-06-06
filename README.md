@@ -9,10 +9,11 @@
 ### Как использовать?
 
 Всё просто!
-1. Запускаешь `start.bat` / `start.sh` / `ATLCrack.jar`
-2. Немного ждёшь скачивания оригинала ATL
-3. Вводишь свой ник
-4. Радуешься жизни!
+1. Распаковываешь `ATLCrack.zip` / `ATLCrack.tar.gz`
+2. Запускаешь `start.bat` / `start.sh` / `ATLCrack.jar`
+3. Немного ждёшь скачивания оригинала ATL
+4. Вводишь свой ник
+5. Радуешься жизни!
 
 [Видео с наглядной демонстрацией](https://www.youtube.com/watch?v=pYYzYiKed6g).
 
@@ -27,9 +28,10 @@ Don't have a Minecraft license but want to enjoy all the features of ATLauncher?
 ### How to use?
 
 It's simple
-1. Run `start.bat` / `start.sh` / `ATLCrack.jar`
-2. Wait a bit for the original ATL to download
-3. Enter your username
-4. Enjoy!
+1. Unzip `ATLCrack.zip` / `ATLCrack.tar.gz`
+2. Run `start.bat` / `start.sh` / `ATLCrack.jar`
+3. Wait a bit for the original ATL to download
+4. Enter your username
+5. Enjoy!
 
 [Video with visual demonstration](https://www.youtube.com/watch?v=pYYzYiKed6g).
