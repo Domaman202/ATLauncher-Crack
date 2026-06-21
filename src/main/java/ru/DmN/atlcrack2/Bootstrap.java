@@ -20,7 +20,7 @@ public class Bootstrap {
         if (!Files.exists(atlJar)) {
             System.out.println("Downloading ATLauncher... Please wait!");
 
-            URL url = URI.create("https://atlauncher.com/download/jar").toURL();
+            URL url = URI.create("https://download.nodecdn.net/containers/atl/ATLauncher.jar").toURL();
             URLConnection urlConnection;
 
             if (checkIsRussianIP()) {
