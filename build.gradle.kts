@@ -1,16 +1,19 @@
 plugins {
     id("java")
+    id("com.gradleup.shadow") version("9.3.0+")
 }
 
 group = "ru.DmN.cmhack"
-version = "2.3.0"
+version = "2.4.0"
 
 repositories {
     mavenCentral()
 }
 
 dependencies {
-    implementation(files("ATLauncher.jar"))
+    implementation("org.ow2.asm:asm:9.10.1")
+    implementation("com.google.code.gson:gson:2.14.0")
+    compileOnly(files("ATLauncher.old.jar"))
 }
 
 java {

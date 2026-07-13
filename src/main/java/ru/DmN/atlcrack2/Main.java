@@ -2,21 +2,16 @@ package ru.DmN.atlcrack2;
 
 import com.atlauncher.App;
 import com.atlauncher.Network;
-import com.atlauncher.network.GraphqlClient;
-import okhttp3.OkHttpClient;
 
 import java.io.File;
-import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.net.InetSocketAddress;
-import java.net.MalformedURLException;
 import java.net.Proxy;
-import java.net.URL;
 
 public class Main {
     public static void main(String[] args) throws InvocationTargetException, NoSuchMethodException, IllegalAccessException {
         initAppWorkdir();
+        fixUpdate();
         loadAppSettings();
         initProxy();
         runAppMain(args);
@@ -25,6 +20,10 @@ public class Main {
 
     private static void initAppWorkdir() {
         App.workingDir = new File("ATL").toPath();
+    }
+
+    private static void fixUpdate() {
+        App.noLauncherUpdate = true;
     }
 
     private static void loadAppSettings() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {

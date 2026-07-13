@@ -3,7 +3,8 @@ package ru.DmN.atlcrack2;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.net.*;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
@@ -12,9 +13,20 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 public class Bootstrap {
-    public static void main(String[] args) throws IOException, URISyntaxException {
+    public static void main(String[] args) throws IOException, URISyntaxException, InvocationTargetException, IllegalAccessException, ClassNotFoundException, NoSuchMethodException {
+        if (args.length == 1 && Objects.equals(args[0], "run")) {
+            try (CustomClassLoader loader = new CustomClassLoader()) {
+                Thread.currentThread().setContextClassLoader(loader);
+                Class<Main> main = (Class<Main>) loader.loadClass("ru.DmN.atlcrack2.Main");
+                Method method = main.getMethod("main", String[].class);
+                method.invoke(null, (Object) new String[0]);
+                return;
+            }
+        }
+
         Path atlJar = new File("ATLauncher.jar").toPath();
 
         if (!Files.exists(atlJar)) {
@@ -64,7 +76,8 @@ public class Bootstrap {
         command.add(javaBin);
         command.add("-cp");
         command.add(classpath);
-        command.add("ru.DmN.atlcrack2.Main");
+        command.add("ru.DmN.atlcrack2.Bootstrap");
+        command.add("run");
         command.addAll(Arrays.asList(args));
 
         ProcessBuilder pb = new ProcessBuilder(command);
