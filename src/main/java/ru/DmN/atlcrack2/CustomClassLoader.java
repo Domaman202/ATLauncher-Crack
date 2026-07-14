@@ -66,5 +66,6 @@ public class CustomClassLoader extends URLClassLoader {
         WRAPPERS.put("com.atlauncher.Launcher", "asm.com.atlauncher.LauncherDump");
         WRAPPERS.put("com.atlauncher.data.MicrosoftAccount", "asm.com.atlauncher.data.MicrosoftAccountDump");
         WRAPPERS.put("com.atlauncher.utils.OS", "asm.com.atlauncher.utils.OSDump");
+        WRAPPERS.put("com.atlauncher.managers.AccountManager", "asm.com.atlauncher.managers.AccountManagerDump");
     }
 }
