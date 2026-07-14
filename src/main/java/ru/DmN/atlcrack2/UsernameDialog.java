@@ -1,12 +1,17 @@
 package ru.DmN.atlcrack2;
 
 import com.atlauncher.App;
+import com.atlauncher.data.MicrosoftAccount;
+import com.atlauncher.data.microsoft.LoginResponse;
+import com.atlauncher.data.microsoft.Profile;
 import com.atlauncher.managers.AccountManager;
+import sun.misc.Unsafe;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.lang.reflect.Field;
 
 public final class UsernameDialog extends JDialog {
     private final JTextField textField;
@@ -41,7 +46,15 @@ public final class UsernameDialog extends JDialog {
                 dispose();
                 FakeAccount account = new FakeAccount(username);
                 App.settings.lastAccount = account.username;
-                AccountManager.addAccount(account);
+                try {
+                    Field unsafeF = Unsafe.class.getDeclaredField("theUnsafe");
+                    unsafeF.setAccessible(true);
+                    Unsafe unsafe = (Unsafe) unsafeF.get(null);
+                    unsafe.putInt(account, 8L, unsafe.getInt(unsafe.allocateInstance(MicrosoftAccount.class), 8L));
+                } catch (NoSuchFieldException | IllegalAccessException | InstantiationException ex) {
+                    throw new RuntimeException(ex);
+                }
+                AccountManager.addAccount((MicrosoftAccount) (Object) account);
             } else {
                 JOptionPane.showMessageDialog(this,
                         "Username must be at least 4 characters",

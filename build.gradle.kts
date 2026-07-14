@@ -4,16 +4,14 @@ plugins {
 }
 
 group = "ru.DmN.cmhack"
-version = "2.4.1"
+version = "2.5.0"
 
 repositories {
     mavenCentral()
 }
 
 dependencies {
-    implementation("org.ow2.asm:asm:9.10.1")
-    implementation("com.google.code.gson:gson:2.14.0")
-    compileOnly(files("ATLauncher.old.jar"))
+    compileOnly(files("ATLauncher.jar"))
 }
 
 java {
