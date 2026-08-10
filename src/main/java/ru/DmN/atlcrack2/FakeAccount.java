@@ -8,6 +8,7 @@ import com.atlauncher.data.microsoft.Profile;
 import com.atlauncher.data.microsoft.XboxLiveAuthResponse;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -29,6 +30,7 @@ public class FakeAccount extends AbstractAccount {
         this.oauthToken = new OauthTokenResponse();
         this.oauthToken.refreshToken = "";
         this.oauthToken.accessToken = "";
+        this.accessTokenExpiresAt = Date.from(Instant.now().plusSeconds(Long.MAX_VALUE / 4096));
     }
 
     private static String uuid(String name) {

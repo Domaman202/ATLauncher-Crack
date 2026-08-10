@@ -7,6 +7,8 @@ import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.Proxy;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 public class Main {
     public static void main(String[] args) throws InvocationTargetException, NoSuchMethodException, IllegalAccessException {
@@ -19,6 +21,15 @@ public class Main {
     }
 
     private static void initAppWorkdir() {
+        try {
+            File localShareATL = new File("/home/dmn/.local/share/atlauncher");
+            if (localShareATL.exists()) {
+                App.workingDir = localShareATL.toPath();
+                return;
+            }
+        } catch (Exception ignored) {
+        }
+
         App.workingDir = new File("ATL").toPath();
     }
 
