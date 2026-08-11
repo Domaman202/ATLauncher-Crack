@@ -21,16 +21,16 @@ public class Main {
     }
 
     private static void initAppWorkdir() {
-        try {
-            File localShareATL = new File("/home/dmn/.local/share/atlauncher");
-            if (localShareATL.exists()) {
-                App.workingDir = localShareATL.toPath();
-                return;
-            }
-        } catch (Exception ignored) {
-        }
-
-        App.workingDir = new File("ATL").toPath();
+        String os = System.getProperty("os.name").toLowerCase();
+        String basePath;
+        if (os.contains("win"))
+            basePath = System.getenv("APPDATA") != null ? System.getenv("APPDATA") : (System.getProperty("user.home") + File.separator + "AppData" + File.separator + "Roaming");
+        else if (os.contains("mac"))
+            basePath = System.getProperty("user.home") + File.separator + "Library" + File.separator + "Application Support";
+        else
+            basePath = System.getProperty("user.home") + File.separator + ".local/share";
+        File atlDir = new File(basePath + File.separator + "atlauncher");
+        App.workingDir = (atlDir.exists() ? atlDir : new File("ATL")).toPath();;
     }
 
     private static void fixUpdate() {

@@ -69,10 +69,16 @@ public class Bootstrap {
 
         ProcessBuilder pb = new ProcessBuilder(command);
         pb.inheritIO();
+        if (checkWayland())
+            pb.environment().put("_JAVA_AWT_WM_NONREPARENTING", "1");
         System.out.println("Restarting application...");
         pb.start();
 
         System.exit(0);
+    }
+
+    private static boolean checkWayland() {
+        return System.getenv("WAYLAND_DISPLAY") != null;
     }
 
     public static boolean checkIsRussianIP() {
