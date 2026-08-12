@@ -82,12 +82,11 @@ public class Bootstrap {
     }
 
     public static boolean checkIsRussianIP() {
-//        try {
-            return true;
-//            return new java.util.Scanner(new URL("http://ip-api.com/json/").openStream(), "UTF-8").useDelimiter("\\A").next().contains("\"countryCode\":\"RU\"");
-//        } catch (IOException ignored) {
-//            return false;
-//        }
+        try {
+            return new java.util.Scanner(new URL("http://ip-api.com/json/").openStream(), "UTF-8").useDelimiter("\\A").next().contains("\"countryCode\":\"RU\"");
+        } catch (IOException ignored) {
+            return false;
+        }
     }
 
     public static Proxy createProxy() {
