@@ -1,17 +1,12 @@
 package ru.DmN.atlcrack2;
 
 import com.atlauncher.data.AbstractAccount;
-import com.atlauncher.data.MicrosoftAccount;
-import com.atlauncher.data.microsoft.LoginResponse;
 import com.atlauncher.data.microsoft.OauthTokenResponse;
-import com.atlauncher.data.microsoft.Profile;
 import com.atlauncher.data.microsoft.XboxLiveAuthResponse;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Date;
-import java.util.List;
 import java.util.UUID;
 
 public class FakeAccount extends AbstractAccount {
@@ -21,6 +16,7 @@ public class FakeAccount extends AbstractAccount {
     public XboxLiveAuthResponse xstsAuth;
     public Date accessTokenExpiresAt;
     public boolean mustLogin;
+    public int END_FIELD = 1907;
 
     public FakeAccount(String name) {
         super();

@@ -2,13 +2,19 @@ package ru.DmN.atlcrack2;
 
 import com.atlauncher.App;
 import com.atlauncher.Network;
+import com.atlauncher.data.MicrosoftAccount;
+import com.atlauncher.managers.AccountManager;
+import sun.misc.Unsafe;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.net.Proxy;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.nio.charset.StandardCharsets;
 
 public class Main {
     public static void main(String[] args) throws InvocationTargetException, NoSuchMethodException, IllegalAccessException {
@@ -17,7 +23,7 @@ public class Main {
         loadAppSettings();
         initProxy();
         runAppMain(args);
-        showUsernameDialog();
+        loadOrInputUsername();
     }
 
     private static void initAppWorkdir() {
@@ -59,7 +65,40 @@ public class Main {
         App.main(args);
     }
 
-    private static void showUsernameDialog() {
-        UsernameDialog.showDialog();
+    private static void loadOrInputUsername() {
+        File username = new File("username.txt");
+        if (username.exists()) {
+            try (FileInputStream fis = new FileInputStream("username.txt")) {
+                byte[] bytes = new byte[fis.available()];
+                fis.read(bytes);
+                addAccount(new String(bytes, StandardCharsets.UTF_8));
+            } catch (IOException ex) {
+                throw new RuntimeException(ex);
+            }
+        } else {
+            UsernameDialog.showDialog();
+        }
+    }
+
+    public static void addAccount(String username) {
+        App.settings.lastAccount = username;
+        MicrosoftAccount account;
+        try {
+            Field unsafeF = Unsafe.class.getDeclaredField("theUnsafe");
+            unsafeF.setAccessible(true);
+            Unsafe unsafe = (Unsafe) unsafeF.get(null);
+            account = (MicrosoftAccount) unsafe.allocateInstance(MicrosoftAccount.class);
+            FakeAccount fake = new FakeAccount(username);
+            for (Field f : FakeAccount.class.getFields()) {
+                if (!Modifier.isStatic(f.getModifiers()) && !f.getType().isPrimitive()) {
+                    unsafe.putObjectVolatile(account, unsafe.objectFieldOffset(f), unsafe.getObjectVolatile(fake, unsafe.objectFieldOffset(f)));
+                }
+            }
+            Field mustLogin = FakeAccount.class.getField("mustLogin");
+            unsafe.putBooleanVolatile(account, unsafe.objectFieldOffset(mustLogin), unsafe.getBooleanVolatile(fake, unsafe.objectFieldOffset(mustLogin)));
+        } catch (NoSuchFieldException | IllegalAccessException | InstantiationException ex) {
+            throw new RuntimeException(ex);
+        }
+        AccountManager.addAccount(account);
     }
 }

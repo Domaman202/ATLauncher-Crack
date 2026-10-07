@@ -11,7 +11,13 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.nio.charset.StandardCharsets;
 
 public final class UsernameDialog extends JDialog {
     private final JTextField textField;
@@ -44,17 +50,12 @@ public final class UsernameDialog extends JDialog {
             if (username.length() > 3) {
                 okClicked = true;
                 dispose();
-                FakeAccount account = new FakeAccount(username);
-                App.settings.lastAccount = account.username;
-                try {
-                    Field unsafeF = Unsafe.class.getDeclaredField("theUnsafe");
-                    unsafeF.setAccessible(true);
-                    Unsafe unsafe = (Unsafe) unsafeF.get(null);
-                    unsafe.putInt(account, 8L, unsafe.getInt(unsafe.allocateInstance(MicrosoftAccount.class), 8L));
-                } catch (NoSuchFieldException | IllegalAccessException | InstantiationException ex) {
+                try (FileOutputStream fos = new FileOutputStream("username.txt")) {
+                    fos.write(username.getBytes(StandardCharsets.UTF_8));
+                } catch (IOException ex) {
                     throw new RuntimeException(ex);
                 }
-                AccountManager.addAccount((MicrosoftAccount) (Object) account);
+                Main.addAccount(username);
             } else {
                 JOptionPane.showMessageDialog(this,
                         "Username must be at least 4 characters",
